@@ -1,74 +1,125 @@
 /**
  * EventDetail — page détail d'un événement.
- * Hero, faits clés, description, galerie (avec visionneuse) et une
- * carte de réservation interactive dont les sélecteurs alimentent
- * directement le panier (total en temps réel).
+ *
+ * Hero, faits clés, description, galerie (avec visionneuse)
+ * et carte de réservation interactive.
+ *
+ * La réservation est actuellement 100 % gratuite.
  */
+
 import { useLayoutEffect, useState } from "react";
+
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+
+import {
+  AnimatePresence,
+  motion,
+} from "framer-motion";
+
 import { getEventById } from "@/data/events";
+
 import { useCart } from "@/context/CartContext";
-import { formatMAD } from "@/utils/format";
+
 import { SectionHeading } from "@/components/SectionHeading";
+
 import { Reveal } from "@/components/Reveal";
-import { QuantityStepper } from "@/components/QuantityStepper";
+
 import { Countdown } from "@/components/Countdown";
-import { CalendarDays, Clock3, MapPin, Timer } from "lucide-react";
+
+import {
+  CalendarDays,
+  Clock3,
+  MapPin,
+  Timer,
+} from "lucide-react";
 
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const { setEvent } = useCart();
+
   const found = id ? getEventById(id) : undefined;
 
-  // Synchronise l'événement du panier avec celui consulté (avant le rendu)
+  /*
+   * Synchronise l'événement du panier avec celui consulté
+   * avant le rendu.
+   */
+
   useLayoutEffect(() => {
-    if (found) setEvent(found.id);
+    if (found) {
+      setEvent(found.id);
+    }
   }, [found, setEvent]);
 
-  // Événement introuvable
+  /*
+   * Événement introuvable
+   */
+
   if (!found) {
     return (
       <div className="container-px mx-auto flex min-h-[70vh] max-w-3xl flex-col items-center justify-center py-32 text-center">
-        <p className="font-display text-5xl text-gold-gradient">404</p>
+        <p className="font-display text-5xl text-gold-gradient">
+          404
+        </p>
+
         <h1 className="mt-4 font-display text-3xl text-cream">
           Événement introuvable
         </h1>
+
         <p className="mt-3 text-cream-dim">
           Cet événement n'existe pas ou n'est plus disponible.
         </p>
-        <Link to="/" className="btn-gold mt-8">
+
+        <Link
+          to="/"
+          className="btn-gold mt-8"
+        >
           Retour à l'accueil
         </Link>
       </div>
     );
   }
 
-  // L'événement consulté (le panier a été synchronisé ci-dessus)
+  /*
+   * L'événement consulté
+   */
+
   const ev = found;
 
   return (
     <>
       <Hero ev={ev} />
+
       <Facts ev={ev} />
+
       <div className="container-px mx-auto grid max-w-7xl gap-12 py-16 lg:grid-cols-[1.7fr_1fr] lg:gap-14">
         <div className="order-2 lg:order-1">
           <About ev={ev} />
+
           <Gallery ev={ev} />
         </div>
+
         <aside className="order-1 lg:order-2">
-          <BookingCard ev={ev} onContinue={() => navigate("/billetterie")} />
+          <BookingCard
+            ev={ev}
+            onContinue={() => navigate("/billetterie")}
+          />
         </aside>
       </div>
     </>
   );
 }
 
-/* ----------------------------------------------------------------
+/* =========================================================
    HERO
-   ---------------------------------------------------------------- */
-function Hero({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
+========================================================= */
+
+function Hero({
+  ev,
+}: {
+  ev: NonNullable<ReturnType<typeof getEventById>>;
+}) {
   return (
     <section className="relative grain flex min-h-[70vh] items-end overflow-hidden">
       <motion.img
@@ -78,8 +129,12 @@ function Hero({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
         className="absolute inset-0 h-full w-full object-cover"
         initial={{ scale: 1.1 }}
         animate={{ scale: 1 }}
-        transition={{ duration: 10, ease: "easeOut" }}
+        transition={{
+          duration: 10,
+          ease: "easeOut",
+        }}
       />
+
       <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/55 to-ink-950/60" />
 
       <div className="container-px relative z-10 mx-auto w-full max-w-7xl pb-12 pt-32">
@@ -100,6 +155,7 @@ function Hero({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
               strokeLinejoin="round"
             />
           </svg>
+
           Tous les événements
         </Link>
 
@@ -107,6 +163,7 @@ function Hero({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
           <span className="rounded-full bg-gold-400 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-ink-950">
             {ev.status}
           </span>
+
           <span className="text-sm uppercase tracking-[0.25em] text-gold-200">
             {ev.city}
           </span>
@@ -115,34 +172,49 @@ function Hero({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
         <h1 className="mt-4 font-display text-5xl font-medium leading-[1] text-cream sm:text-7xl">
           {ev.title}
         </h1>
-        <p className="mt-3 text-xl text-gold-200">{ev.artist}</p>
       </div>
     </section>
   );
 }
 
-/* ----------------------------------------------------------------
+/* =========================================================
    FAITS CLÉS
-   ---------------------------------------------------------------- */
-function Facts({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
+========================================================= */
+
+function Facts({
+  ev,
+}: {
+  ev: NonNullable<ReturnType<typeof getEventById>>;
+}) {
   const facts = [
     {
-      icon: <CalendarDays className="h-5 w-5 text-[#D6AA50] stroke-[1.8]" />,
+      icon: (
+        <CalendarDays className="h-5 w-5 text-[#D6AA50] stroke-[1.8]" />
+      ),
       label: "Date",
       value: ev.dateLabel,
     },
+
     {
-      icon: <Clock3 className="h-5 w-5 text-[#D6AA50] stroke-[1.8]" />,
+      icon: (
+        <Clock3 className="h-5 w-5 text-[#D6AA50] stroke-[1.8]" />
+      ),
       label: "Heure",
       value: `${ev.time} • Portes ${ev.doors}`,
     },
+
     {
-      icon: <Timer className="h-5 w-5 text-[#D6AA50] stroke-[1.8]" />,
+      icon: (
+        <Timer className="h-5 w-5 text-[#D6AA50] stroke-[1.8]" />
+      ),
       label: "Durée",
       value: ev.duration,
     },
+
     {
-      icon: <MapPin className="h-5 w-5 text-[#D6AA50] stroke-[1.8]" />,
+      icon: (
+        <MapPin className="h-5 w-5 text-[#D6AA50] stroke-[1.8]" />
+      ),
       label: "Lieu",
       value: `${ev.venue}, ${ev.city}`,
     },
@@ -152,13 +224,20 @@ function Facts({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
     <section className="border-y border-gold-400/10 bg-ink-900/40 backdrop-blur">
       <div className="container-px mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-8 py-4 text-sm text-cream">
         {facts.map((fact, index) => (
-          <div key={index} className="flex items-center gap-3">
+          <div
+            key={index}
+            className="flex items-center gap-3"
+          >
             {fact.icon}
 
-            <span className="text-cream/90">{fact.value}</span>
+            <span className="text-cream/90">
+              {fact.value}
+            </span>
 
             {index < facts.length - 1 && (
-              <span className="ml-5 text-gold-300">•</span>
+              <span className="ml-5 text-gold-300">
+                •
+              </span>
             )}
           </div>
         ))}
@@ -167,10 +246,15 @@ function Facts({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
   );
 }
 
-/* ----------------------------------------------------------------
+/* =========================================================
    À PROPOS
-   ---------------------------------------------------------------- */
-function About({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
+========================================================= */
+
+function About({
+  ev,
+}: {
+  ev: NonNullable<ReturnType<typeof getEventById>>;
+}) {
   return (
     <section>
       <SectionHeading
@@ -179,9 +263,13 @@ function About({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
         title="L'événement"
         className="mb-8"
       />
+
       <div className="space-y-5 text-base leading-relaxed text-cream-dim">
         {ev.description.map((p, i) => (
-          <Reveal key={i} delay={i * 0.05}>
+          <Reveal
+            key={i}
+            delay={i * 0.05}
+          >
             <p>{p}</p>
           </Reveal>
         ))}
@@ -190,11 +278,18 @@ function About({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
   );
 }
 
-/* ----------------------------------------------------------------
+/* =========================================================
    GALERIE + VISIONNEUSE
-   ---------------------------------------------------------------- */
-function Gallery({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
-  const [active, setActive] = useState<number | null>(null);
+========================================================= */
+
+function Gallery({
+  ev,
+}: {
+  ev: NonNullable<ReturnType<typeof getEventById>>;
+}) {
+  const [active, setActive] = useState<number | null>(
+    null,
+  );
 
   return (
     <section className="mt-16">
@@ -204,15 +299,18 @@ function Gallery({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
         title="Galerie"
         className="mb-8"
       />
+
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         {ev.gallery.map((src, i) => (
           <button
             key={i}
             onClick={() => setActive(i)}
             className={`group relative overflow-hidden rounded-2xl border border-gold-400/10 ${
-              i === 0 ? "col-span-2 aspect-[16/9]" : "aspect-square"
+              i === 0
+                ? "col-span-2 aspect-[16/9]"
+                : "aspect-square"
             }`}
-            aria-label={`Ouvir l'image ${i + 1}`}
+            aria-label={`Ouvrir l'image ${i + 1}`}
           >
             <img
               src={src}
@@ -220,12 +318,14 @@ function Gallery({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
+
             <div className="absolute inset-0 bg-ink-950/0 transition-colors group-hover:bg-ink-950/20" />
           </button>
         ))}
       </div>
 
       {/* Visionneuse */}
+
       <AnimatePresence>
         {active !== null && (
           <motion.div
@@ -242,36 +342,57 @@ function Gallery({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
             >
               ✕
             </button>
+
             <button
               className="absolute left-4 flex h-12 w-12 items-center justify-center rounded-full border border-gold-400/30 text-cream"
               onClick={(e) => {
                 e.stopPropagation();
+
                 setActive((p) =>
                   p === null
                     ? 0
-                    : (p - 1 + ev.gallery.length) % ev.gallery.length,
+                    : (p - 1 + ev.gallery.length) %
+                      ev.gallery.length,
                 );
               }}
               aria-label="Précédent"
             >
               ‹
             </button>
+
             <motion.img
               key={active}
               src={ev.gallery[active]}
-              alt={`Galerie Camp International Silo ${active + 1}`}
-              initial={{ scale: 0.92, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              alt={`Galerie Camp International Silo ${
+                active + 1
+              }`}
+              initial={{
+                scale: 0.92,
+                opacity: 0,
+              }}
+              animate={{
+                scale: 1,
+                opacity: 1,
+              }}
+              transition={{
+                duration: 0.4,
+                ease: [0.22, 1, 0.36, 1],
+              }}
               className="max-h-[82vh] max-w-[90vw] rounded-2xl object-contain"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) =>
+                e.stopPropagation()
+              }
             />
+
             <button
               className="absolute right-4 flex h-12 w-12 items-center justify-center rounded-full border border-gold-400/30 text-cream"
               onClick={(e) => {
                 e.stopPropagation();
+
                 setActive((p) =>
-                  p === null ? 0 : (p + 1) % ev.gallery.length,
+                  p === null
+                    ? 0
+                    : (p + 1) % ev.gallery.length,
                 );
               }}
               aria-label="Suivant"
@@ -285,9 +406,10 @@ function Gallery({ ev }: { ev: NonNullable<ReturnType<typeof getEventById>> }) {
   );
 }
 
-/* ----------------------------------------------------------------
-   CARTE DE RÉSERVATION (interactive)
-   ---------------------------------------------------------------- */
+/* =========================================================
+   CARTE DE RÉSERVATION
+========================================================= */
+
 function BookingCard({
   ev,
   onContinue,
@@ -295,31 +417,46 @@ function BookingCard({
   ev: NonNullable<ReturnType<typeof getEventById>>;
   onContinue: () => void;
 }) {
-  const { quantities, increment, decrement, total, count } = useCart();
+  const {
+    quantities,
+    increment,
+    decrement,
+    count,
+  } = useCart();
 
   return (
     <div className="lg:sticky lg:top-24">
       <div className="glass overflow-hidden rounded-3xl">
+        {/* HEADER */}
+
         <div className="border-b border-gold-400/12 p-6">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-2xl font-medium text-cream">
               Réserver gratuitement
             </h3>
+
             <span className="text-xs uppercase tracking-wider text-gold-300">
               {ev.city}
             </span>
           </div>
+
           <div className="mt-4">
-            <Countdown target={ev.dateISO} className="!gap-2" />
+            <Countdown
+              target={ev.dateISO}
+              className="!gap-2"
+            />
           </div>
         </div>
 
-        {/* Formules */}
+        {/* FORMULES */}
+
         <div className="max-h-[24rem] overflow-y-auto p-6">
           {(() => {
             const c = ev.categories[0];
 
-            if (!c) return null;
+            if (!c) {
+              return null;
+            }
 
             const qty = quantities[c.id] ?? 0;
 
@@ -344,8 +481,9 @@ function BookingCard({
                     </div>
 
                     <p className="mt-2 text-sm leading-relaxed text-cream-faint">
-                      Réservez gratuitement votre place et recevez
-                      instantanément votre e-billet avec QR Code.
+                      Réservez gratuitement votre place et
+                      recevez instantanément votre e-billet
+                      avec QR Code.
                     </p>
                   </div>
 
@@ -364,6 +502,7 @@ function BookingCard({
                         >
                           <path d="M12 5v14M5 12h14" />
                         </svg>
+
                         Réserver
                       </button>
                     ) : (
@@ -380,6 +519,7 @@ function BookingCard({
                         >
                           <path d="M20 6L9 17l-5-5" />
                         </svg>
+
                         Sélectionnée
                       </button>
                     )}
@@ -404,12 +544,17 @@ function BookingCard({
           })()}
         </div>
 
-        {/* Total + CTA */}
+        {/* TOTAL + CTA */}
+
         <div className="border-t border-gold-400/12 p-6">
           <div className="flex items-center justify-between">
             <span className="text-sm text-cream-dim">
               {count > 0
-                ? `${count} place${count > 1 ? "s" : ""} sélectionnée${count > 1 ? "s" : ""}`
+                ? `${count} place${
+                    count > 1 ? "s" : ""
+                  } sélectionnée${
+                    count > 1 ? "s" : ""
+                  }`
                 : "Aucune place sélectionnée"}
             </span>
 
@@ -417,6 +562,7 @@ function BookingCard({
               100 % Gratuit
             </span>
           </div>
+
           <button
             onClick={onContinue}
             disabled={count === 0}
@@ -424,9 +570,12 @@ function BookingCard({
           >
             Réserver gratuitement
           </button>
-          <div className="mt-5 space-y-3 text-sm"></div>
+
+          <div className="mt-5 space-y-3 text-sm" />
+
           <p className="mt-3 text-center text-[11px] text-cream-faint">
-            Réservation gratuite • E-billet avec QR Code envoyé immédiatement
+            Réservation gratuite • E-billet avec QR Code
+            envoyé immédiatement
           </p>
         </div>
       </div>

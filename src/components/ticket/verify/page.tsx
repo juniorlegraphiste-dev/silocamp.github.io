@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-import { CheckCircle2, XCircle, Ticket as TicketIcon } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Ticket as TicketIcon,
+} from "lucide-react";
 
 import {
   getTicketByVerificationToken,
@@ -28,11 +32,10 @@ export default function TicketVerifyPage() {
     setLoading(false);
   }, []);
 
-  /*
-   * =========================================================
-   * CHARGEMENT
-   * =========================================================
-   */
+  /* =========================================================
+     LOADING
+  ========================================================= */
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
@@ -47,11 +50,10 @@ export default function TicketVerifyPage() {
     );
   }
 
-  /*
-   * =========================================================
-   * BILLET INTROUVABLE
-   * =========================================================
-   */
+  /* =========================================================
+     TICKET NOT FOUND
+  ========================================================= */
+
   if (!ticket) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-10">
@@ -65,8 +67,8 @@ export default function TicketVerifyPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Ce QR Code ne correspond à aucun billet enregistré dans le
-            système SiloCamp.
+            Ce QR Code ne correspond à aucun billet enregistré
+            dans le système SiloCamp.
           </p>
 
           <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -77,11 +79,9 @@ export default function TicketVerifyPage() {
     );
   }
 
-  /*
-   * =========================================================
-   * STATUT DU BILLET
-   * =========================================================
-   */
+  /* =========================================================
+     STATUS
+  ========================================================= */
 
   const isUsed = ticket.status === "USED";
   const isValid = ticket.status === "VALID";
@@ -90,6 +90,7 @@ export default function TicketVerifyPage() {
     <main className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6">
       <div className="mx-auto w-full max-w-lg">
         {/* HEADER */}
+
         <div className="mb-6 text-center text-white">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10">
             <TicketIcon className="h-7 w-7" />
@@ -105,8 +106,10 @@ export default function TicketVerifyPage() {
         </div>
 
         {/* TICKET CARD */}
+
         <div className="overflow-hidden rounded-[28px] bg-white shadow-2xl">
           {/* STATUS */}
+
           <div
             className={`px-6 py-7 text-center ${
               isValid
@@ -140,8 +143,10 @@ export default function TicketVerifyPage() {
           </div>
 
           {/* CONTENT */}
+
           <div className="p-6">
             {/* NUMÉRO */}
+
             <div className="mb-6 rounded-2xl bg-slate-50 p-4 text-center">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Numéro du billet
@@ -153,6 +158,7 @@ export default function TicketVerifyPage() {
             </div>
 
             {/* PARTICIPANT */}
+
             <section>
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
                 Participant
@@ -182,6 +188,7 @@ export default function TicketVerifyPage() {
             </section>
 
             {/* EVENT */}
+
             <section className="mt-8">
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
                 Événement
@@ -211,6 +218,7 @@ export default function TicketVerifyPage() {
             </section>
 
             {/* RESERVATION */}
+
             <section className="mt-8">
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
                 Réservation
@@ -237,6 +245,7 @@ export default function TicketVerifyPage() {
           </div>
 
           {/* FOOTER */}
+
           <div className="border-t border-slate-100 px-6 py-5 text-center">
             <p className="text-xs text-slate-400">
               SiloCamp • Billetterie officielle
@@ -248,11 +257,9 @@ export default function TicketVerifyPage() {
   );
 }
 
-/*
- * =========================================================
- * INFO ROW
- * =========================================================
- */
+/* =========================================================
+   INFO ROW
+========================================================= */
 
 function InfoRow({
   label,
@@ -273,4 +280,3 @@ function InfoRow({
     </div>
   );
 }
-
