@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -35,7 +35,7 @@ const MAX_TICKETS = 1500;
 ========================================================= */
 
 export default function Home() {
-  const location = useLocation();
+
 
   const [ticketsRemaining, setTicketsRemaining] = useState<number>(MAX_TICKETS);
 
