@@ -1,3 +1,4 @@
+
 /**
  * =========================================================
  * TICKET PDF — SILOCAMP
@@ -62,25 +63,17 @@ Font.register({
 export type TicketPDFProps = {
   ticketNumber: string;
   participantName: string;
-
   email?: string;
   phone?: string;
-
   eventTitle: string;
   dateLabel: string;
   time: string;
   duration?: string;
-
   venue: string;
   city: string;
-
   quantity: number;
-
   qrCodeDataUrl: string;
-
   reservationId?: string;
-
-  createdAt?: string;
 };
 
 /* =========================================================
@@ -94,21 +87,16 @@ const COLORS = {
   purpleLight: "#A78BFA",
   purpleSoft: "#F8F6FF",
   purpleBorder: "#E7DFFF",
-
   gold: "#C8A45D",
   goldLight: "#E7CF9A",
-
   green: "#047857",
   greenSoft: "#ECFDF5",
   greenBorder: "#A7F3D0",
-
   white: "#FFFFFF",
-
   text: "#171329",
   textSoft: "#4B5563",
   gray: "#6B7280",
   grayLight: "#9CA3AF",
-
   border: "#E5E7EB",
   background: "#F7F7FA",
 };
@@ -264,12 +252,7 @@ const ParticipantIcon = () => (
 
 const CheckIcon = () => (
   <Svg width={11} height={11} viewBox="0 0 24 24">
-    <Circle
-      cx="12"
-      cy="12"
-      r="9"
-      fill={COLORS.green}
-    />
+    <Circle cx="12" cy="12" r="9" fill={COLORS.green} />
 
     <Path
       d="M8 12.5l2.5 2.5L16.5 9"
@@ -781,25 +764,6 @@ const styles = StyleSheet.create({
 });
 
 /* =========================================================
-   FORMAT DATE
-========================================================= */
-
-function formatCreatedAt(value?: string): string {
-  if (!value) {
-    return "—";
-  }
-
-  try {
-    return new Intl.DateTimeFormat("fr-FR", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-}
-
-/* =========================================================
    COMPONENT
 ========================================================= */
 
@@ -817,7 +781,6 @@ export default function TicketPDF({
   quantity,
   qrCodeDataUrl,
   reservationId,
-  createdAt,
 }: TicketPDFProps) {
   return (
     <Document
@@ -852,7 +815,7 @@ export default function TicketPDF({
             <View style={styles.headerBottom}>
               <View>
                 <Text style={styles.headerLabel}>
-                  NUMÉRO DE BILLET : 
+                  NUMÉRO DE BILLET :
                 </Text>
 
                 <Text style={styles.headerNumber}>
