@@ -6,26 +6,32 @@
  * Scanner QR Code pour le contrôle d'accès.
  *
  * Fonctionnement :
- *
  * - Ouverture de la caméra
  * - Lecture automatique du QR Code
- * - Extraction du numéro de billet
- * - Vérification via validateTicket()
+ * - Détection d'un numéro de billet ou d'une URL de vérification
+ * - Extraction du verificationToken si nécessaire
+ * - Vérification via ticketService
  * - Affichage du participant
  * - Validation automatique du billet
  * - Passage du billet VALID → USED
  *
- * IMPORTANT :
- * Cette version fonctionne avec le ticketService utilisant
- * localStorage.
+ * Compatible avec :
+ * - ticketService.ts
+ * - TicketPDF.tsx
+ * - Confirmation.tsx
+ * - /ticket/verify
  *
+ * IMPORTANT :
+ * Cette version utilise actuellement localStorage.
  * En production, la validation devra être effectuée
- * côté serveur.
+ * côté serveur / base de données.
  * =========================================================
  */
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+
 import {
   AlertCircle,
   ArrowLeft,
@@ -34,18 +40,22 @@ import {
   RefreshCw,
   ScanLine,
   ShieldCheck,
-  Ticket,
+  Ticket as TicketIcon,
   User,
   XCircle,
 } from "lucide-react";
 
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
-
 import {
   validateTicket,
+  validateTicketByToken,
   useTicket,
   type Ticket as SiloTicket,
 } from "@/services/ticketService";
+
+import {
+  Html5Qrcode,
+  Html5QrcodeSupportedFormats,
+} from "html5-qrcode";
 
 /* =========================================================
    TYPES
@@ -66,21 +76,106 @@ type ScanStatus =
 const SCANNER_ID = "silocamp-qr-reader";
 
 /* =========================================================
+   UTILITAIRES QR
+========================================================= */
+
+/**
+ * Extrait le token depuis un QR Code.
+ *
+ * Le QR peut contenir :
+ *
+ * 1. Un numéro :
+ *    SILO-2026-ABC123
+ *
+ * 2. Un token :
+ *    abcdef123456
+ *
+ * 3. Une URL :
+ *    https://monsite.com/ticket/verify?token=abcdef123456
+ *
+ * 4. Une URL relative :
+ *    /ticket/verify?token=abcdef123456
+ */
+function extractQrData(decodedText: string): {
+  type: "token" | "ticketNumber";
+  value: string;
+} {
+  const value = decodedText.trim();
+
+  if (!value) {
+    return {
+      type: "ticketNumber",
+      value: "",
+    };
+  }
+
+  /*
+   * Tentative d'analyse comme URL.
+   */
+  try {
+    const url = new URL(value, window.location.origin);
+
+    const token = url.searchParams.get("token");
+
+    if (token?.trim()) {
+      return {
+        type: "token",
+        value: token.trim(),
+      };
+    }
+  } catch {
+    /*
+     * Ce n'est pas une URL.
+     * On traite donc directement la valeur.
+     */
+  }
+
+  /*
+   * Si ce n'est pas une URL contenant un token,
+   * on considère la valeur comme un numéro de billet
+   * ou un verificationToken brut.
+   */
+  return {
+    type: "ticketNumber",
+    value,
+  };
+}
+
+/* =========================================================
    COMPONENT
 ========================================================= */
 
 export default function ScanTicket() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
-
   const processingRef = useRef(false);
+  const mountedRef = useRef(true);
 
   const [status, setStatus] = useState<ScanStatus>("idle");
-
   const [message, setMessage] = useState("");
-
   const [ticket, setTicket] = useState<SiloTicket | null>(null);
-
   const [cameraError, setCameraError] = useState("");
+
+  /* =======================================================
+     SAFE STATE HELPERS
+  ======================================================= */
+
+  const safeSetStatus = (value: ScanStatus) => {
+    if (mountedRef.current) {
+      setStatus(value);
+    }
+  };
+
+  const safeSetMessage = (value: string) => {
+    if (mountedRef.current) {
+      setMessage(value);
+    }
+  };
+
+  const safeSetTicket = (value: SiloTicket | undefined | null) => {
+    if (mountedRef.current) {
+      setTicket(value ?? null);
+    }
+  };
 
   /* =======================================================
      ARRÊTER LE SCANNER
@@ -98,16 +193,101 @@ export default function ScanTicket() {
         await scanner.stop();
       }
     } catch (error) {
-      console.warn("[SiloCamp] Impossible d'arrêter le scanner :", error);
+      console.warn(
+        "[SiloCamp] Impossible d'arrêter le scanner :",
+        error,
+      );
     }
 
     try {
       scanner.clear();
     } catch (error) {
-      console.warn("[SiloCamp] Impossible de nettoyer le scanner :", error);
+      console.warn(
+        "[SiloCamp] Impossible de nettoyer le scanner :",
+        error,
+      );
     }
 
     scannerRef.current = null;
+  };
+
+  /* =======================================================
+     VALIDATION DU QR CODE
+  ======================================================= */
+
+  const validateScannedValue = (decodedText: string): SiloTicket | null => {
+    const qrData = extractQrData(decodedText);
+
+    if (!qrData.value) {
+      safeSetStatus("invalid");
+      safeSetMessage(
+        "Le QR Code ne contient aucune information exploitable.",
+      );
+
+      return null;
+    }
+
+    /*
+     * -------------------------------------------------------
+     * CAS 1 — QR contenant une URL avec ?token=
+     * -------------------------------------------------------
+     */
+
+    if (qrData.type === "token") {
+      const result = validateTicketByToken(qrData.value);
+
+      if (!result.valid || !result.ticket) {
+        safeSetTicket(result.ticket ?? null);
+        safeSetStatus("invalid");
+        safeSetMessage(result.message);
+
+        return null;
+      }
+
+      return result.ticket;
+    }
+
+    /*
+     * -------------------------------------------------------
+     * CAS 2 — QR contenant directement un numéro de billet
+     * -------------------------------------------------------
+     */
+
+    const result = validateTicket(qrData.value);
+
+    if (result.valid && result.ticket) {
+      return result.ticket;
+    }
+
+    /*
+     * -------------------------------------------------------
+     * CAS 3 — Si la valeur n'est pas un numéro valide,
+     * on tente également comme verificationToken.
+     *
+     * Cela permet de supporter plusieurs générations
+     * de billets sans casser les anciens QR Codes.
+     * -------------------------------------------------------
+     */
+
+    const tokenResult = validateTicketByToken(qrData.value);
+
+    if (tokenResult.valid && tokenResult.ticket) {
+      return tokenResult.ticket;
+    }
+
+    /*
+     * Aucun billet trouvé.
+     */
+
+    safeSetTicket(result.ticket ?? tokenResult.ticket ?? null);
+    safeSetStatus("invalid");
+    safeSetMessage(
+      result.message ||
+        tokenResult.message ||
+        "Ce QR Code ne correspond à aucun billet valide.",
+    );
+
+    return null;
   };
 
   /* =======================================================
@@ -115,106 +295,139 @@ export default function ScanTicket() {
   ======================================================= */
 
   const handleScan = async (decodedText: string) => {
+    /*
+     * Empêche plusieurs validations simultanées.
+     */
     if (processingRef.current) {
       return;
     }
 
     processingRef.current = true;
 
-    setStatus("validating");
+    safeSetStatus("validating");
+    safeSetMessage("Vérification du billet...");
 
-    setMessage("Vérification du billet...");
-
+    /*
+     * Arrêt immédiat du scanner afin d'éviter
+     * plusieurs lectures du même QR.
+     */
     await stopScanner();
 
-    /* =====================================================
-       NETTOYAGE DU QR CODE
-    ===================================================== */
-
-    const ticketNumber = decodedText.trim();
-
-    if (!ticketNumber) {
-      setStatus("invalid");
-
-      setMessage("Le QR Code ne contient aucun numéro de billet.");
-
-      processingRef.current = false;
-
-      return;
-    }
-
-    /* =====================================================
-       VALIDATION
-    ===================================================== */
-
     try {
-      const result = validateTicket(ticketNumber);
+      /*
+       * Validation du billet.
+       */
+      const ticketToUse = validateScannedValue(decodedText);
 
-      /* ===================================================
-         BILLET INVALIDE
-      =================================================== */
-
-      if (!result.valid || !result.ticket) {
-        setTicket(result.ticket);
-
-        setStatus("invalid");
-
-        setMessage(result.message);
-
+      /*
+       * Aucun billet valide.
+       */
+      if (!ticketToUse) {
         processingRef.current = false;
-
         return;
       }
 
-      /* ===================================================
-         BILLET VALIDE
-      =================================================== */
+      /*
+       * Affichage immédiat du billet trouvé.
+       */
+      safeSetTicket(ticketToUse);
 
-      const ticketToUse = result.ticket;
+      /*
+       * -----------------------------------------------------
+       * Vérification supplémentaire du statut
+       * -----------------------------------------------------
+       */
 
-      setTicket(ticketToUse);
+      if (ticketToUse.status === "USED") {
+        safeSetStatus("invalid");
+        safeSetMessage(
+          "Ce billet a déjà été utilisé et ne peut plus donner accès à l'événement.",
+        );
 
-      /* ===================================================
-         MARQUER LE BILLET COMME UTILISÉ
-      =================================================== */
+        processingRef.current = false;
+        return;
+      }
+
+      if (ticketToUse.status === "CANCELLED") {
+        safeSetStatus("invalid");
+        safeSetMessage(
+          "Ce billet a été annulé et ne permet plus l'accès à l'événement.",
+        );
+
+        processingRef.current = false;
+        return;
+      }
+
+      if (ticketToUse.status !== "VALID") {
+        safeSetStatus("invalid");
+        safeSetMessage(
+          "Le statut de ce billet ne permet pas son utilisation.",
+        );
+
+        processingRef.current = false;
+        return;
+      }
+
+      /*
+       * -----------------------------------------------------
+       * UTILISATION DU BILLET
+       * -----------------------------------------------------
+       *
+       * VALID → USED
+       */
 
       const used = useTicket(ticketToUse.id);
 
       if (!used) {
-        setStatus("invalid");
-
-        setMessage(
+        safeSetStatus("invalid");
+        safeSetMessage(
           "Le billet est valide, mais son utilisation n'a pas pu être enregistrée.",
         );
 
         processingRef.current = false;
-
         return;
       }
 
-      /* ===================================================
-         SUCCÈS
-      =================================================== */
+      /*
+       * -----------------------------------------------------
+       * Mise à jour locale du billet
+       * -----------------------------------------------------
+       */
 
-      setStatus("valid");
+      const updatedTicket: SiloTicket = {
+        ...ticketToUse,
+        status: "USED",
+        usedAt: new Date().toISOString(),
+      };
 
-      setMessage("Billet validé avec succès. Accès autorisé.");
+      safeSetTicket(updatedTicket);
+
+      /*
+       * -----------------------------------------------------
+       * SUCCÈS
+       * -----------------------------------------------------
+       */
+
+      safeSetStatus("valid");
+      safeSetMessage(
+        "Billet validé avec succès. Accès autorisé.",
+      );
     } catch (error) {
       console.error(
         "[SiloCamp] Erreur lors de la validation du billet :",
         error,
       );
 
-      setStatus("error");
+      safeSetStatus("error");
 
-      setMessage(
+      safeSetMessage(
         error instanceof Error
           ? error.message
-          : "Une erreur est survenue lors de la validation.",
+          : "Une erreur est survenue lors de la validation du billet.",
       );
+    } finally {
+      processingRef.current = false;
     }
-
-    processingRef.current = false;
   };
 
   /* =======================================================
@@ -222,66 +435,98 @@ export default function ScanTicket() {
   ======================================================= */
 
   const startScanner = async () => {
+    /*
+     * Empêche plusieurs instances de scanner.
+     */
     if (scannerRef.current) {
       return;
     }
 
-    setStatus("scanning");
+    safeSetStatus("scanning");
+    safeSetMessage("Recherche d'un QR Code...");
 
-    setMessage("Recherche d'un QR Code...");
+    safeSetTicket(null);
 
-    setTicket(null);
-
-    setCameraError("");
+    if (mountedRef.current) {
+      setCameraError("");
+    }
 
     processingRef.current = false;
 
     try {
+      /*
+       * Vérifie que le conteneur existe.
+       */
+      const element = document.getElementById(SCANNER_ID);
+
+      if (!element) {
+        throw new Error(
+          "Le conteneur du scanner est introuvable.",
+        );
+      }
+
+      /*
+       * Création du scanner.
+       */
       const scanner = new Html5Qrcode(SCANNER_ID, {
-        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+        ],
         verbose: false,
       });
 
       scannerRef.current = scanner;
 
+      /*
+       * Démarrage caméra.
+       */
       await scanner.start(
         {
           facingMode: "environment",
         },
         {
           fps: 10,
-
           qrbox: {
             width: 260,
             height: 260,
           },
-
           aspectRatio: 1,
         },
         async (decodedText) => {
           await handleScan(decodedText);
         },
         () => {
-          /**
-           * Les erreurs de lecture normales sont ignorées.
+          /*
+           * Cette fonction est appelée lorsqu'aucun QR
+           * n'est détecté sur une frame.
            *
-           * html5-qrcode appelle cette fonction lorsqu'aucun
-           * QR Code n'est détecté sur une frame.
+           * Ce comportement est normal.
+           *
+           * On n'affiche donc aucune erreur.
            */
         },
       );
     } catch (error) {
-      console.error("[SiloCamp] Erreur caméra :", error);
+      console.error(
+        "[SiloCamp] Erreur caméra :",
+        error,
+      );
 
       await stopScanner();
 
-      setStatus("error");
+      safeSetStatus("error");
 
-      setCameraError(
-        "Impossible d'accéder à la caméra. Vérifiez les autorisations de votre navigateur.",
+      if (mountedRef.current) {
+        setCameraError(
+          "Impossible d'accéder à la caméra. Vérifiez les autorisations de votre navigateur.",
+        );
+      }
+
+      safeSetMessage(
+        error instanceof Error
+          ? error.message
+          : "La caméra n'a pas pu être démarrée.",
       );
-
-      setMessage("La caméra n'a pas pu être démarrée.");
     }
   };
 
@@ -292,15 +537,25 @@ export default function ScanTicket() {
   const resetScanner = async () => {
     await stopScanner();
 
-    setStatus("idle");
-
-    setMessage("");
-
-    setTicket(null);
-
-    setCameraError("");
-
     processingRef.current = false;
+
+    safeSetStatus("idle");
+    safeSetMessage("");
+    safeSetTicket(null);
+
+    if (mountedRef.current) {
+      setCameraError("");
+    }
+
+    /*
+     * Le démarrage est différé afin de laisser React
+     * remettre le DOM dans son état initial.
+     */
+    window.setTimeout(() => {
+      if (mountedRef.current) {
+        void startScanner();
+      }
+    }, 100);
   };
 
   /* =======================================================
@@ -308,11 +563,19 @@ export default function ScanTicket() {
   ======================================================= */
 
   useEffect(() => {
-    startScanner();
+    mountedRef.current = true;
+
+    void startScanner();
 
     return () => {
+      mountedRef.current = false;
+      processingRef.current = false;
+
       void stopScanner();
     };
+
+    // Le scanner doit être initialisé une seule fois au montage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* =======================================================
@@ -341,12 +604,16 @@ export default function ScanTicket() {
           </span>
 
           <h1 className="mt-5 font-display text-4xl font-medium text-cream sm:text-5xl">
-            Scanner un <span className="text-gold-gradient">billet</span>
+            Scanner un{" "}
+            <span className="text-gold-gradient">
+              billet
+            </span>
           </h1>
 
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-cream-dim sm:text-base">
-            Scannez le QR Code présent sur l'e-billet du participant pour
-            vérifier automatiquement son accès.
+            Scannez le QR Code présent sur l'e-billet du
+            participant pour vérifier automatiquement son
+            accès.
           </p>
         </div>
       </div>
@@ -409,6 +676,20 @@ export default function ScanTicket() {
                   </div>
                 </div>
               )}
+
+              {/* Validation overlay */}
+
+              {status === "validating" && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                  <div className="text-center">
+                    <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-white/20 border-t-gold-400" />
+
+                    <p className="mt-4 text-sm font-medium text-white">
+                      Vérification...
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Status */}
@@ -437,12 +718,16 @@ export default function ScanTicket() {
               </div>
 
               {message && (
-                <p className="mt-3 text-sm text-cream-dim">{message}</p>
+                <p className="mt-3 text-sm text-cream-dim">
+                  {message}
+                </p>
               )}
 
               {cameraError && (
                 <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-400/5 p-4">
-                  <p className="text-sm text-red-300">{cameraError}</p>
+                  <p className="text-sm text-red-300">
+                    {cameraError}
+                  </p>
                 </div>
               )}
 
@@ -464,11 +749,15 @@ export default function ScanTicket() {
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-gold-300" />
 
               <div>
-                <h3 className="font-medium text-cream">Contrôle sécurisé</h3>
+                <h3 className="font-medium text-cream">
+                  Contrôle sécurisé
+                </h3>
 
                 <p className="mt-1 text-sm leading-relaxed text-cream-dim">
-                  Chaque billet ne peut être utilisé qu'une seule fois. Après
-                  validation, son statut passe automatiquement à « utilisé ».
+                  Chaque billet ne peut être utilisé qu'une
+                  seule fois. Après validation, son statut
+                  passe automatiquement de « valide » à
+                  « utilisé ».
                 </p>
               </div>
             </div>
@@ -481,7 +770,10 @@ export default function ScanTicket() {
       =================================================== */}
 
       {status === "valid" && ticket && (
-        <ValidTicket ticket={ticket} onScanAnother={resetScanner} />
+        <ValidTicket
+          ticket={ticket}
+          onScanAnother={resetScanner}
+        />
       )}
 
       {/* ===================================================
@@ -501,7 +793,10 @@ export default function ScanTicket() {
       =================================================== */}
 
       {status === "error" && (
-        <ErrorState message={message} onRetry={resetScanner} />
+        <ErrorState
+          message={message}
+          onRetry={resetScanner}
+        />
       )}
     </main>
   );
@@ -541,7 +836,7 @@ function ValidTicket({
 
         <div className="space-y-6 p-6 sm:p-8">
           <TicketInfo
-            icon={<Ticket className="h-5 w-5" />}
+            icon={<TicketIcon className="h-5 w-5" />}
             label="Numéro du billet"
             value={ticket.ticketNumber}
           />
@@ -574,7 +869,8 @@ function ValidTicket({
 
           <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-4">
             <p className="text-center text-sm text-emerald-200">
-              ✓ Le participant peut accéder au Camp International Silo 2026.
+              ✓ Le participant peut accéder au Camp
+              International Silo 2026.
             </p>
           </div>
         </div>
@@ -609,21 +905,52 @@ function InvalidTicket({
   message: string;
   onScanAnother: () => void;
 }) {
+  const isUsed = ticket?.status === "USED";
+  const isCancelled = ticket?.status === "CANCELLED";
+
   return (
     <div className="mx-auto max-w-2xl">
       <div className="overflow-hidden rounded-3xl border border-red-400/20 bg-red-400/5">
         {/* Header */}
 
-        <div className="border-b border-red-400/15 p-8 text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-400/15 text-red-300">
-            <XCircle className="h-11 w-11" />
+        <div
+          className={`border-b p-8 text-center ${
+            isUsed
+              ? "border-amber-400/15"
+              : "border-red-400/15"
+          }`}
+        >
+          <div
+            className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ${
+              isUsed
+                ? "bg-amber-400/15 text-amber-300"
+                : "bg-red-400/15 text-red-300"
+            }`}
+          >
+            {isUsed ? (
+              <AlertCircle className="h-11 w-11" />
+            ) : (
+              <XCircle className="h-11 w-11" />
+            )}
           </div>
 
           <h2 className="mt-6 font-display text-3xl text-cream">
-            Accès refusé
+            {isUsed
+              ? "Billet déjà utilisé"
+              : isCancelled
+                ? "Billet annulé"
+                : "Accès refusé"}
           </h2>
 
-          <p className="mt-2 text-sm text-red-300">{message}</p>
+          <p
+            className={`mt-2 text-sm ${
+              isUsed
+                ? "text-amber-300"
+                : "text-red-300"
+            }`}
+          >
+            {message}
+          </p>
         </div>
 
         {/* Informations */}
@@ -631,7 +958,7 @@ function InvalidTicket({
         {ticket && (
           <div className="space-y-5 p-6 sm:p-8">
             <TicketInfo
-              icon={<Ticket className="h-5 w-5" />}
+              icon={<TicketIcon className="h-5 w-5" />}
               label="Numéro du billet"
               value={ticket.ticketNumber}
             />
@@ -642,10 +969,28 @@ function InvalidTicket({
               value={ticket.participantName}
             />
 
+            <TicketInfo
+              icon={<Camera className="h-5 w-5" />}
+              label="Événement"
+              value={ticket.eventTitle}
+            />
+
+            <TicketInfo
+              icon={<ScanLine className="h-5 w-5" />}
+              label="Statut"
+              value={
+                ticket.status === "USED"
+                  ? "DÉJÀ UTILISÉ"
+                  : ticket.status === "CANCELLED"
+                    ? "ANNULÉ"
+                    : "NON VALIDE"
+              }
+            />
+
             <div className="rounded-2xl border border-red-400/15 bg-red-400/5 p-4">
               <p className="text-sm leading-relaxed text-red-200">
-                Ce billet ne permet pas l'accès au Camp. Vérifiez son statut
-                avant toute décision.
+                Ce billet ne permet pas l'accès au Camp.
+                Vérifiez son statut avant toute décision.
               </p>
             </div>
           </div>
@@ -690,7 +1035,9 @@ function ErrorState({
           Impossible de scanner
         </h2>
 
-        <p className="mt-3 text-sm leading-relaxed text-red-200">{message}</p>
+        <p className="mt-3 text-sm leading-relaxed text-red-200">
+          {message}
+        </p>
 
         <button
           type="button"
@@ -714,7 +1061,7 @@ function TicketInfo({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
@@ -730,7 +1077,7 @@ function TicketInfo({
         </p>
 
         <p className="mt-1 break-words text-sm font-medium text-cream">
-          {value}
+          {value || "—"}
         </p>
       </div>
     </div>
