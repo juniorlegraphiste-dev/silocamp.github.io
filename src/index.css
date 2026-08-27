@@ -1,0 +1,430 @@
+@import "tailwindcss";
+
+@theme {
+  /* ---- Encre : fonds sombres chauds ---- */
+  --color-ink-950: #090806;
+  --color-ink-900: #0f0d0a;
+  --color-ink-850: #15120d;
+  --color-ink-800: #1c1812;
+  --color-ink-700: #27221a;
+  --color-ink-600: #38322609;
+
+  /* ---- Or champagne : accent principal ---- */
+  --color-gold-100: #f7ecd0;
+  --color-gold-200: #efdba8;
+  --color-gold-300: #e4c585;
+  --color-gold-400: #d4ae63;
+  --color-gold-500: #c2974a;
+  --color-gold-600: #a87c36;
+
+  /* ---- Ivoire : textes clairs ---- */
+  --color-cream: #f5efe2;
+  --color-cream-dim: #c9c0ac;
+  --color-cream-faint: #8a8270;
+
+  /* ---- Vin / bordeaux : secondaire ponctuel ---- */
+  --color-wine-700: #5e2331;
+  --color-wine-500: #8a3346;
+
+  /* ---- Animations (keyframes déclarées plus bas) ---- */
+  --animate-shimmer: shimmer 6s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-glow: glow 4s ease-in-out infinite;
+}
+
+/* ============================================================
+   Styles de base
+   ============================================================ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Compense la barre de navigation fixe lors des ancres */
+    scroll-padding-top: 6rem;
+  }
+
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-cream);
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* Halos d'ambiance : légères lueurs dorées en fond de page */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        60rem 60rem at 80% -10%,
+        rgba(212, 174, 99, 0.08),
+        transparent 60%
+      ),
+      radial-gradient(
+        50rem 50rem at -10% 30%,
+        rgba(138, 51, 70, 0.06),
+        transparent 55%
+      );
+  }
+
+  ::selection {
+    background-color: var(--color-gold-400);
+    color: var(--color-ink-950);
+  }
+
+  /* Barre de défilement raffinée */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-ink-900);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-700);
+    border-radius: 9999px;
+    border: 2px solid var(--color-ink-900);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gold-600);
+  }
+
+  /* Accessibilité : focus visible net */
+  :focus-visible {
+    outline: 2px solid var(--color-gold-300);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+/* ============================================================
+   Composants & utilitaires réutilisables
+   ============================================================ */
+
+/* Texte avec dégradé doré (pour les titres mis en valeur) */
+.text-gold-gradient {
+  background: linear-gradient(
+    125deg,
+    #f7ecd0 0%,
+    #e4c585 40%,
+    #d4ae63 60%,
+    #a87c36 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Conteneur standard */
+.container-px {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+@media (min-width: 768px) {
+  .container-px {
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+  }
+}
+
+/* Grain subtil pour un rendu photographique premium */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* Bouton or (style principal) */
+.btn-gold {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #efdba8 0%, #d4ae63 50%, #a87c36 100%);
+  color: #0f0d0a;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 0.9rem 1.9rem;
+  box-shadow: 0 10px 30px -10px rgba(212, 174, 99, 0.5);
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease,
+    filter 0.35s ease;
+}
+.btn-gold:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  box-shadow: 0 16px 40px -12px rgba(212, 174, 99, 0.65);
+}
+.btn-gold:active {
+  transform: translateY(0);
+}
+
+/* Bouton fantôme (contour doré) */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(228, 197, 133, 0.45);
+  color: var(--color-cream);
+  font-weight: 400;
+  padding: 0.9rem 1.9rem;
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    transform 0.35s ease;
+}
+.btn-ghost:hover {
+  background-color: rgba(228, 197, 133, 0.08);
+  border-color: rgba(228, 197, 133, 0.8);
+  transform: translateY(-2px);
+}
+
+/* Carte verre (effet glassmorphism sombre) */
+.glass {
+  background: linear-gradient(
+    180deg,
+    rgba(28, 24, 18, 0.7),
+    rgba(15, 13, 10, 0.6)
+  );
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(228, 197, 133, 0.12);
+}
+
+/* Filet décoratif doré centré */
+.rule-gold {
+  height: 1px;
+  width: 64px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-gold-400),
+    transparent
+  );
+}
+
+/* Tracé en pointillés de billet (effet "coupon" détachable) */
+.ticket-perf::before,
+.ticket-perf::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background-color: var(--color-ink-950);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.ticket-perf::before {
+  left: -9px;
+}
+.ticket-perf::after {
+  right: -9px;
+}
+
+/* ============================================================
+   Keyframes
+   ============================================================ */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+}
+
+/* Réduction des animations pour le respect des préférences utilisateur */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+
+
+/* =========================================================
+   PHONE INPUT
+========================================================= */
+
+.phone-wrapper {
+  width: 100%;
+}
+
+.phone-wrapper .PhoneInput {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+
+  background: rgba(10, 9, 20, 0.6);
+
+  border: 1px solid rgba(167, 139, 250, 0.18);
+  border-radius: 12px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.phone-wrapper .PhoneInput:focus-within {
+  border-color: rgba(167, 139, 250, 0.6);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.08);
+}
+
+/* =========================================================
+   SELECTEUR PAYS
+========================================================= */
+
+.phone-wrapper .PhoneInputCountry {
+  display: flex;
+  align-items: center;
+
+  height: 46px;
+
+  padding-left: 12px;
+  padding-right: 10px;
+
+  margin-right: 0;
+
+  border-right: 1px solid rgba(167, 139, 250, 0.15);
+}
+
+/* Drapeau */
+
+.phone-wrapper .PhoneInputCountryIcon {
+  width: 24px;
+  height: 18px;
+
+  margin-right: 7px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* SVG du drapeau */
+
+.phone-wrapper .PhoneInputCountryIconImg {
+  width: 24px;
+  height: 18px;
+}
+
+/* =========================================================
+   INDICATIF
+========================================================= */
+
+.phone-wrapper .PhoneInputCountrySelect {
+  color: #f5f5f5;
+  background: transparent;
+
+  font-size: 14px;
+}
+
+/* Empêche le select natif de devenir illisible */
+
+.phone-wrapper .PhoneInputCountrySelect:focus {
+  color: #f5f5f5;
+  background: #24104f;
+}
+
+/* =========================================================
+   FLECHE
+========================================================= */
+
+.phone-wrapper .PhoneInputCountrySelectArrow {
+  width: 7px;
+  height: 7px;
+
+  margin-left: 5px;
+
+  border-color: #a78bfa;
+}
+
+/* =========================================================
+   CHAMP NUMERO
+========================================================= */
+
+.phone-wrapper .PhoneInputInput {
+  flex: 1;
+
+  width: 100%;
+  min-width: 0;
+
+  height: 46px;
+
+  padding: 0 14px;
+
+  border: 0;
+  outline: none;
+
+  background: transparent;
+
+  color: #f5f5f5;
+
+  font-size: 14px;
+}
+
+.phone-wrapper .PhoneInputInput::placeholder {
+  color: #6b7280;
+}
+
+.phone-wrapper .PhoneInputInput:focus {
+  outline: none;
+}
+
+/* =========================================================
+   LISTE DES PAYS
+========================================================= */
+
+/*
+  Le menu du navigateur peut utiliser ses propres couleurs.
+  On force donc un fond sombre et un texte clair.
+*/
+
+.phone-wrapper .PhoneInputCountrySelect option {
+  background-color: #24104f;
+  color: #ffffff;
+}
+
+
+

@@ -1,0 +1,165 @@
+/**
+ * =========================================================
+ * SILOCAMP — PRISMA DATABASE SCHEMA
+ * =========================================================
+ *
+ * Base de données :
+ * Neon PostgreSQL
+ *
+ * ORM :
+ * Prisma 7
+ *
+ * Capacité :
+ * 1200 places
+ *
+ * Règles :
+ * - 1 participant = 1 billet
+ * - 1 réservation = 1 billet
+ * - email unique
+ * - téléphone unique
+ * - ticketNumber unique
+ * - verificationToken unique
+ * - VALID = place occupée
+ * - USED = place occupée
+ * - CANCELLED = place libérée
+ * =========================================================
+ */
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/* =========================================================
+   ENUM
+========================================================= */
+
+enum TicketStatus {
+  VALID
+  USED
+  CANCELLED
+}
+
+/* =========================================================
+   TICKET
+========================================================= */
+
+model Ticket {
+  /**
+   * Identifiant interne
+   */
+  id String @id @default(cuid())
+
+  /**
+   * Numéro public du billet
+   *
+   * Exemple :
+   * SILO-2026-A7F82C91
+   */
+  ticketNumber String @unique
+
+  /**
+   * Identifiant unique de réservation
+   */
+  reservationId String @unique
+
+  /**
+   * Token secret utilisé par le QR Code
+   */
+  verificationToken String @unique
+
+  /* =======================================================
+     PARTICIPANT
+  ======================================================= */
+
+  firstName String
+
+  lastName String
+
+  /**
+   * Nom complet
+   */
+  participantName String
+
+  /**
+   * Adresse e-mail
+   */
+  email String @unique
+
+  /**
+   * Numéro de téléphone
+   *
+   * Nullable afin de conserver la compatibilité
+   * avec les anciens billets éventuels.
+   */
+  phone String? @unique
+
+  /* =======================================================
+     ÉVÉNEMENT
+  ======================================================= */
+
+  eventId String?
+
+  eventTitle String
+
+  dateLabel String
+
+  time String
+
+  duration String?
+
+  venue String
+
+  city String
+
+  /* =======================================================
+     QUANTITÉ
+  ======================================================= */
+
+  /**
+   * SiloCamp :
+   *
+   * 1 participant = 1 place
+   */
+  quantity Int @default(1)
+
+  /* =======================================================
+     STATUT
+  ======================================================= */
+
+  status TicketStatus @default(VALID)
+
+  /* =======================================================
+     DATES
+  ======================================================= */
+
+  createdAt DateTime @default(now())
+
+  usedAt DateTime?
+
+  cancelledAt DateTime?
+
+  /* =======================================================
+     INDEX
+  ======================================================= */
+
+  @@index([ticketNumber])
+
+  @@index([reservationId])
+
+  @@index([verificationToken])
+
+  @@index([email])
+
+  @@index([phone])
+
+  @@index([status])
+
+  @@index([eventId])
+
+  @@index([createdAt])
+}
