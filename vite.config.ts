@@ -16,5 +16,5 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
-  base: '/silocamp.github.io/'
+  base: process.env.VITE_BASE_PATH || "//silocamp.github.io",
 });

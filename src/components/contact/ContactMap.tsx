@@ -40,23 +40,3 @@ export function ContactMap() {
     </section>
   );
 }
-
-function Info({
-  title,
-  value,
-}: {
-  title: string;
-  value: string;
-}) {
-  return (
-    <div className="border-b border-gold-400/10 pb-4 last:border-none last:pb-0">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-300">
-        {title}
-      </p>
-
-      <p className="mt-2 text-cream">
-        {value}
-      </p>
-    </div>
-  );
-}

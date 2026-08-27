@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
 import { Reveal } from "@/components/Reveal";
 import { FaPhoneAlt, FaWhatsapp } from "react-icons/fa";
 import { Mail } from "lucide-react";
