@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { CheckCircle2, XCircle, Ticket as TicketIcon } from "lucide-react";
 
 import {
@@ -14,7 +15,6 @@ export default function TicketVerifyPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-
     const token = params.get("token");
 
     if (!token) {
@@ -28,18 +28,30 @@ export default function TicketVerifyPage() {
     setLoading(false);
   }, []);
 
+  /*
+   * =========================================================
+   * CHARGEMENT
+   * =========================================================
+   */
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
         <div className="text-center text-white">
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
 
-          <p className="text-sm text-white/70">Vérification du billet...</p>
+          <p className="text-sm text-white/70">
+            Vérification du billet...
+          </p>
         </div>
       </main>
     );
   }
 
+  /*
+   * =========================================================
+   * BILLET INTROUVABLE
+   * =========================================================
+   */
   if (!ticket) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-10">
@@ -53,8 +65,8 @@ export default function TicketVerifyPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Ce QR Code ne correspond à aucun billet enregistré dans le système
-            SiloCamp.
+            Ce QR Code ne correspond à aucun billet enregistré dans le
+            système SiloCamp.
           </p>
 
           <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -65,7 +77,12 @@ export default function TicketVerifyPage() {
     );
   }
 
-  const isCancelled = ticket.status === "CANCELLED";
+  /*
+   * =========================================================
+   * STATUT DU BILLET
+   * =========================================================
+   */
+
   const isUsed = ticket.status === "USED";
   const isValid = ticket.status === "VALID";
 
@@ -78,9 +95,13 @@ export default function TicketVerifyPage() {
             <TicketIcon className="h-7 w-7" />
           </div>
 
-          <h1 className="text-2xl font-bold">SiloCamp</h1>
+          <h1 className="text-2xl font-bold">
+            SiloCamp
+          </h1>
 
-          <p className="mt-1 text-sm text-white/60">Vérification du billet</p>
+          <p className="mt-1 text-sm text-white/60">
+            Vérification du billet
+          </p>
         </div>
 
         {/* TICKET CARD */}
@@ -138,13 +159,25 @@ export default function TicketVerifyPage() {
               </h3>
 
               <div className="space-y-4">
-                <InfoRow label="Prénom" value={ticket.firstName || "—"} />
+                <InfoRow
+                  label="Prénom"
+                  value={ticket.firstName || "—"}
+                />
 
-                <InfoRow label="Nom" value={ticket.lastName || "—"} />
+                <InfoRow
+                  label="Nom"
+                  value={ticket.lastName || "—"}
+                />
 
-                <InfoRow label="Téléphone" value={ticket.phone || "—"} />
+                <InfoRow
+                  label="Téléphone"
+                  value={ticket.phone || "—"}
+                />
 
-                <InfoRow label="E-mail" value={ticket.email} />
+                <InfoRow
+                  label="E-mail"
+                  value={ticket.email || "—"}
+                />
               </div>
             </section>
 
@@ -155,11 +188,20 @@ export default function TicketVerifyPage() {
               </h3>
 
               <div className="space-y-4">
-                <InfoRow label="Événement" value={ticket.eventTitle} />
+                <InfoRow
+                  label="Événement"
+                  value={ticket.eventTitle}
+                />
 
-                <InfoRow label="Date" value={ticket.dateLabel} />
+                <InfoRow
+                  label="Date"
+                  value={ticket.dateLabel}
+                />
 
-                <InfoRow label="Heure" value={ticket.time} />
+                <InfoRow
+                  label="Heure"
+                  value={ticket.time}
+                />
 
                 <InfoRow
                   label="Lieu"
@@ -174,7 +216,10 @@ export default function TicketVerifyPage() {
                 Réservation
               </h3>
 
-              <InfoRow label="Référence" value={ticket.reservationId} />
+              <InfoRow
+                label="Référence"
+                value={ticket.reservationId}
+              />
 
               <div className="mt-4">
                 <InfoRow
@@ -203,18 +248,29 @@ export default function TicketVerifyPage() {
   );
 }
 
-/* =========================================================
-   INFO ROW
-========================================================= */
+/*
+ * =========================================================
+ * INFO ROW
+ * =========================================================
+ */
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div className="flex items-start justify-between gap-6 border-b border-slate-100 pb-3 last:border-0">
-      <span className="text-sm text-slate-400">{label}</span>
+      <span className="text-sm text-slate-400">
+        {label}
+      </span>
 
-      <span className="max-w-[65%] text-right text-sm font-semibold text-slate-900 break-words">
+      <span className="max-w-[65%] break-words text-right text-sm font-semibold text-slate-900">
         {value}
       </span>
     </div>
   );
 }
+
