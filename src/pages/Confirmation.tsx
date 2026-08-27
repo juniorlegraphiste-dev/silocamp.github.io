@@ -398,19 +398,19 @@ export default function Confirmation() {
 
       const pdfDocument = (
         <TicketPDF
-          ticketNumber={ticketNumber}
-          participantName={participantName}
-          email={participantEmail}
-          phone={participantPhone}
+          ticketNumber={ticket.ticketNumber}
+          participantName={ticket.participantName}
+          email={ticket.email}
+          phone={ticket.phone}
           eventTitle={ticket.eventTitle}
           dateLabel={ticket.dateLabel}
           time={ticket.time}
           duration={ticket.duration}
           venue={ticket.venue}
           city={ticket.city}
-          quantity={ticket.quantity ?? 1}
+          quantity={ticket.quantity}
           qrCodeDataUrl={qrCodeDataUrl}
-          reservationId={reservationId}
+          reservationId={ticket.reservationId}
           createdAt={ticket.createdAt}
         />
       );

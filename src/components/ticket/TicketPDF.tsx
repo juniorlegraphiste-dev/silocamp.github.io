@@ -1,4 +1,3 @@
-
 /**
  * =========================================================
  * TICKET PDF — SILOCAMP
@@ -74,8 +73,8 @@ export type TicketPDFProps = {
   quantity: number;
   qrCodeDataUrl: string;
   reservationId?: string;
+  createdAt?: string;
 };
-
 /* =========================================================
    COULEURS
 ========================================================= */
@@ -806,26 +805,18 @@ export default function TicketPDF({
               </View>
 
               <View style={styles.eTicketBadge}>
-                <Text style={styles.eTicketBadgeText}>
-                  E-BILLET
-                </Text>
+                <Text style={styles.eTicketBadgeText}>E-BILLET</Text>
               </View>
             </View>
 
             <View style={styles.headerBottom}>
               <View>
-                <Text style={styles.headerLabel}>
-                  NUMÉRO DE BILLET :
-                </Text>
+                <Text style={styles.headerLabel}>NUMÉRO DE BILLET :</Text>
 
-                <Text style={styles.headerNumber}>
-                  {ticketNumber}
-                </Text>
+                <Text style={styles.headerNumber}>{ticketNumber}</Text>
               </View>
 
-              <Text style={styles.freeHeader}>
-                PARTICIPATION GRATUITE
-              </Text>
+              <Text style={styles.freeHeader}>PARTICIPATION GRATUITE</Text>
             </View>
           </View>
 
@@ -834,13 +825,9 @@ export default function TicketPDF({
           ================================================= */}
 
           <View style={styles.intro}>
-            <Text style={styles.eyebrow}>
-              VOTRE ACCÈS
-            </Text>
+            <Text style={styles.eyebrow}>VOTRE ACCÈS</Text>
 
-            <Text style={styles.title}>
-              {eventTitle}
-            </Text>
+            <Text style={styles.title}>{eventTitle}</Text>
 
             <Text style={styles.introText}>
               Votre billet officiel pour le Camp International Silo.
@@ -859,14 +846,10 @@ export default function TicketPDF({
                 <View style={styles.detailLabelRow}>
                   <CalendarIcon />
 
-                  <Text style={styles.detailLabel}>
-                    DATE
-                  </Text>
+                  <Text style={styles.detailLabel}>DATE</Text>
                 </View>
 
-                <Text style={styles.detailValue}>
-                  {dateLabel}
-                </Text>
+                <Text style={styles.detailValue}>{dateLabel}</Text>
               </View>
 
               <View style={styles.divider} />
@@ -877,14 +860,10 @@ export default function TicketPDF({
                 <View style={styles.detailLabelRow}>
                   <ClockIcon />
 
-                  <Text style={styles.detailLabel}>
-                    HEURE
-                  </Text>
+                  <Text style={styles.detailLabel}>HEURE</Text>
                 </View>
 
-                <Text style={styles.detailValue}>
-                  {time}
-                </Text>
+                <Text style={styles.detailValue}>{time}</Text>
               </View>
 
               <View style={styles.divider} />
@@ -895,18 +874,12 @@ export default function TicketPDF({
                 <View style={styles.detailLabelRow}>
                   <LocationIcon />
 
-                  <Text style={styles.detailLabel}>
-                    LIEU
-                  </Text>
+                  <Text style={styles.detailLabel}>LIEU</Text>
                 </View>
 
-                <Text style={styles.detailValue}>
-                  {venue}
-                </Text>
+                <Text style={styles.detailValue}>{venue}</Text>
 
-                <Text style={styles.detailSub}>
-                  {city}
-                </Text>
+                <Text style={styles.detailSub}>{city}</Text>
               </View>
 
               <View style={styles.divider} />
@@ -917,14 +890,10 @@ export default function TicketPDF({
                 <View style={styles.detailLabelRow}>
                   <TimerIcon />
 
-                  <Text style={styles.detailLabel}>
-                    DURÉE
-                  </Text>
+                  <Text style={styles.detailLabel}>DURÉE</Text>
                 </View>
 
-                <Text style={styles.detailValue}>
-                  {duration || "—"}
-                </Text>
+                <Text style={styles.detailValue}>{duration || "—"}</Text>
               </View>
             </View>
           </View>
@@ -944,46 +913,31 @@ export default function TicketPDF({
               <View style={styles.participantHeader}>
                 <ParticipantIcon />
 
-                <Text style={styles.participantLabel}>
-                  PARTICIPANT
-                </Text>
+                <Text style={styles.participantLabel}>PARTICIPANT</Text>
               </View>
 
               <Text style={styles.participantName}>
                 {participantName || "Participant"}
               </Text>
 
-              {email && (
-                <Text style={styles.participantEmail}>
-                  {email}
-                </Text>
-              )}
+              {email && <Text style={styles.participantEmail}>{email}</Text>}
 
-              {phone && (
-                <Text style={styles.participantPhone}>
-                  {phone}
-                </Text>
-              )}
+              {phone && <Text style={styles.participantPhone}>{phone}</Text>}
 
               {/* PARTICIPATION */}
 
               <View style={styles.participation}>
                 <View style={styles.participationTop}>
-                  <Text style={styles.participationTitle}>
-                    Participation
-                  </Text>
+                  <Text style={styles.participationTitle}>Participation</Text>
 
                   <View style={styles.freeBadge}>
-                    <Text style={styles.freeBadgeText}>
-                      GRATUIT
-                    </Text>
+                    <Text style={styles.freeBadgeText}>GRATUIT</Text>
                   </View>
                 </View>
 
                 <Text style={styles.participationText}>
-                  Votre inscription est confirmée. Présentez
-                  votre QR Code à l'entrée pour accéder à
-                  l'événement.
+                  Votre inscription est confirmée. Présentez votre QR Code à
+                  l'entrée pour accéder à l'événement.
                 </Text>
               </View>
 
@@ -995,9 +949,7 @@ export default function TicketPDF({
                     <CheckIcon />
                   </View>
 
-                  <Text style={styles.benefitText}>
-                    E-billet électronique
-                  </Text>
+                  <Text style={styles.benefitText}>E-billet électronique</Text>
                 </View>
 
                 <View style={styles.benefitRow}>
@@ -1024,13 +976,9 @@ export default function TicketPDF({
               {/* RÉFÉRENCE */}
 
               <View style={styles.accessBox}>
-                <Text style={styles.accessLabel}>
-                  RÉFÉRENCE D'ACCÈS
-                </Text>
+                <Text style={styles.accessLabel}>RÉFÉRENCE D'ACCÈS</Text>
 
-                <Text style={styles.accessNumber}>
-                  {ticketNumber}
-                </Text>
+                <Text style={styles.accessNumber}>{ticketNumber}</Text>
               </View>
             </View>
 
@@ -1039,33 +987,24 @@ export default function TicketPDF({
             ================================================= */}
 
             <View style={styles.rightColumn}>
-              <Text style={styles.qrTitle}>
-                SCANNEZ À L'ENTRÉE
-              </Text>
+              <Text style={styles.qrTitle}>SCANNEZ À L'ENTRÉE</Text>
 
               <Text style={styles.qrSubtitle}>
                 Présentez ce QR Code à l'équipe d'accueil.
               </Text>
 
               <View style={styles.qrBox}>
-                <Image
-                  src={qrCodeDataUrl}
-                  style={styles.qr}
-                />
+                <Image src={qrCodeDataUrl} style={styles.qr} />
               </View>
 
-              <Text style={styles.qrNumber}>
-                {ticketNumber}
-              </Text>
+              <Text style={styles.qrNumber}>{ticketNumber}</Text>
 
               <View style={styles.valid}>
                 <View style={styles.validIcon}>
                   <CheckIcon />
                 </View>
 
-                <Text style={styles.validText}>
-                  BILLET VALIDE
-                </Text>
+                <Text style={styles.validText}>BILLET VALIDE</Text>
               </View>
             </View>
           </View>
@@ -1076,55 +1015,36 @@ export default function TicketPDF({
 
           <View style={styles.bottom}>
             <View style={styles.bottomItem}>
-              <Text style={styles.bottomLabel}>
-                PLACES
-              </Text>
+              <Text style={styles.bottomLabel}>PLACES</Text>
 
               <Text style={styles.bottomValue}>
-                {quantity}{" "}
-                {quantity > 1 ? "places" : "place"}
+                {quantity} {quantity > 1 ? "places" : "place"}
               </Text>
             </View>
 
             <View style={styles.bottomItem}>
-              <Text style={styles.bottomLabel}>
-                TARIF
-              </Text>
+              <Text style={styles.bottomLabel}>TARIF</Text>
 
-              <Text style={styles.bottomValue}>
-                Gratuit
-              </Text>
+              <Text style={styles.bottomValue}>Gratuit</Text>
             </View>
 
             <View style={styles.bottomItem}>
-              <Text style={styles.bottomLabel}>
-                STATUT
-              </Text>
+              <Text style={styles.bottomLabel}>STATUT</Text>
 
-              <Text style={styles.bottomValue}>
-                CONFIRMÉ
-              </Text>
+              <Text style={styles.bottomValue}>CONFIRMÉ</Text>
             </View>
 
             <View style={styles.bottomItem}>
-              <Text style={styles.bottomLabel}>
-                ACCÈS
-              </Text>
+              <Text style={styles.bottomLabel}>ACCÈS</Text>
 
-              <Text style={styles.bottomValue}>
-                QR CODE
-              </Text>
+              <Text style={styles.bottomValue}>QR CODE</Text>
             </View>
 
             {reservationId && (
               <View style={styles.bottomItem}>
-                <Text style={styles.bottomLabel}>
-                  RÉSERVATION
-                </Text>
+                <Text style={styles.bottomLabel}>RÉSERVATION</Text>
 
-                <Text style={styles.bottomValue}>
-                  {reservationId}
-                </Text>
+                <Text style={styles.bottomValue}>{reservationId}</Text>
               </View>
             )}
           </View>
@@ -1135,15 +1055,11 @@ export default function TicketPDF({
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              <Text style={styles.footerStrong}>
-                SILOCAMP
-              </Text>
+              <Text style={styles.footerStrong}>SILOCAMP</Text>
               {"  "}Camp International Silo 2026
             </Text>
 
-            <Text style={styles.footerText}>
-              BILLET ÉLECTRONIQUE
-            </Text>
+            <Text style={styles.footerText}>BILLET ÉLECTRONIQUE</Text>
           </View>
 
           {/* ACCENT OR */}
