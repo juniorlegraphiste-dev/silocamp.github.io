@@ -15,8 +15,6 @@ import {
 } from "lucide-react";
 
 import {
-  getTicketByNumber,
-  getTicketByVerificationToken,
   validateTicket,
   validateTicketByToken,
   useTicket,
