@@ -10,18 +10,20 @@
  *
  * DATABASE_URL :
  * connexion poolée Neon utilisée par l'application.
+ *
  * =========================================================
  */
 
 import "dotenv/config";
 
 import { PrismaNeon } from "@prisma/adapter-neon";
-
 import { PrismaClient } from "../generated/prisma/client";
 
-/* =========================================================
-   VALIDATION ENV
-========================================================= */
+/**
+ * =========================================================
+ * VALIDATION ENV
+ * =========================================================
+ */
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -31,28 +33,32 @@ if (!databaseUrl) {
   );
 }
 
-/* =========================================================
-   ADAPTER NEON
-========================================================= */
+/**
+ * =========================================================
+ * ADAPTER NEON
+ * =========================================================
+ */
 
 const adapter = new PrismaNeon({
   connectionString: databaseUrl,
 });
 
-/* =========================================================
-   SINGLETON PRISMA
-========================================================= */
+/**
+ * =========================================================
+ * SINGLETON PRISMA
+ * =========================================================
+ */
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
 /**
- * En développement, Vite/tsx peut recharger
- * plusieurs fois les modules.
- *
- * On conserve donc une seule instance Prisma.
+ * Une seule instance Prisma en développement
+ * afin d'éviter de créer plusieurs connexions
+ * lors des rechargements de modules.
  */
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
@@ -60,16 +66,18 @@ export const prisma =
   });
 
 /**
- * On conserve l'instance globale
- * uniquement en développement.
+ * Conserver l'instance en développement.
  */
+
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
-/* =========================================================
-   TEST DE CONNEXION
-========================================================= */
+/**
+ * =========================================================
+ * TEST DE CONNEXION
+ * =========================================================
+ */
 
 export async function checkDatabaseConnection(): Promise<boolean> {
   try {
@@ -86,9 +94,11 @@ export async function checkDatabaseConnection(): Promise<boolean> {
   }
 }
 
-/* =========================================================
-   FERMETURE
-========================================================= */
+/**
+ * =========================================================
+ * FERMETURE
+ * =========================================================
+ */
 
 export async function disconnectDatabase(): Promise<void> {
   try {

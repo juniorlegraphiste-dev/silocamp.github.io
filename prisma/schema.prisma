@@ -16,27 +16,30 @@
  * - 1 participant = 1 billet
  * - 1 réservation = 1 billet
  * - email unique
- * - téléphone unique
+ * - téléphone unique lorsqu'il est renseigné
  * - ticketNumber unique
  * - verificationToken unique
  * - VALID = place occupée
  * - USED = place occupée
  * - CANCELLED = place libérée
+ *
  * =========================================================
  */
 
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-/* =========================================================
-   ENUM
-========================================================= */
+/**
+ * =========================================================
+ * ENUM
+ * =========================================================
+ */
 
 enum TicketStatus {
   VALID
@@ -44,9 +47,11 @@ enum TicketStatus {
   CANCELLED
 }
 
-/* =========================================================
-   TICKET
-========================================================= */
+/**
+ * =========================================================
+ * TICKET
+ * =========================================================
+ */
 
 model Ticket {
   /**
@@ -72,13 +77,14 @@ model Ticket {
    */
   verificationToken String @unique
 
-  /* =======================================================
-     PARTICIPANT
-  ======================================================= */
+  /**
+   * =======================================================
+   * PARTICIPANT
+   * =======================================================
+   */
 
   firstName String
-
-  lastName String
+  lastName  String
 
   /**
    * Nom complet
@@ -93,73 +99,68 @@ model Ticket {
   /**
    * Numéro de téléphone
    *
-   * Nullable afin de conserver la compatibilité
-   * avec les anciens billets éventuels.
+   * Nullable pour conserver la compatibilité
+   * avec d'éventuels anciens billets.
    */
   phone String? @unique
 
-  /* =======================================================
-     ÉVÉNEMENT
-  ======================================================= */
+  /**
+   * =======================================================
+   * ÉVÉNEMENT
+   * =======================================================
+   */
 
-  eventId String?
-
+  eventId    String?
   eventTitle String
 
   dateLabel String
-
-  time String
-
-  duration String?
+  time      String
+  duration  String?
 
   venue String
-
-  city String
-
-  /* =======================================================
-     QUANTITÉ
-  ======================================================= */
+  city  String
 
   /**
-   * SiloCamp :
+   * =======================================================
+   * QUANTITÉ
+   * =======================================================
    *
+   * SiloCamp :
    * 1 participant = 1 place
    */
+
   quantity Int @default(1)
 
-  /* =======================================================
-     STATUT
-  ======================================================= */
+  /**
+   * =======================================================
+   * STATUT
+   * =======================================================
+   */
 
   status TicketStatus @default(VALID)
 
-  /* =======================================================
-     DATES
-  ======================================================= */
+  /**
+   * =======================================================
+   * DATES
+   * =======================================================
+   */
 
-  createdAt DateTime @default(now())
-
-  usedAt DateTime?
-
+  createdAt   DateTime @default(now())
+  usedAt      DateTime?
   cancelledAt DateTime?
 
-  /* =======================================================
-     INDEX
-  ======================================================= */
+  /**
+   * =======================================================
+   * INDEX
+   * =======================================================
+   */
 
   @@index([ticketNumber])
-
   @@index([reservationId])
-
   @@index([verificationToken])
-
   @@index([email])
-
   @@index([phone])
-
   @@index([status])
-
   @@index([eventId])
-
   @@index([createdAt])
 }
