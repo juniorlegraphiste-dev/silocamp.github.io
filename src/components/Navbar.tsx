@@ -242,13 +242,13 @@ export function Navbar() {
               )}
 
               <div className="mt-4 flex flex-col gap-3">
-                <Link
+                {/* <Link
                   to="/ticket/verify"
                   className="flex w-full items-center justify-center gap-2 rounded-full border border-gold-400/40 px-5 py-3 text-sm font-medium text-cream transition-colors hover:bg-gold-400/10"
                 >
                   <QrCode className="h-5 w-5 text-gold-300" />
                   Scanner QR Code
-                </Link>
+                </Link> */}
 
                 <Link
                   to="/billetterie"
