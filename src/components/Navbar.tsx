@@ -133,14 +133,14 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
+          {/* <Link
             to="/ticket/verify"
             className="hidden items-center gap-2 rounded-full border border-gold-400/40 px-4 py-2 text-sm text-cream transition-colors hover:bg-gold-400/10 md:flex"
             aria-label="Scanner un QR Code"
           >
             <QrCode className="h-4 w-4" />
             <span>Scanner QR Code</span>
-          </Link>
+          </Link> */}
 
           <Link
             to="/billetterie"
