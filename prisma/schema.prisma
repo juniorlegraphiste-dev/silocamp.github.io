@@ -1,45 +1,11 @@
-/**
- * =========================================================
- * SILOCAMP — PRISMA DATABASE SCHEMA
- * =========================================================
- *
- * Base de données :
- * Neon PostgreSQL
- *
- * ORM :
- * Prisma 7
- *
- * Capacité :
- * 1200 places
- *
- * Règles :
- * - 1 participant = 1 billet
- * - 1 réservation = 1 billet
- * - email unique
- * - téléphone unique lorsqu'il est renseigné
- * - ticketNumber unique
- * - verificationToken unique
- * - VALID = place occupée
- * - USED = place occupée
- * - CANCELLED = place libérée
- *
- * =========================================================
- */
-
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
-
-/**
- * =========================================================
- * ENUM
- * =========================================================
- */
 
 enum TicketStatus {
   VALID
@@ -47,120 +13,39 @@ enum TicketStatus {
   CANCELLED
 }
 
-/**
- * =========================================================
- * TICKET
- * =========================================================
- */
-
 model Ticket {
-  /**
-   * Identifiant interne
-   */
-  id String @id @default(cuid())
+  id                 String       @id @default(cuid())
+  ticketNumber      String       @unique
+  verificationToken String       @unique
 
-  /**
-   * Numéro public du billet
-   *
-   * Exemple :
-   * SILO-2026-A7F82C91
-   */
-  ticketNumber String @unique
+  firstName          String?
+  lastName           String?
+  participantName    String
 
-  /**
-   * Identifiant unique de réservation
-   */
-  reservationId String @unique
+  email              String
+  phone              String?
 
-  /**
-   * Token secret utilisé par le QR Code
-   */
-  verificationToken String @unique
+  reservationId      String?      @unique
 
-  /**
-   * =======================================================
-   * PARTICIPANT
-   * =======================================================
-   */
+  eventId            String?
+  eventTitle         String
+  dateLabel          String
+  time               String
+  duration           String?
+  venue              String
+  city               String
 
-  firstName String
-  lastName  String
+  quantity           Int          @default(1)
 
-  /**
-   * Nom complet
-   */
-  participantName String
+  status             TicketStatus @default(VALID)
 
-  /**
-   * Adresse e-mail
-   */
-  email String @unique
+  createdAt          DateTime     @default(now())
+  usedAt             DateTime?
+  cancelledAt        DateTime?
 
-  /**
-   * Numéro de téléphone
-   *
-   * Nullable pour conserver la compatibilité
-   * avec d'éventuels anciens billets.
-   */
-  phone String? @unique
-
-  /**
-   * =======================================================
-   * ÉVÉNEMENT
-   * =======================================================
-   */
-
-  eventId    String?
-  eventTitle String
-
-  dateLabel String
-  time      String
-  duration  String?
-
-  venue String
-  city  String
-
-  /**
-   * =======================================================
-   * QUANTITÉ
-   * =======================================================
-   *
-   * SiloCamp :
-   * 1 participant = 1 place
-   */
-
-  quantity Int @default(1)
-
-  /**
-   * =======================================================
-   * STATUT
-   * =======================================================
-   */
-
-  status TicketStatus @default(VALID)
-
-  /**
-   * =======================================================
-   * DATES
-   * =======================================================
-   */
-
-  createdAt   DateTime @default(now())
-  usedAt      DateTime?
-  cancelledAt DateTime?
-
-  /**
-   * =======================================================
-   * INDEX
-   * =======================================================
-   */
-
-  @@index([ticketNumber])
-  @@index([reservationId])
-  @@index([verificationToken])
   @@index([email])
   @@index([phone])
-  @@index([status])
   @@index([eventId])
+  @@index([status])
   @@index([createdAt])
 }
