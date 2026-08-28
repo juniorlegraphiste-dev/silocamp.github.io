@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCart } from "@/context/CartContext";
 import { cn } from "@/utils/cn";
-import { ArrowRight, QrCode, Ticket } from "lucide-react";
+import { ArrowRight, Ticket } from "lucide-react";
 
 type NavEntry =
   | { label: string; kind: "route"; to: string }
