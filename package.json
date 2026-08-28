@@ -7,9 +7,7 @@
     "dev": "vite",
     "server": "tsx server/index.ts",
     "dev:server": "tsx watch server/index.ts",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "deploy": "npm run build && gh-pages -d dist",
+    "build": "vite build",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
