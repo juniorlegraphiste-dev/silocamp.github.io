@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Eye,
+  HandHeart,
   MapPin,
   Music,
   QrCode,
@@ -28,15 +29,13 @@ import { getTicketsRemaining } from "@/services/ticketService";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const MAX_TICKETS = 1500;
+const MAX_TICKETS = 1200;
 
 /* =========================================================
    HOME
 ========================================================= */
 
 export default function Home() {
-
-
   const [ticketsRemaining, setTicketsRemaining] = useState<number>(MAX_TICKETS);
 
   /* ---------------------------------------------------------
@@ -212,8 +211,8 @@ function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
             variants={staggerItem}
             className="mt-6 font-display text-5xl font-medium leading-[0.98] text-cream sm:text-7xl md:text-8xl"
           >
-            Vivez le surnaturel dans{" "}
-            <span className="text-gold-gradient">la présence de Dieu</span>
+            Vivez le Feu du Réveil dans{" "}
+            <span className="text-gold-gradient">la Présence de Dieu</span>
           </motion.h1>
 
           {/* Description */}
@@ -225,9 +224,10 @@ function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
             <span className="font-semibold text-cream">
               Le Camp International Silo
             </span>{" "}
-            est un rassemblement de réveil qui réunit des adorateurs de
-            plusieurs pays pour vivre des moments puissants de communion,
-            d'enseignement, de prière et de louange dans la présence de Dieu.
+            est un salon de changement de mentalité et d’attitude dans notre
+            manière de louer, un lieu de réjouissance et de victoire où nous
+            faisons un vœu à l’Éternel, bâtissons un autel et apprenons à
+            entendre Dieu pour nous-mêmes.
           </motion.p>
 
           {/* Compte à rebours */}
@@ -451,7 +451,7 @@ function Experience() {
     {
       title: "Prière",
       text: "Des temps profonds de prière et d'intercession dans la présence de Dieu.",
-      icon: <Sparkles className="h-5 w-5" />,
+      icon: <HandHeart className="h-5 w-5" />,
     },
   ];
 
@@ -546,7 +546,9 @@ function Experience() {
                 un <span className="text-gold-gradient">moment surnaturel</span>
               </>
             }
-            subtitle="Le Camp International Silo est un rassemblement de réveil qui réunit des adorateurs de plusieurs pays pour vivre des moments puissants de communion, d'enseignement, de prière et de louange dans la présence de Dieu."
+            subtitle="Le Camp International Silo est le jardin d’Éden, un rassemblement de réveil
+             qui réunit des adorateurs de plusieurs pays pour chercher, rencontrer et communier avec
+              l’Époux, à travers des moments puissants d’enseignement, de prière et de louange dans la présence de Dieu."
           />
 
           <motion.div
