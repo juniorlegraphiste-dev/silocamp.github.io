@@ -7,7 +7,7 @@
  * - Transitions de page fluides (framer-motion) + remontée en
  *   haut de page à chaque navigation.
  */
-import { HashRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { CartProvider } from "@/context/CartContext";
 import { Navbar } from "@/components/Navbar";
@@ -61,14 +61,14 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <CartProvider>
-      <HashRouter>
+      <BrowserRouter>
         <ScrollToTop />
         <div className="flex min-h-screen flex-col">
           <Navbar />
           <AnimatedRoutes />
           <Footer />
         </div>
-      </HashRouter>
+      </BrowserRouter>
     </CartProvider>
   );
 }
