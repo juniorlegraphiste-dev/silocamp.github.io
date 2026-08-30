@@ -1,33 +1,3 @@
-/**
- * =========================================================
- * SCAN TICKET — SILOCAMP
- * =========================================================
- *
- * Scanner QR Code pour le contrôle d'accès.
- *
- * Fonctionnement :
- * - Ouverture de la caméra
- * - Lecture automatique du QR Code
- * - Détection d'un numéro de billet ou d'une URL de vérification
- * - Extraction du verificationToken si nécessaire
- * - Vérification via ticketService
- * - Affichage du participant
- * - Validation automatique du billet
- * - Passage du billet VALID → USED
- *
- * Compatible avec :
- * - ticketService.ts
- * - TicketPDF.tsx
- * - Confirmation.tsx
- * - /ticket/verify
- *
- * IMPORTANT :
- * Cette version utilise actuellement localStorage.
- * En production, la validation devra être effectuée
- * côté serveur / base de données.
- * =========================================================
- */
-
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -46,9 +16,8 @@ import {
 } from "lucide-react";
 
 import {
-  validateTicket,
-  validateTicketByToken,
-  useTicket,
+  markTicketAsUsed,
+  verifyTicket,
   type Ticket as SiloTicket,
 } from "@/services/ticketService";
 
@@ -56,10 +25,6 @@ import {
   Html5Qrcode,
   Html5QrcodeSupportedFormats,
 } from "html5-qrcode";
-
-/* =========================================================
-   TYPES
-========================================================= */
 
 type ScanStatus =
   | "idle"
@@ -69,33 +34,8 @@ type ScanStatus =
   | "invalid"
   | "error";
 
-/* =========================================================
-   CONSTANTES
-========================================================= */
-
 const SCANNER_ID = "silocamp-qr-reader";
 
-/* =========================================================
-   UTILITAIRES QR
-========================================================= */
-
-/**
- * Extrait le token depuis un QR Code.
- *
- * Le QR peut contenir :
- *
- * 1. Un numéro :
- *    SILO-2026-ABC123
- *
- * 2. Un token :
- *    abcdef123456
- *
- * 3. Une URL :
- *    https://monsite.com/ticket/verify?token=abcdef123456
- *
- * 4. Une URL relative :
- *    /ticket/verify?token=abcdef123456
- */
 function extractQrData(decodedText: string): {
   type: "token" | "ticketNumber";
   value: string;
@@ -109,11 +49,11 @@ function extractQrData(decodedText: string): {
     };
   }
 
-  /*
-   * Tentative d'analyse comme URL.
-   */
   try {
-    const url = new URL(value, window.location.origin);
+    const url = new URL(
+      value,
+      window.location.origin,
+    );
 
     const token = url.searchParams.get("token");
 
@@ -124,40 +64,29 @@ function extractQrData(decodedText: string): {
       };
     }
   } catch {
-    /*
-     * Ce n'est pas une URL.
-     * On traite donc directement la valeur.
-     */
+    // Valeur QR simple.
   }
 
-  /*
-   * Si ce n'est pas une URL contenant un token,
-   * on considère la valeur comme un numéro de billet
-   * ou un verificationToken brut.
-   */
   return {
     type: "ticketNumber",
     value,
   };
 }
 
-/* =========================================================
-   COMPONENT
-========================================================= */
-
 export default function ScanTicket() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const processingRef = useRef(false);
   const mountedRef = useRef(true);
 
-  const [status, setStatus] = useState<ScanStatus>("idle");
-  const [message, setMessage] = useState("");
-  const [ticket, setTicket] = useState<SiloTicket | null>(null);
-  const [cameraError, setCameraError] = useState("");
+  const [status, setStatus] =
+    useState<ScanStatus>("idle");
 
-  /* =======================================================
-     SAFE STATE HELPERS
-  ======================================================= */
+  const [message, setMessage] = useState("");
+  const [ticket, setTicket] =
+    useState<SiloTicket | null>(null);
+
+  const [cameraError, setCameraError] =
+    useState("");
 
   const safeSetStatus = (value: ScanStatus) => {
     if (mountedRef.current) {
@@ -171,15 +100,13 @@ export default function ScanTicket() {
     }
   };
 
-  const safeSetTicket = (value: SiloTicket | undefined | null) => {
+  const safeSetTicket = (
+    value: SiloTicket | null | undefined,
+  ) => {
     if (mountedRef.current) {
       setTicket(value ?? null);
     }
   };
-
-  /* =======================================================
-     ARRÊTER LE SCANNER
-  ======================================================= */
 
   const stopScanner = async () => {
     const scanner = scannerRef.current;
@@ -211,15 +138,14 @@ export default function ScanTicket() {
     scannerRef.current = null;
   };
 
-  /* =======================================================
-     VALIDATION DU QR CODE
-  ======================================================= */
-
-  const validateScannedValue = (decodedText: string): SiloTicket | null => {
+  const verifyScannedValue = async (
+    decodedText: string,
+  ): Promise<SiloTicket | null> => {
     const qrData = extractQrData(decodedText);
 
     if (!qrData.value) {
       safeSetStatus("invalid");
+
       safeSetMessage(
         "Le QR Code ne contient aucune information exploitable.",
       );
@@ -227,77 +153,43 @@ export default function ScanTicket() {
       return null;
     }
 
-    /*
-     * -------------------------------------------------------
-     * CAS 1 — QR contenant une URL avec ?token=
-     * -------------------------------------------------------
-     */
+    let result;
 
     if (qrData.type === "token") {
-      const result = validateTicketByToken(qrData.value);
+      result = await verifyTicket(qrData.value);
+    } else {
+      const directResult = await verifyTicket(
+        qrData.value,
+      );
 
-      if (!result.valid || !result.ticket) {
-        safeSetTicket(result.ticket ?? null);
-        safeSetStatus("invalid");
-        safeSetMessage(result.message);
-
-        return null;
+      if (
+        directResult.valid &&
+        directResult.ticket
+      ) {
+        result = directResult;
+      } else {
+        result = await verifyTicket(qrData.value);
       }
-
-      return result.ticket;
     }
 
-    /*
-     * -------------------------------------------------------
-     * CAS 2 — QR contenant directement un numéro de billet
-     * -------------------------------------------------------
-     */
+    if (!result.valid || !result.ticket) {
+      safeSetTicket(result.ticket ?? null);
+      safeSetStatus("invalid");
 
-    const result = validateTicket(qrData.value);
+      safeSetMessage(
+        result.message ||
+          "Ce billet ne correspond à aucun billet valide.",
+      );
 
-    if (result.valid && result.ticket) {
-      return result.ticket;
+      return null;
     }
 
-    /*
-     * -------------------------------------------------------
-     * CAS 3 — Si la valeur n'est pas un numéro valide,
-     * on tente également comme verificationToken.
-     *
-     * Cela permet de supporter plusieurs générations
-     * de billets sans casser les anciens QR Codes.
-     * -------------------------------------------------------
-     */
-
-    const tokenResult = validateTicketByToken(qrData.value);
-
-    if (tokenResult.valid && tokenResult.ticket) {
-      return tokenResult.ticket;
-    }
-
-    /*
-     * Aucun billet trouvé.
-     */
-
-    safeSetTicket(result.ticket ?? tokenResult.ticket ?? null);
-    safeSetStatus("invalid");
-    safeSetMessage(
-      result.message ||
-        tokenResult.message ||
-        "Ce QR Code ne correspond à aucun billet valide.",
-    );
-
-    return null;
+    return result.ticket;
   };
 
-  /* =======================================================
-     TRAITEMENT QR CODE
-  ======================================================= */
-
-  const handleScan = async (decodedText: string) => {
-    /*
-     * Empêche plusieurs validations simultanées.
-     */
+  const handleScan = async (
+    decodedText: string,
+  ) => {
     if (processingRef.current) {
       return;
     }
@@ -307,108 +199,78 @@ export default function ScanTicket() {
     safeSetStatus("validating");
     safeSetMessage("Vérification du billet...");
 
-    /*
-     * Arrêt immédiat du scanner afin d'éviter
-     * plusieurs lectures du même QR.
-     */
     await stopScanner();
 
     try {
-      /*
-       * Validation du billet.
-       */
-      const ticketToUse = validateScannedValue(decodedText);
+      const verifiedTicket =
+        await verifyScannedValue(decodedText);
 
-      /*
-       * Aucun billet valide.
-       */
-      if (!ticketToUse) {
-        processingRef.current = false;
+      if (!verifiedTicket) {
         return;
       }
 
-      /*
-       * Affichage immédiat du billet trouvé.
-       */
-      safeSetTicket(ticketToUse);
+      safeSetTicket(verifiedTicket);
 
-      /*
-       * -----------------------------------------------------
-       * Vérification supplémentaire du statut
-       * -----------------------------------------------------
-       */
-
-      if (ticketToUse.status === "USED") {
+      if (verifiedTicket.status === "USED") {
         safeSetStatus("invalid");
+
         safeSetMessage(
           "Ce billet a déjà été utilisé et ne peut plus donner accès à l'événement.",
         );
 
-        processingRef.current = false;
         return;
       }
 
-      if (ticketToUse.status === "CANCELLED") {
+      if (
+        verifiedTicket.status ===
+        "CANCELLED"
+      ) {
         safeSetStatus("invalid");
+
         safeSetMessage(
           "Ce billet a été annulé et ne permet plus l'accès à l'événement.",
         );
 
-        processingRef.current = false;
         return;
       }
 
-      if (ticketToUse.status !== "VALID") {
+      if (
+        verifiedTicket.status !== "VALID"
+      ) {
         safeSetStatus("invalid");
+
         safeSetMessage(
           "Le statut de ce billet ne permet pas son utilisation.",
         );
 
-        processingRef.current = false;
         return;
       }
 
-      /*
-       * -----------------------------------------------------
-       * UTILISATION DU BILLET
-       * -----------------------------------------------------
-       *
-       * VALID → USED
-       */
+      safeSetMessage(
+        "Billet valide. Enregistrement de l'accès...",
+      );
 
-      const used = useTicket(ticketToUse.id);
-
-      if (!used) {
-        safeSetStatus("invalid");
-        safeSetMessage(
-          "Le billet est valide, mais son utilisation n'a pas pu être enregistrée.",
+      const usedTicket =
+        await markTicketAsUsed(
+          verifiedTicket.ticketNumber,
         );
 
-        processingRef.current = false;
+      if (
+        usedTicket.status !== "USED"
+      ) {
+        safeSetStatus("invalid");
+
+        safeSetMessage(
+          "Le billet a été vérifié, mais son utilisation n'a pas pu être enregistrée.",
+        );
+
         return;
       }
 
-      /*
-       * -----------------------------------------------------
-       * Mise à jour locale du billet
-       * -----------------------------------------------------
-       */
-
-      const updatedTicket: SiloTicket = {
-        ...ticketToUse,
-        status: "USED",
-        usedAt: new Date().toISOString(),
-      };
-
-      safeSetTicket(updatedTicket);
-
-      /*
-       * -----------------------------------------------------
-       * SUCCÈS
-       * -----------------------------------------------------
-       */
+      safeSetTicket(usedTicket);
 
       safeSetStatus("valid");
+
       safeSetMessage(
         "Billet validé avec succès. Accès autorisé.",
       );
@@ -430,21 +292,13 @@ export default function ScanTicket() {
     }
   };
 
-  /* =======================================================
-     DÉMARRER LE SCANNER
-  ======================================================= */
-
   const startScanner = async () => {
-    /*
-     * Empêche plusieurs instances de scanner.
-     */
     if (scannerRef.current) {
       return;
     }
 
     safeSetStatus("scanning");
     safeSetMessage("Recherche d'un QR Code...");
-
     safeSetTicket(null);
 
     if (mountedRef.current) {
@@ -454,10 +308,8 @@ export default function ScanTicket() {
     processingRef.current = false;
 
     try {
-      /*
-       * Vérifie que le conteneur existe.
-       */
-      const element = document.getElementById(SCANNER_ID);
+      const element =
+        document.getElementById(SCANNER_ID);
 
       if (!element) {
         throw new Error(
@@ -465,21 +317,18 @@ export default function ScanTicket() {
         );
       }
 
-      /*
-       * Création du scanner.
-       */
-      const scanner = new Html5Qrcode(SCANNER_ID, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-        ],
-        verbose: false,
-      });
+      const scanner = new Html5Qrcode(
+        SCANNER_ID,
+        {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+          ],
+          verbose: false,
+        },
+      );
 
       scannerRef.current = scanner;
 
-      /*
-       * Démarrage caméra.
-       */
       await scanner.start(
         {
           facingMode: "environment",
@@ -495,16 +344,7 @@ export default function ScanTicket() {
         async (decodedText) => {
           await handleScan(decodedText);
         },
-        () => {
-          /*
-           * Cette fonction est appelée lorsqu'aucun QR
-           * n'est détecté sur une frame.
-           *
-           * Ce comportement est normal.
-           *
-           * On n'affiche donc aucune erreur.
-           */
-        },
+        () => {},
       );
     } catch (error) {
       console.error(
@@ -530,10 +370,6 @@ export default function ScanTicket() {
     }
   };
 
-  /* =======================================================
-     RESET
-  ======================================================= */
-
   const resetScanner = async () => {
     await stopScanner();
 
@@ -547,20 +383,12 @@ export default function ScanTicket() {
       setCameraError("");
     }
 
-    /*
-     * Le démarrage est différé afin de laisser React
-     * remettre le DOM dans son état initial.
-     */
     window.setTimeout(() => {
       if (mountedRef.current) {
         void startScanner();
       }
     }, 100);
   };
-
-  /* =======================================================
-     DÉMARRAGE AUTOMATIQUE
-  ======================================================= */
 
   useEffect(() => {
     mountedRef.current = true;
@@ -573,21 +401,10 @@ export default function ScanTicket() {
 
       void stopScanner();
     };
-
-    // Le scanner doit être initialisé une seule fois au montage.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  /* =======================================================
-     RENDER
-  ======================================================= */
 
   return (
     <main className="container-px mx-auto max-w-5xl pb-24 pt-28 md:pt-32">
-      {/* ===================================================
-          HEADER
-      =================================================== */}
-
       <div className="mb-10">
         <Link
           to="/"
@@ -618,17 +435,11 @@ export default function ScanTicket() {
         </div>
       </div>
 
-      {/* ===================================================
-          SCANNER
-      =================================================== */}
-
       {(status === "idle" ||
         status === "scanning" ||
         status === "validating") && (
         <div className="mx-auto max-w-2xl">
           <div className="overflow-hidden rounded-3xl border border-gold-400/15 bg-ink-900/50 shadow-2xl">
-            {/* Scanner header */}
-
             <div className="border-b border-gold-400/10 p-5 sm:p-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300">
@@ -647,21 +458,15 @@ export default function ScanTicket() {
               </div>
             </div>
 
-            {/* Camera */}
-
             <div className="relative bg-black">
               <div
                 id={SCANNER_ID}
                 className="min-h-[320px] w-full overflow-hidden sm:min-h-[420px]"
               />
 
-              {/* Overlay */}
-
               {status === "scanning" && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <div className="relative h-[260px] w-[260px]">
-                    {/* Corners */}
-
                     <span className="absolute left-0 top-0 h-12 w-12 rounded-tl-2xl border-l-4 border-t-4 border-gold-400" />
 
                     <span className="absolute right-0 top-0 h-12 w-12 rounded-tr-2xl border-r-4 border-t-4 border-gold-400" />
@@ -670,14 +475,10 @@ export default function ScanTicket() {
 
                     <span className="absolute bottom-0 right-0 h-12 w-12 rounded-br-2xl border-b-4 border-r-4 border-gold-400" />
 
-                    {/* Scan line */}
-
                     <div className="absolute left-4 right-4 top-1/2 h-0.5 animate-pulse bg-gold-400 shadow-[0_0_15px_rgba(245,158,11,0.8)]" />
                   </div>
                 </div>
               )}
-
-              {/* Validation overlay */}
 
               {status === "validating" && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -691,8 +492,6 @@ export default function ScanTicket() {
                 </div>
               )}
             </div>
-
-            {/* Status */}
 
             <div className="p-5 text-center sm:p-6">
               <div className="flex items-center justify-center gap-2">
@@ -742,8 +541,6 @@ export default function ScanTicket() {
             </div>
           </div>
 
-          {/* Instructions */}
-
           <div className="mt-6 rounded-2xl border border-gold-400/10 bg-ink-900/30 p-5">
             <div className="flex items-start gap-3">
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-gold-300" />
@@ -765,20 +562,12 @@ export default function ScanTicket() {
         </div>
       )}
 
-      {/* ===================================================
-          BILLET VALIDE
-      =================================================== */}
-
       {status === "valid" && ticket && (
         <ValidTicket
           ticket={ticket}
           onScanAnother={resetScanner}
         />
       )}
-
-      {/* ===================================================
-          BILLET INVALIDE
-      =================================================== */}
 
       {status === "invalid" && (
         <InvalidTicket
@@ -787,10 +576,6 @@ export default function ScanTicket() {
           onScanAnother={resetScanner}
         />
       )}
-
-      {/* ===================================================
-          ERREUR
-      =================================================== */}
 
       {status === "error" && (
         <ErrorState
@@ -802,10 +587,6 @@ export default function ScanTicket() {
   );
 }
 
-/* =========================================================
-   VALID TICKET
-========================================================= */
-
 function ValidTicket({
   ticket,
   onScanAnother,
@@ -816,8 +597,6 @@ function ValidTicket({
   return (
     <div className="mx-auto max-w-2xl">
       <div className="overflow-hidden rounded-3xl border border-emerald-400/20 bg-emerald-400/5">
-        {/* Header */}
-
         <div className="border-b border-emerald-400/15 p-8 text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300">
             <CheckCircle2 className="h-11 w-11" />
@@ -831,8 +610,6 @@ function ValidTicket({
             Billet valide et enregistré comme utilisé.
           </p>
         </div>
-
-        {/* Ticket */}
 
         <div className="space-y-6 p-6 sm:p-8">
           <TicketInfo
@@ -875,8 +652,6 @@ function ValidTicket({
           </div>
         </div>
 
-        {/* Action */}
-
         <div className="border-t border-emerald-400/15 p-6">
           <button
             type="button"
@@ -892,10 +667,6 @@ function ValidTicket({
   );
 }
 
-/* =========================================================
-   INVALID TICKET
-========================================================= */
-
 function InvalidTicket({
   ticket,
   message,
@@ -906,13 +677,12 @@ function InvalidTicket({
   onScanAnother: () => void;
 }) {
   const isUsed = ticket?.status === "USED";
-  const isCancelled = ticket?.status === "CANCELLED";
+  const isCancelled =
+    ticket?.status === "CANCELLED";
 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="overflow-hidden rounded-3xl border border-red-400/20 bg-red-400/5">
-        {/* Header */}
-
         <div
           className={`border-b p-8 text-center ${
             isUsed
@@ -953,8 +723,6 @@ function InvalidTicket({
           </p>
         </div>
 
-        {/* Informations */}
-
         {ticket && (
           <div className="space-y-5 p-6 sm:p-8">
             <TicketInfo
@@ -981,7 +749,8 @@ function InvalidTicket({
               value={
                 ticket.status === "USED"
                   ? "DÉJÀ UTILISÉ"
-                  : ticket.status === "CANCELLED"
+                  : ticket.status ===
+                      "CANCELLED"
                     ? "ANNULÉ"
                     : "NON VALIDE"
               }
@@ -995,8 +764,6 @@ function InvalidTicket({
             </div>
           </div>
         )}
-
-        {/* Action */}
 
         <div className="border-t border-red-400/15 p-6">
           <button
@@ -1012,10 +779,6 @@ function InvalidTicket({
     </div>
   );
 }
-
-/* =========================================================
-   ERROR STATE
-========================================================= */
 
 function ErrorState({
   message,
@@ -1051,10 +814,6 @@ function ErrorState({
     </div>
   );
 }
-
-/* =========================================================
-   TICKET INFO
-========================================================= */
 
 function TicketInfo({
   icon,
