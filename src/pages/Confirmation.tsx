@@ -18,7 +18,9 @@ import { pdf } from "@react-pdf/renderer";
 import { Reveal } from "@/components/Reveal";
 import TicketPDF from "@/components/ticket/TicketPDF";
 
-const API_BASE_URL = "http://localhost:4000/api";
+/* =========================================================
+   TYPES
+   ========================================================= */
 
 type TicketStatus = "VALID" | "USED" | "CANCELLED";
 
@@ -66,6 +68,114 @@ type ConfirmationState = {
   phone?: string;
 };
 
+type StoredOrder = {
+  reservationId?: string;
+  ticketId?: string;
+  ticketNumber?: string;
+  verificationToken?: string;
+  participantName?: string;
+  email?: string;
+  phone?: string;
+};
+
+/* =========================================================
+   API
+   ========================================================= */
+
+const API_BASE_URL = "http://localhost:4000";
+
+async function fetchTicketByNumber(
+  ticketNumber: string,
+): Promise<ApiTicket> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/tickets/number/${encodeURIComponent(
+      ticketNumber,
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    },
+  );
+
+  let result: ApiTicketResponse | { message?: string } | null =
+    null;
+
+  try {
+    result = await response.json();
+  } catch {
+    result = null;
+  }
+
+  if (!response.ok) {
+    const message =
+      result &&
+      "message" in result &&
+      typeof result.message === "string"
+        ? result.message
+        : "Impossible de récupérer le billet.";
+
+    throw new Error(message);
+  }
+
+  if (!result || !("ticketNumber" in result)) {
+    throw new Error(
+      "Le serveur n'a pas retourné un billet valide.",
+    );
+  }
+
+  return result as ApiTicket;
+}
+
+async function fetchTicketById(
+  ticketId: string,
+): Promise<ApiTicket> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/tickets/${encodeURIComponent(
+      ticketId,
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    },
+  );
+
+  let result: ApiTicketResponse | { message?: string } | null =
+    null;
+
+  try {
+    result = await response.json();
+  } catch {
+    result = null;
+  }
+
+  if (!response.ok) {
+    const message =
+      result &&
+      "message" in result &&
+      typeof result.message === "string"
+        ? result.message
+        : "Impossible de récupérer le billet.";
+
+    throw new Error(message);
+  }
+
+  if (!result || !("ticketNumber" in result)) {
+    throw new Error(
+      "Le serveur n'a pas retourné un billet valide.",
+    );
+  }
+
+  return result as ApiTicket;
+}
+
+/* =========================================================
+   COMPONENT
+   ========================================================= */
+
 export default function Confirmation() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -73,149 +183,178 @@ export default function Confirmation() {
   const state = (location.state ?? {}) as ConfirmationState;
 
   const [ticket, setTicket] = useState<ApiTicket | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [ticketNotFound, setTicketNotFound] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
-  /**
-   * ---------------------------------------------------------
-   * Récupération du billet depuis l'API / Neon
-   * ---------------------------------------------------------
-   */
+  const [loading, setLoading] = useState(true);
+
+  const [ticketNotFound, setTicketNotFound] =
+    useState(false);
+
+  const [loadError, setLoadError] = useState("");
+
+  /* =======================================================
+     IDENTIFIANTS DE RÉCUPÉRATION
+     ======================================================= */
+
+  const identifiers = useMemo(() => {
+    let ticketId = state.ticketId?.trim() || "";
+    let ticketNumber =
+      state.ticketNumber?.trim() || "";
+    let verificationToken =
+      state.verificationToken?.trim() || "";
+    let reservationId =
+      state.reservationId?.trim() || "";
+
+    /*
+     * Fallback sessionStorage.
+     *
+     * Checkout sauvegarde déjà :
+     * silocamp-last-order
+     * wg-last-order
+     */
+    try {
+      const rawOrder =
+        sessionStorage.getItem("silocamp-last-order") ??
+        sessionStorage.getItem("wg-last-order");
+
+      if (rawOrder) {
+        const order = JSON.parse(
+          rawOrder,
+        ) as StoredOrder;
+
+        if (!ticketId && order.ticketId) {
+          ticketId = order.ticketId.trim();
+        }
+
+        if (!ticketNumber && order.ticketNumber) {
+          ticketNumber =
+            order.ticketNumber.trim();
+        }
+
+        if (
+          !verificationToken &&
+          order.verificationToken
+        ) {
+          verificationToken =
+            order.verificationToken.trim();
+        }
+
+        if (!reservationId && order.reservationId) {
+          reservationId =
+            order.reservationId.trim();
+        }
+      }
+    } catch (error) {
+      console.warn(
+        "[SiloCamp] Impossible de lire la réservation sauvegardée.",
+        error,
+      );
+    }
+
+    return {
+      ticketId,
+      ticketNumber,
+      verificationToken,
+      reservationId,
+    };
+  }, [
+    state.ticketId,
+    state.ticketNumber,
+    state.verificationToken,
+    state.reservationId,
+  ]);
+
+  /* =======================================================
+     RÉCUPÉRATION DU BILLET DEPUIS L'API / NEON
+     ======================================================= */
+
   useEffect(() => {
     let cancelled = false;
 
     const loadTicket = async () => {
       setLoading(true);
       setTicketNotFound(false);
-      setErrorMessage("");
+      setLoadError("");
 
       try {
-        let ticketNumber = state.ticketNumber;
+        let foundTicket: ApiTicket | null = null;
 
-        /**
-         * Si ticketNumber n'est pas présent dans location.state,
-         * on essaie de le récupérer depuis sessionStorage.
-         */
-        if (!ticketNumber) {
-          try {
-            const rawOrder =
-              sessionStorage.getItem("silocamp-last-order") ??
-              sessionStorage.getItem("wg-last-order");
-
-            if (rawOrder) {
-              const order = JSON.parse(rawOrder);
-
-              if (order?.ticketNumber) {
-                ticketNumber = order.ticketNumber;
-              }
-            }
-          } catch (storageError) {
-            console.warn(
-              "[SiloCamp] Impossible de lire sessionStorage.",
-              storageError,
-            );
-          }
-        }
-
-        /**
-         * Pour le moment, l'API expose :
+        /*
+         * PRIORITÉ 1 :
+         * ticketNumber
          *
+         * L'API possède déjà :
          * GET /api/tickets/number/:ticketNumber
-         *
-         * On utilise donc ticketNumber pour récupérer
-         * directement le billet stocké dans Neon.
          */
-        if (!ticketNumber) {
-          throw new Error(
-            "Aucun numéro de billet n'a été transmis pour retrouver votre réservation.",
-          );
-        }
-
-        const response = await fetch(
-          `${API_BASE_URL}/tickets/number/${encodeURIComponent(
-            ticketNumber,
-          )}`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-          },
-        );
-
-        let data: unknown = null;
-
-        try {
-          data = await response.json();
-        } catch {
-          data = null;
-        }
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            setTicketNotFound(true);
-
-            throw new Error(
-              "Votre billet est introuvable dans la base de données.",
+        if (identifiers.ticketNumber) {
+          try {
+            foundTicket = await fetchTicketByNumber(
+              identifiers.ticketNumber,
+            );
+          } catch (error) {
+            console.warn(
+              "[SiloCamp] Recherche par ticketNumber échouée.",
+              error,
             );
           }
-
-          const apiMessage =
-            typeof data === "object" &&
-            data !== null &&
-            "message" in data &&
-            typeof (data as { message?: unknown }).message ===
-              "string"
-              ? (data as { message: string }).message
-              : "";
-
-          throw new Error(
-            apiMessage ||
-              "Impossible de récupérer votre réservation.",
-          );
         }
 
-        const apiTicket = data as ApiTicketResponse;
-
-        /**
-         * Vérification minimale de la réponse API.
+        /*
+         * PRIORITÉ 2 :
+         * ticketId
+         *
+         * Cette route doit exister côté API si on souhaite
+         * utiliser ce fallback.
          */
         if (
-          !apiTicket ||
-          typeof apiTicket !== "object" ||
-          !apiTicket.id ||
-          !apiTicket.ticketNumber ||
-          !apiTicket.verificationToken
+          !foundTicket &&
+          identifiers.ticketId
         ) {
+          try {
+            foundTicket = await fetchTicketById(
+              identifiers.ticketId,
+            );
+          } catch (error) {
+            console.warn(
+              "[SiloCamp] Recherche par ticketId échouée.",
+              error,
+            );
+          }
+        }
+
+        /*
+         * Si aucune identification n'est disponible,
+         * impossible de récupérer le billet.
+         */
+        if (!foundTicket) {
           throw new Error(
-            "La réponse de l'API est incomplète : les informations du billet sont manquantes.",
+            "Impossible d'identifier votre billet.",
           );
         }
 
-        if (!cancelled) {
-          setTicket(apiTicket);
-          setTicketNotFound(false);
+        if (cancelled) {
+          return;
         }
+
+        setTicket(foundTicket);
+        setTicketNotFound(false);
       } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
         console.error(
-          "[SiloCamp] Erreur récupération billet API :",
+          "[SiloCamp] Impossible de récupérer le billet depuis l'API.",
           error,
         );
 
-        if (!cancelled) {
-          setTicket(null);
+        setTicket(null);
+        setTicketNotFound(true);
 
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Impossible de récupérer votre réservation.",
-          );
-
-          if (!ticketNotFound) {
-            setTicketNotFound(true);
-          }
-        }
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Impossible de récupérer votre billet.",
+        );
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -228,150 +367,15 @@ export default function Confirmation() {
     return () => {
       cancelled = true;
     };
-  }, [state.ticketNumber]);
+  }, [
+    identifiers.ticketId,
+    identifiers.ticketNumber,
+  ]);
 
-  /**
-   * ---------------------------------------------------------
-   * Nom du participant
-   * ---------------------------------------------------------
-   */
-  const participantName = useMemo(() => {
-    if (!ticket) {
-      return "Participant";
-    }
+  /* =======================================================
+     LOADING
+     ======================================================= */
 
-    return (
-      ticket.participantName ||
-      [ticket.firstName, ticket.lastName]
-        .filter(Boolean)
-        .join(" ") ||
-      "Participant"
-    );
-  }, [ticket]);
-
-  /**
-   * ---------------------------------------------------------
-   * URL sécurisée du QR Code
-   * ---------------------------------------------------------
-   */
-  const verificationUrl = useMemo(() => {
-    if (!ticket?.verificationToken) {
-      return "";
-    }
-
-    return `${window.location.origin}/ticket/verify?token=${encodeURIComponent(
-      ticket.verificationToken,
-    )}`;
-  }, [ticket]);
-
-  /**
-   * ---------------------------------------------------------
-   * Téléchargement du QR Code
-   * ---------------------------------------------------------
-   */
-  const downloadQRCode = () => {
-    if (!ticket) {
-      return;
-    }
-
-    const canvas = document.getElementById(
-      "silocamp-ticket-qr",
-    ) as HTMLCanvasElement | null;
-
-    if (!canvas) {
-      console.error(
-        "[SiloCamp] QR Code canvas introuvable.",
-      );
-
-      return;
-    }
-
-    try {
-      const url = canvas.toDataURL("image/png");
-
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download = `${ticket.ticketNumber}-QR.png`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error(
-        "[SiloCamp] Impossible de télécharger le QR Code.",
-        error,
-      );
-    }
-  };
-
-  /**
-   * ---------------------------------------------------------
-   * Génération du PDF
-   * ---------------------------------------------------------
-   */
-  const downloadPDF = async () => {
-    if (!ticket) {
-      return;
-    }
-
-    try {
-      /**
-       * On récupère le canvas QR Code affiché.
-       * TicketPDF attend qrCodeDataUrl.
-       */
-      const canvas = document.getElementById(
-        "silocamp-ticket-qr",
-      ) as HTMLCanvasElement | null;
-
-      let qrCodeDataUrl: string | undefined;
-
-      if (canvas) {
-        qrCodeDataUrl = canvas.toDataURL("image/png");
-      }
-
-      /**
-       * TicketPDF utilise le type Ticket de ticketService.
-       *
-       * Notre objet API possède la même structure utile.
-       */
-      const blob = await pdf(
-        <TicketPDF
-          ticket={ticket as never}
-          verificationUrl={verificationUrl}
-          qrCodeDataUrl={qrCodeDataUrl}
-        />,
-      ).toBlob();
-
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download = `${ticket.ticketNumber}-SiloCamp-2026.pdf`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error(
-        "[SiloCamp] Impossible de générer le PDF.",
-        error,
-      );
-
-      window.alert(
-        "Impossible de générer le billet PDF. Veuillez réessayer.",
-      );
-    }
-  };
-
-  /**
-   * ---------------------------------------------------------
-   * État de chargement
-   * ---------------------------------------------------------
-   */
   if (loading) {
     return (
       <div className="container-px mx-auto flex min-h-[75vh] items-center justify-center py-32">
@@ -379,22 +383,21 @@ export default function Confirmation() {
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-gold-400/20 border-t-gold-300" />
 
           <p className="mt-4 text-sm text-cream-dim">
-            Vérification de votre réservation...
+            Récupération de votre réservation...
           </p>
 
           <p className="mt-2 text-xs text-cream-faint">
-            Connexion à SiloCamp...
+            Connexion à SiloCamp
           </p>
         </div>
       </div>
     );
   }
 
-  /**
-   * ---------------------------------------------------------
-   * Billet introuvable / erreur API
-   * ---------------------------------------------------------
-   */
+  /* =======================================================
+     BILLET INTROUVABLE
+     ======================================================= */
+
   if (ticketNotFound || !ticket) {
     return (
       <div className="container-px mx-auto flex min-h-[75vh] max-w-2xl items-center justify-center py-32">
@@ -408,18 +411,26 @@ export default function Confirmation() {
           </h1>
 
           <p className="mt-3 text-sm leading-relaxed text-cream-dim">
-            {errorMessage ||
-              "Nous n'avons pas pu retrouver votre billet dans la base de données."}
+            Nous n'avons pas pu récupérer votre billet
+            depuis le serveur SiloCamp.
           </p>
 
-          {state.ticketNumber && (
+          {loadError && (
+            <div className="mt-5 rounded-2xl border border-red-400/10 bg-red-400/5 p-4">
+              <p className="text-xs leading-relaxed text-red-300">
+                {loadError}
+              </p>
+            </div>
+          )}
+
+          {identifiers.ticketNumber && (
             <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-cream-faint">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-cream-faint">
                 Numéro recherché
               </p>
 
-              <p className="mt-2 font-mono text-sm text-gold-300">
-                {state.ticketNumber}
+              <p className="mt-2 break-all font-mono text-sm text-gold-300">
+                {identifiers.ticketNumber}
               </p>
             </div>
           )}
@@ -447,15 +458,154 @@ export default function Confirmation() {
     );
   }
 
-  /**
-   * ---------------------------------------------------------
-   * Affichage du billet
-   * ---------------------------------------------------------
-   */
+  /* =======================================================
+     DONNÉES DU BILLET
+     ======================================================= */
+
+  const participantName =
+    ticket.participantName ||
+    [ticket.firstName, ticket.lastName]
+      .filter(Boolean)
+      .join(" ") ||
+    state.participantName ||
+    "Participant";
+
+  const verificationUrl =
+    `${window.location.origin}/ticket/verify?token=` +
+    encodeURIComponent(
+      ticket.verificationToken,
+    );
+
+  /* =======================================================
+     QR CODE
+     ======================================================= */
+
+  const downloadQRCode = () => {
+    const canvas = document.getElementById(
+      "silocamp-ticket-qr",
+    ) as HTMLCanvasElement | null;
+
+    if (!canvas) {
+      console.error(
+        "[SiloCamp] QR Code introuvable.",
+      );
+
+      return;
+    }
+
+    const url = canvas.toDataURL("image/png");
+
+    const link =
+      document.createElement("a");
+
+    link.href = url;
+
+    link.download =
+      `${ticket.ticketNumber}-QR.png`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  /* =======================================================
+     PDF
+     ======================================================= */
+
+  const downloadPDF = async () => {
+    try {
+      const canvas = document.getElementById(
+        "silocamp-ticket-qr",
+      ) as HTMLCanvasElement | null;
+
+      if (!canvas) {
+        throw new Error(
+          "Impossible de récupérer le QR Code.",
+        );
+      }
+
+      const qrCodeDataUrl =
+        canvas.toDataURL("image/png");
+
+      const blob = await pdf(
+        <TicketPDF
+          ticket={ticket}
+          verificationUrl={verificationUrl}
+          qrCodeDataUrl={qrCodeDataUrl}
+        />,
+      ).toBlob();
+
+      const url =
+        URL.createObjectURL(blob);
+
+      const link =
+        document.createElement("a");
+
+      link.href = url;
+
+      link.download =
+        `${ticket.ticketNumber}-SiloCamp-2026.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(
+        "[SiloCamp] Impossible de générer le PDF.",
+        error,
+      );
+    }
+  };
+
+  /* =======================================================
+     STATUS
+     ======================================================= */
+
+  const statusConfig = {
+    VALID: {
+      label: "Billet valide",
+      className:
+        "bg-emerald-500/15 text-emerald-300",
+    },
+
+    USED: {
+      label: "Billet utilisé",
+      className:
+        "bg-amber-500/15 text-amber-300",
+    },
+
+    CANCELLED: {
+      label: "Billet annulé",
+      className:
+        "bg-red-500/15 text-red-300",
+    },
+  } as const;
+
+  const status =
+    statusConfig[ticket.status];
+
+  /* =======================================================
+     RENDER
+     ======================================================= */
+
   return (
     <div className="container-px mx-auto max-w-6xl pb-28 pt-28 md:pt-32 lg:pb-20">
+      {/* ===================================================
+          HEADER
+      =================================================== */}
+
       <Reveal className="text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
+        <div
+          className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full ${
+            ticket.status === "VALID"
+              ? "bg-emerald-500/15 text-emerald-300"
+              : ticket.status === "USED"
+                ? "bg-amber-500/15 text-amber-300"
+                : "bg-red-500/15 text-red-300"
+          }`}
+        >
           <CheckCircle2 className="h-8 w-8" />
         </div>
 
@@ -472,14 +622,20 @@ export default function Confirmation() {
         </h1>
 
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
-          Votre e-billet a été enregistré avec succès. Conservez
-          ce billet et présentez le QR Code à l'entrée du Camp.
+          Votre e-billet a été enregistré avec
+          succès. Conservez ce billet et présentez
+          le QR Code à l'entrée du Camp.
         </p>
       </Reveal>
 
+      {/* ===================================================
+          TICKET
+      =================================================== */}
+
       <Reveal className="mx-auto mt-12 max-w-4xl">
         <div className="overflow-hidden rounded-[2rem] border border-gold-400/15 bg-ink-900/60 shadow-2xl">
-          {/* HEADER */}
+          {/* HEADER TICKET */}
+
           <div className="border-b border-gold-400/10 bg-gold-400/5 p-6 sm:p-8">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -492,98 +648,98 @@ export default function Confirmation() {
                 </h2>
               </div>
 
-              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
+              <span
+                className={`inline-flex w-fit items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider ${status.className}`}
+              >
                 <CheckCircle2 className="h-4 w-4" />
 
-                {ticket.status === "VALID"
-                  ? "Billet valide"
-                  : ticket.status}
+                {status.label}
               </span>
             </div>
           </div>
 
-          {/* CONTENT */}
+          {/* BODY */}
+
           <div className="grid gap-10 p-6 sm:p-8 lg:grid-cols-[1fr_280px]">
             <div>
+              {/* INFORMATIONS */}
+
               <div className="grid gap-5 sm:grid-cols-2">
                 <InfoItem
-                  icon={<User className="h-4 w-4" />}
+                  icon={
+                    <User className="h-4 w-4" />
+                  }
                   label="Participant"
                   value={participantName}
                 />
 
                 <InfoItem
-                  icon={<Ticket className="h-4 w-4" />}
+                  icon={
+                    <Ticket className="h-4 w-4" />
+                  }
                   label="Numéro du billet"
                   value={ticket.ticketNumber}
                 />
 
                 <InfoItem
-                  icon={<CalendarDays className="h-4 w-4" />}
+                  icon={
+                    <CalendarDays className="h-4 w-4" />
+                  }
                   label="Date"
                   value={`${ticket.dateLabel} · ${ticket.time}`}
                 />
 
                 <InfoItem
-                  icon={<MapPin className="h-4 w-4" />}
+                  icon={
+                    <MapPin className="h-4 w-4" />
+                  }
                   label="Lieu"
                   value={`${ticket.venue}, ${ticket.city}`}
                 />
               </div>
 
               {/* EMAIL */}
-              <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
-                <div className="flex items-center gap-2 text-gold-300">
-                  <span className="text-xs uppercase tracking-wider">
-                    E-mail
-                  </span>
-                </div>
 
-                <p className="mt-2 break-words text-sm font-medium text-cream">
-                  {ticket.email}
-                </p>
+              <div className="mt-5">
+                <InfoItem
+                  icon={
+                    <BadgeCheck className="h-4 w-4" />
+                  }
+                  label="E-mail"
+                  value={ticket.email}
+                />
               </div>
 
-              {/* TELEPHONE */}
-              {ticket.phone && (
-                <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
-                  <div className="flex items-center gap-2 text-gold-300">
-                    <span className="text-xs uppercase tracking-wider">
-                      Téléphone
-                    </span>
-                  </div>
+              {/* PHONE */}
 
-                  <p className="mt-2 text-sm font-medium text-cream">
-                    {ticket.phone}
-                  </p>
+              {ticket.phone && (
+                <div className="mt-5">
+                  <InfoItem
+                    icon={
+                      <User className="h-4 w-4" />
+                    }
+                    label="Téléphone"
+                    value={ticket.phone}
+                  />
                 </div>
               )}
 
               {/* RESERVATION */}
+
               <div className="mt-8 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-5">
                 <p className="text-xs uppercase tracking-[0.18em] text-cream-faint">
                   Réservation
                 </p>
 
-                <p className="mt-2 font-mono text-sm text-gold-300">
+                <p className="mt-2 break-all font-mono text-sm text-gold-300">
                   {ticket.reservationId ??
                     state.reservationId ??
                     "Réservation confirmée"}
                 </p>
               </div>
 
-              {/* ID TECHNIQUE */}
-              <div className="mt-4 rounded-2xl border border-gold-400/5 bg-ink-950/20 p-4">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-cream-faint">
-                  Identifiant du billet
-                </p>
-
-                <p className="mt-1 break-all font-mono text-xs text-cream-faint">
-                  {ticket.id}
-                </p>
-              </div>
-
               {/* QR INFO */}
+
               <div className="mt-8 rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-5">
                 <div className="flex items-start gap-3">
                   <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
@@ -594,16 +750,21 @@ export default function Confirmation() {
                     </h3>
 
                     <p className="mt-1 text-sm leading-relaxed text-cream-dim">
-                      Le QR Code contient un lien sécurisé permettant
-                      à l'organisation de vérifier automatiquement
-                      l'authenticité de votre billet.
+                      Le QR Code contient un lien
+                      sécurisé permettant à
+                      l'organisation de vérifier votre
+                      billet directement depuis le
+                      serveur SiloCamp.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* QR CODE */}
+            {/* =================================================
+                QR CODE
+            ================================================= */}
+
             <div className="flex flex-col items-center">
               <div className="rounded-3xl bg-white p-5 shadow-xl">
                 <QRCodeCanvas
@@ -616,8 +777,9 @@ export default function Confirmation() {
               </div>
 
               <p className="mt-4 max-w-[240px] text-center text-xs leading-relaxed text-cream-faint">
-                Scannez ce QR Code pour ouvrir automatiquement
-                la page de vérification du billet.
+                Scannez ce QR Code pour ouvrir
+                automatiquement la page de
+                vérification.
               </p>
 
               <button
@@ -631,7 +793,10 @@ export default function Confirmation() {
             </div>
           </div>
 
-          {/* ACTIONS */}
+          {/* =================================================
+              ACTIONS
+          ================================================= */}
+
           <div className="flex flex-col gap-3 border-t border-gold-400/10 p-6 sm:flex-row sm:justify-end sm:p-8">
             <button
               type="button"
@@ -644,7 +809,9 @@ export default function Confirmation() {
 
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() =>
+                window.print()
+              }
               className="btn-ghost inline-flex items-center justify-center gap-2"
             >
               <Printer className="h-4 w-4" />
@@ -654,7 +821,10 @@ export default function Confirmation() {
         </div>
       </Reveal>
 
-      {/* FOOTER */}
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
+
       <Reveal className="mt-8 text-center">
         <Link
           to="/"
@@ -668,11 +838,10 @@ export default function Confirmation() {
   );
 }
 
-/**
- * ---------------------------------------------------------
- * INFO ITEM
- * ---------------------------------------------------------
- */
+/* ===========================================================
+   INFO ITEM
+   =========================================================== */
+
 function InfoItem({
   icon,
   label,
