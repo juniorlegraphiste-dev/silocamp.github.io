@@ -1,4 +1,4 @@
-/* import "dotenv/config";
+import "dotenv/config";
 
 import express from "express";
 import cors from "cors";
@@ -16,22 +16,36 @@ app.use(
 
 app.use(express.json());
 
+/**
+ * HEALTH CHECK
+ */
 app.get("/api/health", (_req, res) => {
-  res.json({
+  return res.json({
     success: true,
     service: "SiloCamp API",
     status: "ok",
+    timestamp: new Date().toISOString(),
   });
 });
 
+/**
+ * TICKETS API
+ */
 app.use("/api/tickets", ticketsRouter);
 
-app.use((_req, res) => {
-  res.status(404).json({
+/**
+ * ROUTE API INEXISTANTE
+ */
+app.use("/api/*", (_req, res) => {
+  return res.status(404).json({
+    success: false,
     message: "Route API introuvable.",
   });
 });
 
+/**
+ * ERREUR SERVEUR
+ */
 app.use(
   (
     error: unknown,
@@ -41,24 +55,11 @@ app.use(
   ) => {
     console.error("[SiloCamp API]", error);
 
-    res.status(500).json({
+    return res.status(500).json({
+      success: false,
       message: "Erreur interne du serveur.",
     });
   },
 );
 
-export default app; */
-
-
-
-import "dotenv/config";
-
-import app from "./app";
-
-const PORT = Number(process.env.PORT) || 4000;
-
-app.listen(PORT, () => {
-  console.log(
-    `SiloCamp API démarrée sur http://localhost:${PORT}`,
-  );
-});
+export default app;
