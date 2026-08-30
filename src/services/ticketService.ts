@@ -1,4 +1,7 @@
-export type TicketStatus = "VALID" | "USED" | "CANCELLED";
+export type TicketStatus =
+  | "VALID"
+  | "USED"
+  | "CANCELLED";
 
 export type Ticket = {
   id: string;
@@ -46,6 +49,7 @@ export type CreateTicketInput = {
   eventTitle: string;
   dateLabel: string;
   time: string;
+
   duration?: string;
 
   venue: string;
@@ -66,29 +70,17 @@ export type TicketStats = {
 };
 
 /* =========================================================
-   API URL
-   ========================================================= */
+   API
+========================================================= */
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") ||
-  "http://localhost:4000";
+  import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
 
 const API_URL = `${API_BASE_URL}/api/tickets`;
 
 /* =========================================================
-   TYPES API
-   ========================================================= */
-
-export type VerifyTicketResponse = {
-  valid: boolean;
-  reason?: string | null;
-  message: string;
-  ticket?: Ticket;
-};
-
-/* =========================================================
-   RESPONSE PARSER
-   ========================================================= */
+   RESPONSE
+========================================================= */
 
 async function parseResponse<T>(
   response: Response,
@@ -119,51 +111,33 @@ async function parseResponse<T>(
 }
 
 /* =========================================================
-   NORMALISATION
-   ========================================================= */
+   NORMALIZE
+========================================================= */
 
 function normalizeTicket(ticket: Ticket): Ticket {
   return {
     ...ticket,
-
-    firstName: ticket.firstName ?? null,
-    lastName: ticket.lastName ?? null,
-
-    phone: ticket.phone ?? null,
-
-    reservationId: ticket.reservationId ?? null,
-    eventId: ticket.eventId ?? null,
-
-    duration: ticket.duration ?? null,
-
-    createdAt: ticket.createdAt,
-
     usedAt: ticket.usedAt ?? null,
     cancelledAt: ticket.cancelledAt ?? null,
   };
 }
 
 /* =========================================================
-   GET ALL TICKETS
-   ========================================================= */
+   GET TICKETS
+========================================================= */
 
 export async function getTickets(): Promise<Ticket[]> {
-  const response = await fetch(API_URL, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
+  const response = await fetch(API_URL);
 
-  const tickets = await parseResponse<Ticket[]>(response);
+  const tickets =
+    await parseResponse<Ticket[]>(response);
 
   return tickets.map(normalizeTicket);
 }
 
 /* =========================================================
-   GET TICKET BY ID
-   ========================================================= */
+   GET BY ID
+========================================================= */
 
 export async function getTicketById(
   id: string,
@@ -171,88 +145,46 @@ export async function getTicketById(
   const tickets = await getTickets();
 
   return (
-    tickets.find((ticket) => ticket.id === id) ??
-    null
+    tickets.find(
+      (ticket) => ticket.id === id,
+    ) ?? null
   );
 }
 
 /* =========================================================
-   GET TICKET BY NUMBER
-   ========================================================= */
+   GET BY NUMBER
+========================================================= */
 
 export async function getTicketByNumber(
   ticketNumber: string,
 ): Promise<Ticket | null> {
-  const number = ticketNumber.trim();
-
-  if (!number) {
-    return null;
-  }
-
   const response = await fetch(
-    `${API_URL}/number/${encodeURIComponent(number)}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    },
+    `${API_URL}/number/${encodeURIComponent(
+      ticketNumber,
+    )}`,
   );
 
   if (response.status === 404) {
     return null;
   }
 
-  const ticket = await parseResponse<Ticket>(response);
+  const ticket =
+    await parseResponse<Ticket>(response);
 
   return normalizeTicket(ticket);
 }
 
 /* =========================================================
-   GET TICKET BY VERIFICATION TOKEN
-   ========================================================= */
-
-export async function getTicketByVerificationToken(
-  verificationToken: string,
-): Promise<Ticket | null> {
-  const token = verificationToken.trim();
-
-  if (!token) {
-    return null;
-  }
-
-  const result = await verifyTicket(token);
-
-  return result.ticket ?? null;
-}
-
-/* =========================================================
-   GET TICKETS BY EMAIL
-   ========================================================= */
+   GET BY EMAIL
+========================================================= */
 
 export async function getTicketByEmail(
   email: string,
 ): Promise<Ticket[]> {
-  const normalizedEmail = email
-    .trim()
-    .toLowerCase();
-
-  if (!normalizedEmail) {
-    return [];
-  }
-
   const response = await fetch(
     `${API_URL}/email/${encodeURIComponent(
-      normalizedEmail,
+      email.trim().toLowerCase(),
     )}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    },
   );
 
   const tickets =
@@ -262,8 +194,8 @@ export async function getTicketByEmail(
 }
 
 /* =========================================================
-   GET TICKETS BY PHONE
-   ========================================================= */
+   GET BY PHONE
+========================================================= */
 
 export async function getTicketByPhone(
   phone: string,
@@ -272,21 +204,10 @@ export async function getTicketByPhone(
     .replace(/[^\d+]/g, "")
     .trim();
 
-  if (!normalizedPhone) {
-    return [];
-  }
-
   const response = await fetch(
     `${API_URL}/phone/${encodeURIComponent(
       normalizedPhone,
     )}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    },
   );
 
   const tickets =
@@ -296,15 +217,17 @@ export async function getTicketByPhone(
 }
 
 /* =========================================================
-   VERIFY TICKET
-   IMPORTANT :
-   Cette fonction vérifie uniquement.
-   Elle ne marque PAS le billet comme utilisé.
-   ========================================================= */
+   VERIFY TOKEN
+========================================================= */
 
 export async function verifyTicket(
   verificationToken: string,
-): Promise<VerifyTicketResponse> {
+): Promise<{
+  valid: boolean;
+  reason?: string | null;
+  message: string;
+  ticket?: Ticket;
+}> {
   const token = verificationToken.trim();
 
   if (!token) {
@@ -315,28 +238,18 @@ export async function verifyTicket(
     };
   }
 
-  let response: Response;
+  const response = await fetch(
+    `${API_URL}/verify?token=${encodeURIComponent(
+      token,
+    )}`,
+  );
 
-  try {
-    response = await fetch(
-      `${API_URL}/verify?token=${encodeURIComponent(
-        token,
-      )}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      },
-    );
-  } catch {
-    throw new Error(
-      "Impossible de contacter le serveur SiloCamp.",
-    );
-  }
-
-  let data: VerifyTicketResponse;
+  let data: {
+    valid: boolean;
+    reason?: string | null;
+    message: string;
+    ticket?: Ticket;
+  };
 
   try {
     data = await response.json();
@@ -347,68 +260,36 @@ export async function verifyTicket(
   }
 
   if (data.ticket) {
-    data.ticket = normalizeTicket(data.ticket);
+    data.ticket = normalizeTicket(
+      data.ticket,
+    );
   }
-
-  /*
-   * IMPORTANT :
-   * Le backend peut répondre 400/404 pour un billet utilisé,
-   * annulé ou inexistant.
-   *
-   * On retourne quand même la réponse afin que l'interface
-   * puisse afficher correctement le statut.
-   */
 
   return data;
 }
 
 /* =========================================================
    CREATE TICKET
-   ========================================================= */
+========================================================= */
 
 export async function createTicket(
   input: CreateTicketInput,
 ): Promise<Ticket> {
-  const participantName =
-    input.participantName?.trim() ||
-    `${input.firstName ?? ""} ${
-      input.lastName ?? ""
-    }`.trim();
-
   const payload = {
     ...input,
 
-    firstName:
-      input.firstName?.trim() || undefined,
-
-    lastName:
-      input.lastName?.trim() || undefined,
-
-    participantName,
-
-    email: input.email.trim().toLowerCase(),
+    email: input.email
+      .trim()
+      .toLowerCase(),
 
     phone:
       input.phone?.trim() || undefined,
 
-    reservationId:
-      input.reservationId?.trim() || undefined,
-
-    eventId:
-      input.eventId?.trim() || undefined,
-
-    eventTitle: input.eventTitle.trim(),
-
-    dateLabel: input.dateLabel.trim(),
-
-    time: input.time.trim(),
-
-    duration:
-      input.duration?.trim() || undefined,
-
-    venue: input.venue.trim(),
-
-    city: input.city.trim(),
+    participantName:
+      input.participantName?.trim() ||
+      `${input.firstName ?? ""} ${
+        input.lastName ?? ""
+      }`.trim(),
 
     quantity: input.quantity ?? 1,
   };
@@ -418,121 +299,96 @@ export async function createTicket(
 
     headers: {
       "Content-Type": "application/json",
-      Accept: "application/json",
     },
 
     body: JSON.stringify(payload),
   });
 
-  const data = await parseResponse<{
-    success: boolean;
-    message: string;
-    ticket: Ticket;
-  }>(response);
+  const data =
+    await parseResponse<{
+      success: boolean;
+      message: string;
+      ticket: Ticket;
+    }>(response);
 
   return normalizeTicket(data.ticket);
 }
 
 /* =========================================================
-   MARK TICKET AS USED
-   IMPORTANT :
-   C'est cette fonction qui consomme le billet.
-   ========================================================= */
+   USE TICKET
+========================================================= */
 
 export async function markTicketAsUsed(
   ticketNumber: string,
 ): Promise<Ticket> {
-  const number = ticketNumber.trim();
-
-  if (!number) {
-    throw new Error(
-      "Numéro du billet manquant.",
-    );
-  }
-
   const response = await fetch(
     `${API_URL}/${encodeURIComponent(
-      number,
+      ticketNumber,
     )}/use`,
     {
       method: "PATCH",
-
       headers: {
         "Content-Type": "application/json",
-        Accept: "application/json",
       },
     },
   );
 
-  const data = await parseResponse<{
-    valid: boolean;
-    message: string;
-    ticket: Ticket;
-  }>(response);
+  const data =
+    await parseResponse<{
+      valid: boolean;
+      message: string;
+      ticket: Ticket;
+    }>(response);
 
   return normalizeTicket(data.ticket);
 }
 
 /* =========================================================
-   CANCEL TICKET
-   ========================================================= */
+   CANCEL
+========================================================= */
 
 export async function cancelTicket(
   ticketNumber: string,
 ): Promise<Ticket> {
-  const number = ticketNumber.trim();
-
-  if (!number) {
-    throw new Error(
-      "Numéro du billet manquant.",
-    );
-  }
-
   const response = await fetch(
     `${API_URL}/${encodeURIComponent(
-      number,
+      ticketNumber,
     )}/cancel`,
     {
       method: "PATCH",
-
       headers: {
         "Content-Type": "application/json",
-        Accept: "application/json",
       },
     },
   );
 
-  const data = await parseResponse<{
-    success: boolean;
-    message: string;
-    ticket: Ticket;
-  }>(response);
+  const data =
+    await parseResponse<{
+      success: boolean;
+      message: string;
+      ticket: Ticket;
+    }>(response);
 
   return normalizeTicket(data.ticket);
 }
 
 /* =========================================================
    STATS
-   ========================================================= */
+========================================================= */
 
 export async function getTicketStats(): Promise<TicketStats> {
   const response = await fetch(
     `${API_URL}/stats`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    },
   );
 
-  return parseResponse<TicketStats>(response);
+  return parseResponse<TicketStats>(
+    response,
+  );
 }
 
 /* =========================================================
    AVAILABILITY
-   ========================================================= */
+========================================================= */
 
 export async function checkTicketAvailability(): Promise<{
   capacity: number;
@@ -556,7 +412,7 @@ export async function getTicketsRemaining(): Promise<number> {
 
 /* =========================================================
    RESERVATION ID
-   ========================================================= */
+========================================================= */
 
 export function generateReservationId(): string {
   const year = new Date().getFullYear();
@@ -572,37 +428,27 @@ export function generateReservationId(): string {
 
 /* =========================================================
    VERIFICATION URL
-   ========================================================= */
+========================================================= */
 
 export function getVerificationUrl(
   ticket: Ticket,
 ): string {
-  if (typeof window === "undefined") {
-    return "";
-  }
-
-  return `${window.location.origin}/ticket/verify?token=${encodeURIComponent(
+  return `${
+    window.location.origin
+  }/ticket/verify?token=${encodeURIComponent(
     ticket.verificationToken,
   )}`;
 }
 
 /* =========================================================
-   COMPATIBILITÉ ANCIEN CODE
-   ========================================================= */
+   COMPATIBILITY
+========================================================= */
 
 export async function validateTicketByToken(
   verificationToken: string,
-): Promise<VerifyTicketResponse> {
+) {
   return verifyTicket(verificationToken);
 }
-
-/*
- * ATTENTION :
- * validateTicket() et useTicket() consomment le billet.
- *
- * Pour simplement afficher/vérifier un QR Code,
- * utiliser verifyTicket() ou validateTicketByToken().
- */
 
 export async function validateTicket(
   ticketNumber: string,
