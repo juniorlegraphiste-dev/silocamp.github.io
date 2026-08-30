@@ -16,9 +16,13 @@ import {
 import { pdf } from "@react-pdf/renderer";
 
 import { Reveal } from "@/components/Reveal";
+import {
+  getTicketById,
+  getTicketByNumber,
+  getVerificationUrl,
+  type Ticket as SiloTicket,
+} from "@/services/ticketService";
 import TicketPDF from "@/components/ticket/TicketPDF";
-
-const API_URL = "http://localhost:4000";
 
 type ConfirmationState = {
   eventId?: string;
@@ -30,47 +34,15 @@ type ConfirmationState = {
   phone?: string;
 };
 
-type TicketData = {
-  id: string;
-  ticketNumber: string;
-  verificationToken: string;
-
-  firstName?: string | null;
-  lastName?: string | null;
-  participantName: string;
-
-  email: string;
-  phone?: string | null;
-
-  reservationId?: string | null;
-
-  eventId?: string | null;
-  eventTitle: string;
-  dateLabel: string;
-  time: string;
-  duration?: string | null;
-  venue: string;
-  city: string;
-
-  quantity: number;
-
-  status: "VALID" | "USED" | "CANCELLED";
-
-  createdAt: string;
-  usedAt?: string | null;
-  cancelledAt?: string | null;
-};
-
 export default function Confirmation() {
   const location = useLocation();
   const navigate = useNavigate();
 
   const state = (location.state ?? {}) as ConfirmationState;
 
-  const [ticket, setTicket] = useState<TicketData | null>(null);
+  const [ticket, setTicket] = useState<SiloTicket | null>(null);
   const [loading, setLoading] = useState(true);
   const [ticketNotFound, setTicketNotFound] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -78,12 +50,21 @@ export default function Confirmation() {
     async function loadTicket() {
       setLoading(true);
       setTicketNotFound(false);
-      setErrorMessage("");
 
       try {
-        let ticketNumber = state.ticketNumber;
+        let foundTicket: SiloTicket | null = null;
 
-        if (!ticketNumber) {
+        if (state.ticketId) {
+          foundTicket = await getTicketById(state.ticketId);
+        }
+
+        if (!foundTicket && state.ticketNumber) {
+          foundTicket = await getTicketByNumber(
+            state.ticketNumber,
+          );
+        }
+
+        if (!foundTicket) {
           try {
             const rawOrder =
               sessionStorage.getItem("silocamp-last-order") ??
@@ -93,7 +74,15 @@ export default function Confirmation() {
               const order = JSON.parse(rawOrder);
 
               if (order.ticketNumber) {
-                ticketNumber = order.ticketNumber;
+                foundTicket = await getTicketByNumber(
+                  order.ticketNumber,
+                );
+              }
+
+              if (!foundTicket && order.ticketId) {
+                foundTicket = await getTicketById(
+                  order.ticketId,
+                );
               }
             }
           } catch (error) {
@@ -104,59 +93,26 @@ export default function Confirmation() {
           }
         }
 
-        if (!ticketNumber) {
-          if (!cancelled) {
-            setTicket(null);
-            setTicketNotFound(true);
-          }
-
+        if (cancelled) {
           return;
         }
 
-        const response = await fetch(
-          `${API_URL}/api/tickets/number/${encodeURIComponent(ticketNumber)}`,
-        );
-
-        if (!response.ok) {
-          let message = "Billet introuvable.";
-
-          try {
-            const data = await response.json();
-
-            if (data?.message) {
-              message = data.message;
-            }
-          } catch {
-            //
-          }
-
-          throw new Error(message);
-        }
-
-        const data = (await response.json()) as TicketData;
-
-        if (!data?.ticketNumber || !data?.verificationToken) {
-          throw new Error("Les informations du billet sont incomplètes.");
-        }
-
-        if (!cancelled) {
-          setTicket(data);
+        if (foundTicket) {
+          setTicket(foundTicket);
           setTicketNotFound(false);
+        } else {
+          setTicket(null);
+          setTicketNotFound(true);
         }
       } catch (error) {
         console.error(
-          "[SiloCamp] Impossible de récupérer le billet depuis l'API.",
+          "[SiloCamp] Erreur lors de la récupération du billet.",
           error,
         );
 
         if (!cancelled) {
           setTicket(null);
           setTicketNotFound(true);
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Impossible de récupérer votre billet.",
-          );
         }
       } finally {
         if (!cancelled) {
@@ -170,7 +126,7 @@ export default function Confirmation() {
     return () => {
       cancelled = true;
     };
-  }, [state.ticketNumber]);
+  }, [state.ticketId, state.ticketNumber]);
 
   if (loading) {
     return (
@@ -199,8 +155,9 @@ export default function Confirmation() {
           </h1>
 
           <p className="mt-3 text-sm leading-relaxed text-cream-dim">
-            {errorMessage ||
-              "Nous n'avons pas pu retrouver votre billet. Votre réservation n'est peut-être plus disponible ou les informations de confirmation sont invalides."}
+            Nous n'avons pas pu retrouver votre billet.
+            Votre réservation n'est peut-être plus disponible
+            ou les informations de confirmation sont invalides.
           </p>
 
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
@@ -228,12 +185,12 @@ export default function Confirmation() {
 
   const participantName =
     ticket.participantName ||
-    [ticket.firstName, ticket.lastName].filter(Boolean).join(" ") ||
+    [ticket.firstName, ticket.lastName]
+      .filter(Boolean)
+      .join(" ") ||
     "Participant";
 
-  const verificationUrl =
-    `${window.location.origin}/ticket/verify?token=` +
-    encodeURIComponent(ticket.verificationToken);
+  const verificationUrl = getVerificationUrl(ticket);
 
   const downloadQRCode = () => {
     const canvas = document.getElementById(
@@ -254,22 +211,10 @@ export default function Confirmation() {
 
   const downloadPDF = async () => {
     try {
-      const canvas = document.getElementById(
-        "silocamp-ticket-qr",
-      ) as HTMLCanvasElement | null;
-
-      if (!canvas) {
-        console.error("[SiloCamp] QR Code introuvable.");
-        return;
-      }
-
-      const qrCodeDataUrl = canvas.toDataURL("image/png");
-
       const blob = await pdf(
         <TicketPDF
           ticket={ticket}
           verificationUrl={verificationUrl}
-          qrCodeDataUrl={qrCodeDataUrl}
         />,
       ).toBlob();
 
@@ -278,16 +223,19 @@ export default function Confirmation() {
       const link = document.createElement("a");
       link.href = url;
       link.download = `${ticket.ticketNumber}-SiloCamp-2026.pdf`;
-
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
 
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
     } catch (error) {
-      console.error("[SiloCamp] Impossible de générer le PDF.", error);
+      console.error(
+        "[SiloCamp] Impossible de générer le PDF.",
+        error,
+      );
     }
   };
+
   return (
     <div className="container-px mx-auto max-w-6xl pb-28 pt-28 md:pt-32 lg:pb-20">
       <Reveal className="text-center">
@@ -302,12 +250,14 @@ export default function Confirmation() {
 
         <h1 className="mt-5 font-display text-4xl font-medium text-cream sm:text-5xl">
           Votre réservation est{" "}
-          <span className="text-gold-gradient">confirmée</span>
+          <span className="text-gold-gradient">
+            confirmée
+          </span>
         </h1>
 
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
-          Votre e-billet a été généré avec succès. Conservez ce billet et
-          présentez le QR Code à l'entrée du Camp.
+          Votre e-billet a été généré avec succès. Conservez
+          ce billet et présentez le QR Code à l'entrée du Camp.
         </p>
       </Reveal>
 
@@ -327,7 +277,9 @@ export default function Confirmation() {
 
               <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
                 <CheckCircle2 className="h-4 w-4" />
-                {ticket.status === "VALID" ? "Billet valide" : ticket.status}
+                {ticket.status === "VALID"
+                  ? "Billet valide"
+                  : ticket.status}
               </span>
             </div>
           </div>
@@ -366,8 +318,8 @@ export default function Confirmation() {
                 </p>
 
                 <p className="mt-2 font-mono text-sm text-gold-300">
-                  {ticket.reservationId ??
-                    state.reservationId ??
+                  {ticket.reservationId ||
+                    state.reservationId ||
                     "Réservation confirmée"}
                 </p>
               </div>
@@ -382,8 +334,9 @@ export default function Confirmation() {
                     </h3>
 
                     <p className="mt-1 text-sm leading-relaxed text-cream-dim">
-                      Le QR Code contient un lien sécurisé permettant à
-                      l'organisation de vérifier votre billet.
+                      Le QR Code contient un lien sécurisé
+                      permettant à l'organisation de vérifier
+                      votre billet.
                     </p>
                   </div>
                 </div>
@@ -402,8 +355,8 @@ export default function Confirmation() {
               </div>
 
               <p className="mt-4 max-w-[240px] text-center text-xs leading-relaxed text-cream-faint">
-                Scannez ce QR Code pour ouvrir automatiquement la page de
-                vérification.
+                Scannez ce QR Code pour ouvrir automatiquement
+                la page de vérification.
               </p>
 
               <button
@@ -466,10 +419,14 @@ function InfoItem({
       <div className="flex items-center gap-2 text-gold-300">
         {icon}
 
-        <span className="text-xs uppercase tracking-wider">{label}</span>
+        <span className="text-xs uppercase tracking-wider">
+          {label}
+        </span>
       </div>
 
-      <p className="mt-2 break-words text-sm font-medium text-cream">{value}</p>
+      <p className="mt-2 break-words text-sm font-medium text-cream">
+        {value}
+      </p>
     </div>
   );
 }
