@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import {
   CheckCircle2,
   XCircle,
@@ -9,39 +8,67 @@ import {
 } from "lucide-react";
 
 import {
-  getTicketByVerificationToken,
+  verifyTicket,
   type Ticket,
 } from "@/services/ticketService";
 
 export default function TicketVerifyPage() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    let mounted = true;
 
-    if (!token) {
-      setLoading(false);
-      return;
+    async function verify() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get("token")?.trim();
+
+        if (!token) {
+          if (mounted) {
+            setMessage("Token de vérification manquant.");
+            setLoading(false);
+          }
+          return;
+        }
+
+        const result = await verifyTicket(token);
+
+        if (!mounted) {
+          return;
+        }
+
+        setTicket(result.ticket ?? null);
+        setMessage(result.message);
+        setLoading(false);
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Une erreur est survenue lors de la vérification du billet.",
+        );
+        setTicket(null);
+        setLoading(false);
+      }
     }
 
-    const foundTicket = getTicketByVerificationToken(token);
+    void verify();
 
-    setTicket(foundTicket);
-    setLoading(false);
+    return () => {
+      mounted = false;
+    };
   }, []);
-
-  /* =========================================================
-     LOADING
-  ========================================================= */
 
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
         <div className="text-center text-white">
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
-
           <p className="text-sm text-white/70">
             Vérification du billet...
           </p>
@@ -49,10 +76,6 @@ export default function TicketVerifyPage() {
       </main>
     );
   }
-
-  /* =========================================================
-     TICKET NOT FOUND
-  ========================================================= */
 
   if (!ticket) {
     return (
@@ -67,8 +90,8 @@ export default function TicketVerifyPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Ce QR Code ne correspond à aucun billet enregistré
-            dans le système SiloCamp.
+            {message ||
+              "Ce QR Code ne correspond à aucun billet enregistré dans le système SiloCamp."}
           </p>
 
           <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -79,18 +102,13 @@ export default function TicketVerifyPage() {
     );
   }
 
-  /* =========================================================
-     STATUS
-  ========================================================= */
-
-  const isUsed = ticket.status === "USED";
   const isValid = ticket.status === "VALID";
+  const isUsed = ticket.status === "USED";
+  const isCancelled = ticket.status === "CANCELLED";
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6">
       <div className="mx-auto w-full max-w-lg">
-        {/* HEADER */}
-
         <div className="mb-6 text-center text-white">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10">
             <TicketIcon className="h-7 w-7" />
@@ -105,11 +123,7 @@ export default function TicketVerifyPage() {
           </p>
         </div>
 
-        {/* TICKET CARD */}
-
         <div className="overflow-hidden rounded-[28px] bg-white shadow-2xl">
-          {/* STATUS */}
-
           <div
             className={`px-6 py-7 text-center ${
               isValid
@@ -130,23 +144,22 @@ export default function TicketVerifyPage() {
                 ? "BILLET VALIDE"
                 : isUsed
                   ? "BILLET DÉJÀ UTILISÉ"
-                  : "BILLET ANNULÉ"}
+                  : isCancelled
+                    ? "BILLET ANNULÉ"
+                    : "BILLET NON VALIDE"}
             </h2>
 
             <p className="mt-1 text-sm text-white/80">
-              {isValid
-                ? "Ce billet est enregistré dans le système."
-                : isUsed
-                  ? "Ce billet a déjà été présenté."
-                  : "Ce billet n'est plus valable."}
+              {message ||
+                (isValid
+                  ? "Ce billet est enregistré dans le système."
+                  : isUsed
+                    ? "Ce billet a déjà été présenté."
+                    : "Ce billet n'est plus valable.")}
             </p>
           </div>
 
-          {/* CONTENT */}
-
           <div className="p-6">
-            {/* NUMÉRO */}
-
             <div className="mb-6 rounded-2xl bg-slate-50 p-4 text-center">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Numéro du billet
@@ -157,8 +170,6 @@ export default function TicketVerifyPage() {
               </p>
             </div>
 
-            {/* PARTICIPANT */}
-
             <section>
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
                 Participant
@@ -167,27 +178,30 @@ export default function TicketVerifyPage() {
               <div className="space-y-4">
                 <InfoRow
                   label="Prénom"
-                  value={ticket.firstName || "—"}
+                  value={ticket.firstName}
                 />
 
                 <InfoRow
                   label="Nom"
-                  value={ticket.lastName || "—"}
+                  value={ticket.lastName}
+                />
+
+                <InfoRow
+                  label="Participant"
+                  value={ticket.participantName}
                 />
 
                 <InfoRow
                   label="Téléphone"
-                  value={ticket.phone || "—"}
+                  value={ticket.phone}
                 />
 
                 <InfoRow
                   label="E-mail"
-                  value={ticket.email || "—"}
+                  value={ticket.email}
                 />
               </div>
             </section>
-
-            {/* EVENT */}
 
             <section className="mt-8">
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
@@ -211,25 +225,37 @@ export default function TicketVerifyPage() {
                 />
 
                 <InfoRow
+                  label="Durée"
+                  value={ticket.duration}
+                />
+
+                <InfoRow
                   label="Lieu"
-                  value={`${ticket.venue}, ${ticket.city}`}
+                  value={
+                    ticket.venue && ticket.city
+                      ? `${ticket.venue}, ${ticket.city}`
+                      : ticket.venue || ticket.city
+                  }
                 />
               </div>
             </section>
-
-            {/* RESERVATION */}
 
             <section className="mt-8">
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
                 Réservation
               </h3>
 
-              <InfoRow
-                label="Référence"
-                value={ticket.reservationId}
-              />
+              <div className="space-y-4">
+                <InfoRow
+                  label="Référence"
+                  value={ticket.reservationId}
+                />
 
-              <div className="mt-4">
+                <InfoRow
+                  label="Quantité"
+                  value={String(ticket.quantity)}
+                />
+
                 <InfoRow
                   label="Statut"
                   value={
@@ -242,9 +268,76 @@ export default function TicketVerifyPage() {
                 />
               </div>
             </section>
-          </div>
 
-          {/* FOOTER */}
+            {ticket.usedAt && (
+              <section className="mt-8">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
+                  Utilisation
+                </h3>
+
+                <InfoRow
+                  label="Présenté le"
+                  value={formatDate(ticket.usedAt)}
+                />
+              </section>
+            )}
+
+            {ticket.cancelledAt && (
+              <section className="mt-8">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
+                  Annulation
+                </h3>
+
+                <InfoRow
+                  label="Annulé le"
+                  value={formatDate(ticket.cancelledAt)}
+                />
+              </section>
+            )}
+
+            {isValid && (
+              <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+                <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-600" />
+
+                <p className="mt-2 text-sm font-semibold text-emerald-700">
+                  Ce billet est actuellement valide.
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-emerald-600">
+                  La validation définitive à l'entrée doit être effectuée
+                  par le scanner SiloCamp.
+                </p>
+              </div>
+            )}
+
+            {isUsed && (
+              <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+                <XCircle className="mx-auto h-7 w-7 text-amber-600" />
+
+                <p className="mt-2 text-sm font-semibold text-amber-700">
+                  Ce billet a déjà été utilisé.
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-amber-600">
+                  Il ne peut plus être utilisé pour accéder à l'événement.
+                </p>
+              </div>
+            )}
+
+            {isCancelled && (
+              <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-4 text-center">
+                <XCircle className="mx-auto h-7 w-7 text-red-600" />
+
+                <p className="mt-2 text-sm font-semibold text-red-700">
+                  Ce billet a été annulé.
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-red-600">
+                  Il ne permet plus l'accès à l'événement.
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="border-t border-slate-100 px-6 py-5 text-center">
             <p className="text-xs text-slate-400">
@@ -257,16 +350,12 @@ export default function TicketVerifyPage() {
   );
 }
 
-/* =========================================================
-   INFO ROW
-========================================================= */
-
 function InfoRow({
   label,
   value,
 }: {
   label: string;
-  value: string;
+  value?: string | null;
 }) {
   return (
     <div className="flex items-start justify-between gap-6 border-b border-slate-100 pb-3 last:border-0">
@@ -275,8 +364,21 @@ function InfoRow({
       </span>
 
       <span className="max-w-[65%] break-words text-right text-sm font-semibold text-slate-900">
-        {value}
+        {value ?? "—"}
       </span>
     </div>
   );
+}
+
+function formatDate(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
