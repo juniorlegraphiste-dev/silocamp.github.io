@@ -16,13 +16,9 @@ import {
 import { pdf } from "@react-pdf/renderer";
 
 import { Reveal } from "@/components/Reveal";
-import {
-  getTicketById,
-  getTicketByNumber,
-  type Ticket as SiloTicket,
-} from "@/services/ticketService";
 import TicketPDF from "@/components/ticket/TicketPDF";
 
+const API_URL = "http://localhost:4000";
 
 type ConfirmationState = {
   eventId?: string;
@@ -34,58 +30,147 @@ type ConfirmationState = {
   phone?: string;
 };
 
+type TicketData = {
+  id: string;
+  ticketNumber: string;
+  verificationToken: string;
+
+  firstName?: string | null;
+  lastName?: string | null;
+  participantName: string;
+
+  email: string;
+  phone?: string | null;
+
+  reservationId?: string | null;
+
+  eventId?: string | null;
+  eventTitle: string;
+  dateLabel: string;
+  time: string;
+  duration?: string | null;
+  venue: string;
+  city: string;
+
+  quantity: number;
+
+  status: "VALID" | "USED" | "CANCELLED";
+
+  createdAt: string;
+  usedAt?: string | null;
+  cancelledAt?: string | null;
+};
+
 export default function Confirmation() {
   const location = useLocation();
   const navigate = useNavigate();
 
   const state = (location.state ?? {}) as ConfirmationState;
 
-  const [ticket, setTicket] = useState<SiloTicket | null>(null);
+  const [ticket, setTicket] = useState<TicketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [ticketNotFound, setTicketNotFound] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    let foundTicket: SiloTicket | null = null;
+    let cancelled = false;
 
-    if (state.ticketId) {
-      foundTicket = getTicketById(state.ticketId);
-    }
+    async function loadTicket() {
+      setLoading(true);
+      setTicketNotFound(false);
+      setErrorMessage("");
 
-    if (!foundTicket && state.ticketNumber) {
-      foundTicket = getTicketByNumber(state.ticketNumber);
-    }
-
-    if (!foundTicket) {
       try {
-        const rawOrder =
-          sessionStorage.getItem("silocamp-last-order") ??
-          sessionStorage.getItem("wg-last-order");
+        let ticketNumber = state.ticketNumber;
 
-        if (rawOrder) {
-          const order = JSON.parse(rawOrder);
+        if (!ticketNumber) {
+          try {
+            const rawOrder =
+              sessionStorage.getItem("silocamp-last-order") ??
+              sessionStorage.getItem("wg-last-order");
 
-          if (order.ticketNumber) {
-            foundTicket = getTicketByNumber(order.ticketNumber);
+            if (rawOrder) {
+              const order = JSON.parse(rawOrder);
+
+              if (order.ticketNumber) {
+                ticketNumber = order.ticketNumber;
+              }
+            }
+          } catch (error) {
+            console.error(
+              "[SiloCamp] Impossible de récupérer la réservation.",
+              error,
+            );
           }
+        }
+
+        if (!ticketNumber) {
+          if (!cancelled) {
+            setTicket(null);
+            setTicketNotFound(true);
+          }
+
+          return;
+        }
+
+        const response = await fetch(
+          `${API_URL}/api/tickets/number/${encodeURIComponent(ticketNumber)}`,
+        );
+
+        if (!response.ok) {
+          let message = "Billet introuvable.";
+
+          try {
+            const data = await response.json();
+
+            if (data?.message) {
+              message = data.message;
+            }
+          } catch {
+            //
+          }
+
+          throw new Error(message);
+        }
+
+        const data = (await response.json()) as TicketData;
+
+        if (!data?.ticketNumber || !data?.verificationToken) {
+          throw new Error("Les informations du billet sont incomplètes.");
+        }
+
+        if (!cancelled) {
+          setTicket(data);
+          setTicketNotFound(false);
         }
       } catch (error) {
         console.error(
-          "[SiloCamp] Impossible de récupérer la réservation.",
+          "[SiloCamp] Impossible de récupérer le billet depuis l'API.",
           error,
         );
+
+        if (!cancelled) {
+          setTicket(null);
+          setTicketNotFound(true);
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Impossible de récupérer votre billet.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
-    if (foundTicket) {
-      setTicket(foundTicket);
-      setTicketNotFound(false);
-    } else {
-      setTicket(null);
-      setTicketNotFound(true);
-    }
+    loadTicket();
 
-    setLoading(false);
-  }, [state.ticketId, state.ticketNumber]);
+    return () => {
+      cancelled = true;
+    };
+  }, [state.ticketNumber]);
 
   if (loading) {
     return (
@@ -114,9 +199,8 @@ export default function Confirmation() {
           </h1>
 
           <p className="mt-3 text-sm leading-relaxed text-cream-dim">
-            Nous n'avons pas pu retrouver votre billet. Votre réservation
-            n'est peut-être plus disponible ou les informations de
-            confirmation sont invalides.
+            {errorMessage ||
+              "Nous n'avons pas pu retrouver votre billet. Votre réservation n'est peut-être plus disponible ou les informations de confirmation sont invalides."}
           </p>
 
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
@@ -144,14 +228,12 @@ export default function Confirmation() {
 
   const participantName =
     ticket.participantName ||
-    [ticket.firstName, ticket.lastName]
-      .filter(Boolean)
-      .join(" ") ||
+    [ticket.firstName, ticket.lastName].filter(Boolean).join(" ") ||
     "Participant";
 
-  const verificationUrl = `${window.location.origin}/ticket/verify?token=${encodeURIComponent(
-    ticket.verificationToken,
-  )}`;
+  const verificationUrl =
+    `${window.location.origin}/ticket/verify?token=` +
+    encodeURIComponent(ticket.verificationToken);
 
   const downloadQRCode = () => {
     const canvas = document.getElementById(
@@ -172,8 +254,23 @@ export default function Confirmation() {
 
   const downloadPDF = async () => {
     try {
+      const canvas = document.getElementById(
+        "silocamp-ticket-qr",
+      ) as HTMLCanvasElement | null;
+
+      if (!canvas) {
+        console.error("[SiloCamp] QR Code introuvable.");
+        return;
+      }
+
+      const qrCodeDataUrl = canvas.toDataURL("image/png");
+
       const blob = await pdf(
-        <TicketPDF ticket={ticket} verificationUrl={verificationUrl} />,
+        <TicketPDF
+          ticket={ticket}
+          verificationUrl={verificationUrl}
+          qrCodeDataUrl={qrCodeDataUrl}
+        />,
       ).toBlob();
 
       const url = URL.createObjectURL(blob);
@@ -181,17 +278,16 @@ export default function Confirmation() {
       const link = document.createElement("a");
       link.href = url;
       link.download = `${ticket.ticketNumber}-SiloCamp-2026.pdf`;
+
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
 
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error(
-        "[SiloCamp] Impossible de générer le PDF.",
-        error,
-      );
+      console.error("[SiloCamp] Impossible de générer le PDF.", error);
     }
   };
-
   return (
     <div className="container-px mx-auto max-w-6xl pb-28 pt-28 md:pt-32 lg:pb-20">
       <Reveal className="text-center">
@@ -231,9 +327,7 @@ export default function Confirmation() {
 
               <span className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
                 <CheckCircle2 className="h-4 w-4" />
-                {ticket.status === "VALID"
-                  ? "Billet valide"
-                  : ticket.status}
+                {ticket.status === "VALID" ? "Billet valide" : ticket.status}
               </span>
             </div>
           </div>
@@ -272,7 +366,9 @@ export default function Confirmation() {
                 </p>
 
                 <p className="mt-2 font-mono text-sm text-gold-300">
-                  {state.reservationId ?? "Réservation confirmée"}
+                  {ticket.reservationId ??
+                    state.reservationId ??
+                    "Réservation confirmée"}
                 </p>
               </div>
 
@@ -370,14 +466,10 @@ function InfoItem({
       <div className="flex items-center gap-2 text-gold-300">
         {icon}
 
-        <span className="text-xs uppercase tracking-wider">
-          {label}
-        </span>
+        <span className="text-xs uppercase tracking-wider">{label}</span>
       </div>
 
-      <p className="mt-2 break-words text-sm font-medium text-cream">
-        {value}
-      </p>
+      <p className="mt-2 break-words text-sm font-medium text-cream">{value}</p>
     </div>
   );
 }
