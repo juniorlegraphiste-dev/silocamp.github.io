@@ -7,6 +7,9 @@ import ticketsRouter from "./routes/tickets";
 
 const app = express();
 
+/**
+ * CORS
+ */
 app.use(
   cors({
     origin: true,
@@ -14,6 +17,9 @@ app.use(
   }),
 );
 
+/**
+ * JSON
+ */
 app.use(express.json());
 
 /**
@@ -34,12 +40,12 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/tickets", ticketsRouter);
 
 /**
- * ROUTE API INEXISTANTE
+ * ROUTE INEXISTANTE
  */
-app.use("/api/*", (_req, res) => {
+app.use((_req, res) => {
   return res.status(404).json({
     success: false,
-    message: "Route API introuvable.",
+    message: "Route introuvable.",
   });
 });
 
