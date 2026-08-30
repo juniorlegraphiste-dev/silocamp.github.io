@@ -7,8 +7,6 @@ import ticketsRouter from "./routes/tickets";
 
 const app = express();
 
-const PORT = Number(process.env.PORT) || 3001;
-
 app.use(
   cors({
     origin: true,
@@ -49,8 +47,4 @@ app.use(
   },
 );
 
-app.listen(PORT, () => {
-  console.log(
-    `SiloCamp API démarrée sur http://localhost:${PORT}`,
-  );
-});
+export default app;
