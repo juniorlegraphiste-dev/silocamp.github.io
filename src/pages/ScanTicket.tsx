@@ -1,24 +1,29 @@
-import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+"use client";
 
 import {
-  AlertCircle,
-  ArrowLeft,
-  Camera,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import {
   CheckCircle2,
-  RefreshCw,
-  ScanLine,
-  ShieldCheck,
-  Ticket as TicketIcon,
-  User,
   XCircle,
+  Camera,
+  User,
+  Mail,
+  Phone,
+  Ticket as TicketIcon,
+  Loader2,
+  AlertTriangle,
+  RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
 
 import {
   markTicketAsUsed,
   verifyTicket,
-  type Ticket as SiloTicket,
+  type Ticket,
 } from "@/services/ticketService";
 
 import {
@@ -26,89 +31,38 @@ import {
   Html5QrcodeSupportedFormats,
 } from "html5-qrcode";
 
-type ScanStatus =
+type ScanState =
   | "idle"
   | "scanning"
-  | "validating"
+  | "verifying"
   | "valid"
-  | "invalid"
-  | "error";
-
-const SCANNER_ID = "silocamp-qr-reader";
-
-function extractQrData(decodedText: string): {
-  type: "token" | "ticketNumber";
-  value: string;
-} {
-  const value = decodedText.trim();
-
-  if (!value) {
-    return {
-      type: "ticketNumber",
-      value: "",
-    };
-  }
-
-  try {
-    const url = new URL(
-      value,
-      window.location.origin,
-    );
-
-    const token = url.searchParams.get("token");
-
-    if (token?.trim()) {
-      return {
-        type: "token",
-        value: token.trim(),
-      };
-    }
-  } catch {
-    // Valeur QR simple.
-  }
-
-  return {
-    type: "ticketNumber",
-    value,
-  };
-}
+  | "used"
+  | "cancelled"
+  | "not-found"
+  | "error"
+  | "confirmed";
 
 export default function ScanTicket() {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const processingRef = useRef(false);
-  const mountedRef = useRef(true);
+  const scannerRef =
+    useRef<Html5Qrcode | null>(null);
 
-  const [status, setStatus] =
-    useState<ScanStatus>("idle");
+  const [state, setState] =
+    useState<ScanState>("idle");
 
-  const [message, setMessage] = useState("");
   const [ticket, setTicket] =
-    useState<SiloTicket | null>(null);
+    useState<Ticket | null>(null);
 
-  const [cameraError, setCameraError] =
+  const [message, setMessage] =
     useState("");
 
-  const safeSetStatus = (value: ScanStatus) => {
-    if (mountedRef.current) {
-      setStatus(value);
-    }
-  };
+  const [busy, setBusy] =
+    useState(false);
 
-  const safeSetMessage = (value: string) => {
-    if (mountedRef.current) {
-      setMessage(value);
-    }
-  };
+  /* =========================================================
+     STOP SCANNER
+     ========================================================= */
 
-  const safeSetTicket = (
-    value: SiloTicket | null | undefined,
-  ) => {
-    if (mountedRef.current) {
-      setTicket(value ?? null);
-    }
-  };
-
-  const stopScanner = async () => {
+  async function stopScanner() {
     const scanner = scannerRef.current;
 
     if (!scanner) {
@@ -116,12 +70,23 @@ export default function ScanTicket() {
     }
 
     try {
-      if (scanner.isScanning) {
+      const scannerState =
+        scanner.getState();
+
+      /*
+       * 2 = SCANNING
+       * 3 = PAUSED
+       */
+
+      if (
+        scannerState === 2 ||
+        scannerState === 3
+      ) {
         await scanner.stop();
       }
     } catch (error) {
       console.warn(
-        "[SiloCamp] Impossible d'arrêter le scanner :",
+        "[SiloCamp Scanner] Stop error",
         error,
       );
     }
@@ -130,713 +95,743 @@ export default function ScanTicket() {
       scanner.clear();
     } catch (error) {
       console.warn(
-        "[SiloCamp] Impossible de nettoyer le scanner :",
+        "[SiloCamp Scanner] Clear error",
         error,
       );
     }
 
     scannerRef.current = null;
-  };
+  }
 
-  const verifyScannedValue = async (
+  /* =========================================================
+     VERIFY QR
+     ========================================================= */
+
+  async function handleQRCode(
     decodedText: string,
-  ): Promise<SiloTicket | null> => {
-    const qrData = extractQrData(decodedText);
-
-    if (!qrData.value) {
-      safeSetStatus("invalid");
-
-      safeSetMessage(
-        "Le QR Code ne contient aucune information exploitable.",
-      );
-
-      return null;
-    }
-
-    let result;
-
-    if (qrData.type === "token") {
-      result = await verifyTicket(qrData.value);
-    } else {
-      const directResult = await verifyTicket(
-        qrData.value,
-      );
-
-      if (
-        directResult.valid &&
-        directResult.ticket
-      ) {
-        result = directResult;
-      } else {
-        result = await verifyTicket(qrData.value);
-      }
-    }
-
-    if (!result.valid || !result.ticket) {
-      safeSetTicket(result.ticket ?? null);
-      safeSetStatus("invalid");
-
-      safeSetMessage(
-        result.message ||
-          "Ce billet ne correspond à aucun billet valide.",
-      );
-
-      return null;
-    }
-
-    return result.ticket;
-  };
-
-  const handleScan = async (
-    decodedText: string,
-  ) => {
-    if (processingRef.current) {
-      return;
-    }
-
-    processingRef.current = true;
-
-    safeSetStatus("validating");
-    safeSetMessage("Vérification du billet...");
-
+  ) {
     await stopScanner();
 
+    setState("verifying");
+
+    setMessage("");
+
     try {
-      const verifiedTicket =
-        await verifyScannedValue(decodedText);
+      const token =
+        extractVerificationToken(
+          decodedText,
+        );
 
-      if (!verifiedTicket) {
-        return;
-      }
+      if (!token) {
+        setState("error");
 
-      safeSetTicket(verifiedTicket);
-
-      if (verifiedTicket.status === "USED") {
-        safeSetStatus("invalid");
-
-        safeSetMessage(
-          "Ce billet a déjà été utilisé et ne peut plus donner accès à l'événement.",
+        setMessage(
+          "QR Code SiloCamp invalide : token de vérification introuvable.",
         );
 
         return;
       }
 
-      if (
-        verifiedTicket.status ===
-        "CANCELLED"
-      ) {
-        safeSetStatus("invalid");
+      const result =
+        await verifyTicket(token);
 
-        safeSetMessage(
-          "Ce billet a été annulé et ne permet plus l'accès à l'événement.",
+      if (result.ticket) {
+        setTicket(result.ticket);
+      }
+
+      if (result.valid) {
+        setState("valid");
+
+        setMessage(
+          result.message ||
+            "Billet valide.",
         );
 
         return;
       }
 
-      if (
-        verifiedTicket.status !== "VALID"
-      ) {
-        safeSetStatus("invalid");
+      switch (result.reason) {
+        case "USED":
+          setState("used");
 
-        safeSetMessage(
-          "Le statut de ce billet ne permet pas son utilisation.",
-        );
+          setMessage(
+            result.message ||
+              "Ce billet a déjà été utilisé.",
+          );
 
-        return;
+          break;
+
+        case "CANCELLED":
+          setState("cancelled");
+
+          setMessage(
+            result.message ||
+              "Ce billet a été annulé.",
+          );
+
+          break;
+
+        case "NOT_FOUND":
+          setState("not-found");
+
+          setMessage(
+            result.message ||
+              "Billet introuvable.",
+          );
+
+          break;
+
+        default:
+          setState("error");
+
+          setMessage(
+            result.message ||
+              "Impossible de vérifier ce billet.",
+          );
       }
-
-      safeSetMessage(
-        "Billet valide. Enregistrement de l'accès...",
-      );
-
-      const usedTicket =
-        await markTicketAsUsed(
-          verifiedTicket.ticketNumber,
-        );
-
-      if (
-        usedTicket.status !== "USED"
-      ) {
-        safeSetStatus("invalid");
-
-        safeSetMessage(
-          "Le billet a été vérifié, mais son utilisation n'a pas pu être enregistrée.",
-        );
-
-        return;
-      }
-
-      safeSetTicket(usedTicket);
-
-      safeSetStatus("valid");
-
-      safeSetMessage(
-        "Billet validé avec succès. Accès autorisé.",
-      );
     } catch (error) {
       console.error(
-        "[SiloCamp] Erreur lors de la validation du billet :",
+        "[SiloCamp Scanner]",
         error,
       );
 
-      safeSetStatus("error");
+      setState("error");
 
-      safeSetMessage(
+      setMessage(
         error instanceof Error
           ? error.message
-          : "Une erreur est survenue lors de la validation du billet.",
+          : "Impossible de contacter le serveur SiloCamp.",
       );
-    } finally {
-      processingRef.current = false;
     }
-  };
+  }
 
-  const startScanner = async () => {
-    if (scannerRef.current) {
-      return;
-    }
+  /* =========================================================
+     START SCANNER
+     ========================================================= */
 
-    safeSetStatus("scanning");
-    safeSetMessage("Recherche d'un QR Code...");
-    safeSetTicket(null);
+  async function startScanner() {
+    setTicket(null);
 
-    if (mountedRef.current) {
-      setCameraError("");
-    }
+    setMessage("");
 
-    processingRef.current = false;
+    setState("scanning");
 
     try {
-      const element =
-        document.getElementById(SCANNER_ID);
+      await stopScanner();
 
-      if (!element) {
-        throw new Error(
-          "Le conteneur du scanner est introuvable.",
+      const scanner =
+        new Html5Qrcode(
+          "silocamp-qr-reader",
+          {
+            formatsToSupport: [
+              Html5QrcodeSupportedFormats.QR_CODE,
+            ],
+            verbose: false,
+          },
         );
-      }
-
-      const scanner = new Html5Qrcode(
-        SCANNER_ID,
-        {
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.QR_CODE,
-          ],
-          verbose: false,
-        },
-      );
 
       scannerRef.current = scanner;
 
       await scanner.start(
         {
-          facingMode: "environment",
+          facingMode: {
+            exact: "environment",
+          },
         },
         {
           fps: 10,
+
           qrbox: {
             width: 260,
             height: 260,
           },
+
           aspectRatio: 1,
         },
-        async (decodedText) => {
-          await handleScan(decodedText);
+        async (
+          decodedText,
+        ) => {
+          await handleQRCode(
+            decodedText,
+          );
         },
-        () => {},
+        () => {
+          /*
+           * Les erreurs de scan image par image
+           * sont normales et ne doivent pas
+           * afficher une erreur à l'utilisateur.
+           */
+        },
       );
     } catch (error) {
       console.error(
-        "[SiloCamp] Erreur caméra :",
+        "[SiloCamp Scanner Start]",
         error,
       );
 
       await stopScanner();
 
-      safeSetStatus("error");
+      setState("error");
 
-      if (mountedRef.current) {
-        setCameraError(
-          "Impossible d'accéder à la caméra. Vérifiez les autorisations de votre navigateur.",
-        );
-      }
-
-      safeSetMessage(
-        error instanceof Error
-          ? error.message
-          : "La caméra n'a pas pu être démarrée.",
+      setMessage(
+        "Impossible d'accéder à la caméra. Vérifie les autorisations du navigateur.",
       );
     }
-  };
+  }
 
-  const resetScanner = async () => {
-    await stopScanner();
+  /* =========================================================
+     CONFIRM ENTRY
+     ========================================================= */
 
-    processingRef.current = false;
-
-    safeSetStatus("idle");
-    safeSetMessage("");
-    safeSetTicket(null);
-
-    if (mountedRef.current) {
-      setCameraError("");
+  async function confirmEntry() {
+    if (!ticket) {
+      return;
     }
 
-    window.setTimeout(() => {
-      if (mountedRef.current) {
-        void startScanner();
-      }
-    }, 100);
-  };
+    if (ticket.status !== "VALID") {
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const updatedTicket =
+        await markTicketAsUsed(
+          ticket.ticketNumber,
+        );
+
+      setTicket(updatedTicket);
+
+      setState("confirmed");
+
+      setMessage(
+        "Billet validé. Le participant peut entrer.",
+      );
+    } catch (error) {
+      console.error(
+        "[SiloCamp Use Ticket]",
+        error,
+      );
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Impossible de valider le billet.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* =========================================================
+     RESET
+     ========================================================= */
+
+  async function resetScanner() {
+    await stopScanner();
+
+    setTicket(null);
+
+    setMessage("");
+
+    setState("idle");
+  }
+
+  /* =========================================================
+     CLEANUP
+     ========================================================= */
 
   useEffect(() => {
-    mountedRef.current = true;
-
-    void startScanner();
-
     return () => {
-      mountedRef.current = false;
-      processingRef.current = false;
-
       void stopScanner();
     };
   }, []);
 
+  /* =========================================================
+     PAGE
+     ========================================================= */
+
   return (
-    <main className="container-px mx-auto max-w-5xl pb-24 pt-28 md:pt-32">
-      <div className="mb-10">
-        <Link
-          to="/"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-cream-dim transition hover:text-gold-300"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Retour
-        </Link>
+    <main className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-lg">
+        {/* HEADER */}
 
-        <div className="text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-gold-300">
-            <ScanLine className="h-4 w-4" />
-            Contrôle d'accès
-          </span>
+        <div className="mb-6 text-center text-white">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10">
+            <ShieldCheck className="h-7 w-7" />
+          </div>
 
-          <h1 className="mt-5 font-display text-4xl font-medium text-cream sm:text-5xl">
-            Scanner un{" "}
-            <span className="text-gold-gradient">
-              billet
-            </span>
+          <h1 className="text-3xl font-black">
+            SiloCamp
           </h1>
 
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-cream-dim sm:text-base">
-            Scannez le QR Code présent sur l'e-billet du
-            participant pour vérifier automatiquement son
-            accès.
+          <p className="mt-1 text-sm text-white/60">
+            Contrôle des billets
           </p>
         </div>
-      </div>
 
-      {(status === "idle" ||
-        status === "scanning" ||
-        status === "validating") && (
-        <div className="mx-auto max-w-2xl">
-          <div className="overflow-hidden rounded-3xl border border-gold-400/15 bg-ink-900/50 shadow-2xl">
-            <div className="border-b border-gold-400/10 p-5 sm:p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300">
+        {/* =====================================================
+            SCANNER
+        ===================================================== */}
+
+        {(state === "idle" ||
+          state === "scanning") && (
+          <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
+            <div className="p-6">
+              <div className="mb-5 text-center">
+                <h2 className="text-xl font-black text-slate-900">
+                  Scanner un billet
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Place le QR Code du billet
+                  devant la caméra.
+                </p>
+              </div>
+
+              {/* CAMERA */}
+
+              <div className="overflow-hidden rounded-3xl bg-slate-950">
+                <div
+                  id="silocamp-qr-reader"
+                  className="min-h-[320px]"
+                />
+              </div>
+
+              {state === "idle" ? (
+                <button
+                  type="button"
+                  onClick={startScanner}
+                  className="mt-5 flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-bold text-white transition hover:bg-slate-800"
+                >
                   <Camera className="h-5 w-5" />
-                </div>
-
-                <div>
-                  <h2 className="font-display text-xl text-cream">
-                    Scanner le QR Code
-                  </h2>
-
-                  <p className="mt-1 text-xs text-cream-faint">
-                    Placez le QR Code dans le cadre
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative bg-black">
-              <div
-                id={SCANNER_ID}
-                className="min-h-[320px] w-full overflow-hidden sm:min-h-[420px]"
-              />
-
-              {status === "scanning" && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <div className="relative h-[260px] w-[260px]">
-                    <span className="absolute left-0 top-0 h-12 w-12 rounded-tl-2xl border-l-4 border-t-4 border-gold-400" />
-
-                    <span className="absolute right-0 top-0 h-12 w-12 rounded-tr-2xl border-r-4 border-t-4 border-gold-400" />
-
-                    <span className="absolute bottom-0 left-0 h-12 w-12 rounded-bl-2xl border-b-4 border-l-4 border-gold-400" />
-
-                    <span className="absolute bottom-0 right-0 h-12 w-12 rounded-br-2xl border-b-4 border-r-4 border-gold-400" />
-
-                    <div className="absolute left-4 right-4 top-1/2 h-0.5 animate-pulse bg-gold-400 shadow-[0_0_15px_rgba(245,158,11,0.8)]" />
-                  </div>
+                  Ouvrir la caméra
+                </button>
+              ) : (
+                <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-slate-100 px-5 py-4 text-sm font-semibold text-slate-600">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Recherche du QR Code...
                 </div>
               )}
-
-              {status === "validating" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                  <div className="text-center">
-                    <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-white/20 border-t-gold-400" />
-
-                    <p className="mt-4 text-sm font-medium text-white">
-                      Vérification...
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-5 text-center sm:p-6">
-              <div className="flex items-center justify-center gap-2">
-                {status === "scanning" && (
-                  <>
-                    <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
-
-                    <span className="text-sm text-cream-dim">
-                      Caméra active
-                    </span>
-                  </>
-                )}
-
-                {status === "validating" && (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gold-400 border-t-transparent" />
-
-                    <span className="text-sm text-gold-300">
-                      Vérification...
-                    </span>
-                  </>
-                )}
-              </div>
-
-              {message && (
-                <p className="mt-3 text-sm text-cream-dim">
-                  {message}
-                </p>
-              )}
-
-              {cameraError && (
-                <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-400/5 p-4">
-                  <p className="text-sm text-red-300">
-                    {cameraError}
-                  </p>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={resetScanner}
-                className="mt-5 inline-flex items-center gap-2 rounded-full border border-gold-400/20 px-5 py-2.5 text-sm text-cream transition hover:border-gold-400/40 hover:bg-gold-400/5"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Réinitialiser
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-gold-400/10 bg-ink-900/30 p-5">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-gold-300" />
-
-              <div>
-                <h3 className="font-medium text-cream">
-                  Contrôle sécurisé
-                </h3>
-
-                <p className="mt-1 text-sm leading-relaxed text-cream-dim">
-                  Chaque billet ne peut être utilisé qu'une
-                  seule fois. Après validation, son statut
-                  passe automatiquement de « valide » à
-                  « utilisé ».
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {status === "valid" && ticket && (
-        <ValidTicket
-          ticket={ticket}
-          onScanAnother={resetScanner}
-        />
-      )}
-
-      {status === "invalid" && (
-        <InvalidTicket
-          ticket={ticket}
-          message={message}
-          onScanAnother={resetScanner}
-        />
-      )}
-
-      {status === "error" && (
-        <ErrorState
-          message={message}
-          onRetry={resetScanner}
-        />
-      )}
-    </main>
-  );
-}
-
-function ValidTicket({
-  ticket,
-  onScanAnother,
-}: {
-  ticket: SiloTicket;
-  onScanAnother: () => void;
-}) {
-  return (
-    <div className="mx-auto max-w-2xl">
-      <div className="overflow-hidden rounded-3xl border border-emerald-400/20 bg-emerald-400/5">
-        <div className="border-b border-emerald-400/15 p-8 text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300">
-            <CheckCircle2 className="h-11 w-11" />
-          </div>
-
-          <h2 className="mt-6 font-display text-3xl text-cream">
-            Accès autorisé
-          </h2>
-
-          <p className="mt-2 text-sm text-emerald-300">
-            Billet valide et enregistré comme utilisé.
-          </p>
-        </div>
-
-        <div className="space-y-6 p-6 sm:p-8">
-          <TicketInfo
-            icon={<TicketIcon className="h-5 w-5" />}
-            label="Numéro du billet"
-            value={ticket.ticketNumber}
-          />
-
-          <TicketInfo
-            icon={<User className="h-5 w-5" />}
-            label="Participant"
-            value={ticket.participantName}
-          />
-
-          <TicketInfo
-            icon={<Camera className="h-5 w-5" />}
-            label="Événement"
-            value={ticket.eventTitle}
-          />
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TicketInfo
-              icon={<ScanLine className="h-5 w-5" />}
-              label="Statut"
-              value="UTILISÉ"
-            />
-
-            <TicketInfo
-              icon={<ShieldCheck className="h-5 w-5" />}
-              label="Accès"
-              value="AUTORISÉ"
-            />
-          </div>
-
-          <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-4">
-            <p className="text-center text-sm text-emerald-200">
-              ✓ Le participant peut accéder au Camp
-              International Silo 2026.
-            </p>
-          </div>
-        </div>
-
-        <div className="border-t border-emerald-400/15 p-6">
-          <button
-            type="button"
-            onClick={onScanAnother}
-            className="btn-gold flex w-full items-center justify-center gap-2"
-          >
-            <ScanLine className="h-5 w-5" />
-            Scanner un autre billet
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InvalidTicket({
-  ticket,
-  message,
-  onScanAnother,
-}: {
-  ticket: SiloTicket | null;
-  message: string;
-  onScanAnother: () => void;
-}) {
-  const isUsed = ticket?.status === "USED";
-  const isCancelled =
-    ticket?.status === "CANCELLED";
-
-  return (
-    <div className="mx-auto max-w-2xl">
-      <div className="overflow-hidden rounded-3xl border border-red-400/20 bg-red-400/5">
-        <div
-          className={`border-b p-8 text-center ${
-            isUsed
-              ? "border-amber-400/15"
-              : "border-red-400/15"
-          }`}
-        >
-          <div
-            className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ${
-              isUsed
-                ? "bg-amber-400/15 text-amber-300"
-                : "bg-red-400/15 text-red-300"
-            }`}
-          >
-            {isUsed ? (
-              <AlertCircle className="h-11 w-11" />
-            ) : (
-              <XCircle className="h-11 w-11" />
-            )}
-          </div>
-
-          <h2 className="mt-6 font-display text-3xl text-cream">
-            {isUsed
-              ? "Billet déjà utilisé"
-              : isCancelled
-                ? "Billet annulé"
-                : "Accès refusé"}
-          </h2>
-
-          <p
-            className={`mt-2 text-sm ${
-              isUsed
-                ? "text-amber-300"
-                : "text-red-300"
-            }`}
-          >
-            {message}
-          </p>
-        </div>
-
-        {ticket && (
-          <div className="space-y-5 p-6 sm:p-8">
-            <TicketInfo
-              icon={<TicketIcon className="h-5 w-5" />}
-              label="Numéro du billet"
-              value={ticket.ticketNumber}
-            />
-
-            <TicketInfo
-              icon={<User className="h-5 w-5" />}
-              label="Participant"
-              value={ticket.participantName}
-            />
-
-            <TicketInfo
-              icon={<Camera className="h-5 w-5" />}
-              label="Événement"
-              value={ticket.eventTitle}
-            />
-
-            <TicketInfo
-              icon={<ScanLine className="h-5 w-5" />}
-              label="Statut"
-              value={
-                ticket.status === "USED"
-                  ? "DÉJÀ UTILISÉ"
-                  : ticket.status ===
-                      "CANCELLED"
-                    ? "ANNULÉ"
-                    : "NON VALIDE"
-              }
-            />
-
-            <div className="rounded-2xl border border-red-400/15 bg-red-400/5 p-4">
-              <p className="text-sm leading-relaxed text-red-200">
-                Ce billet ne permet pas l'accès au Camp.
-                Vérifiez son statut avant toute décision.
-              </p>
             </div>
           </div>
         )}
 
-        <div className="border-t border-red-400/15 p-6">
-          <button
-            type="button"
-            onClick={onScanAnother}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/5 px-5 py-3 text-sm font-medium text-gold-300 transition hover:bg-gold-400/10"
-          >
-            <ScanLine className="h-5 w-5" />
-            Scanner un autre billet
-          </button>
+        {/* =====================================================
+            VERIFYING
+        ===================================================== */}
+
+        {state === "verifying" && (
+          <StatusCard
+            icon={
+              <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+            }
+            title="Vérification..."
+            message="Recherche du billet dans la base de données SiloCamp."
+            background="bg-blue-50"
+          />
+        )}
+
+        {/* =====================================================
+            VALID
+        ===================================================== */}
+
+        {state === "valid" &&
+          ticket && (
+            <TicketResult
+              ticket={ticket}
+              status="valid"
+              message={message}
+              onConfirm={confirmEntry}
+              onReset={resetScanner}
+              busy={busy}
+            />
+          )}
+
+        {/* =====================================================
+            CONFIRMED
+        ===================================================== */}
+
+        {state === "confirmed" &&
+          ticket && (
+            <TicketResult
+              ticket={ticket}
+              status="confirmed"
+              message={message}
+              onReset={resetScanner}
+              busy={false}
+            />
+          )}
+
+        {/* =====================================================
+            USED
+        ===================================================== */}
+
+        {state === "used" &&
+          ticket && (
+            <TicketResult
+              ticket={ticket}
+              status="used"
+              message={message}
+              onReset={resetScanner}
+              busy={false}
+            />
+          )}
+
+        {/* =====================================================
+            CANCELLED
+        ===================================================== */}
+
+        {state === "cancelled" &&
+          ticket && (
+            <TicketResult
+              ticket={ticket}
+              status="cancelled"
+              message={message}
+              onReset={resetScanner}
+              busy={false}
+            />
+          )}
+
+        {/* =====================================================
+            NOT FOUND / ERROR
+        ===================================================== */}
+
+        {(state === "not-found" ||
+          state === "error") && (
+          <StatusCard
+            icon={
+              state === "not-found" ? (
+                <XCircle className="h-10 w-10 text-red-600" />
+              ) : (
+                <AlertTriangle className="h-10 w-10 text-red-600" />
+              )
+            }
+            title={
+              state === "not-found"
+                ? "Billet introuvable"
+                : "Erreur"
+            }
+            message={
+              message ||
+              "Impossible de vérifier ce billet."
+            }
+            background="bg-red-50"
+            action={
+              <button
+                type="button"
+                onClick={resetScanner}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-bold text-white"
+              >
+                <RotateCcw className="h-5 w-5" />
+                Scanner un autre billet
+              </button>
+            }
+          />
+        )}
+      </div>
+    </main>
+  );
+}
+
+/* =========================================================
+   EXTRACT TOKEN
+   ========================================================= */
+
+function extractVerificationToken(
+  value: string,
+): string | null {
+  const text = value.trim();
+
+  if (!text) {
+    return null;
+  }
+
+  /*
+   * Cas 1 :
+   * QR Code contenant directement le token.
+   */
+
+  if (
+    !text.startsWith("http://") &&
+    !text.startsWith("https://")
+  ) {
+    return text;
+  }
+
+  /*
+   * Cas 2 :
+   * QR Code contenant :
+   * https://silocamp.../ticket/verify?token=XXXX
+   */
+
+  try {
+    const url = new URL(text);
+
+    const token =
+      url.searchParams.get("token");
+
+    return token?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/* =========================================================
+   STATUS CARD
+   ========================================================= */
+
+function StatusCard({
+  icon,
+  title,
+  message,
+  background,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  message: string;
+  background: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
+      <div className="p-8 text-center">
+        <div
+          className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ${background}`}
+        >
+          {icon}
         </div>
+
+        <h2 className="mt-5 text-2xl font-black text-slate-900">
+          {title}
+        </h2>
+
+        <p className="mt-3 text-sm leading-6 text-slate-500">
+          {message}
+        </p>
+
+        {action}
       </div>
     </div>
   );
 }
 
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="mx-auto max-w-xl">
-      <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-400/10 text-red-300">
-          <AlertCircle className="h-8 w-8" />
-        </div>
+/* =========================================================
+   TICKET RESULT
+   ========================================================= */
 
-        <h2 className="mt-5 font-display text-2xl text-cream">
-          Impossible de scanner
+function TicketResult({
+  ticket,
+  status,
+  message,
+  onConfirm,
+  onReset,
+  busy,
+}: {
+  ticket: Ticket;
+  status:
+    | "valid"
+    | "confirmed"
+    | "used"
+    | "cancelled";
+  message: string;
+  onConfirm?: () => void;
+  onReset: () => void;
+  busy: boolean;
+}) {
+  const isValid =
+    status === "valid";
+
+  const isConfirmed =
+    status === "confirmed";
+
+  const isUsed =
+    status === "used";
+
+  const isCancelled =
+    status === "cancelled";
+
+  const statusTitle = isConfirmed
+    ? "ENTRÉE VALIDÉE"
+    : isValid
+      ? "BILLET VALIDE"
+      : isUsed
+        ? "BILLET DÉJÀ UTILISÉ"
+        : "BILLET ANNULÉ";
+
+  const statusBackground =
+    isConfirmed || isValid
+      ? "bg-emerald-500"
+      : isUsed
+        ? "bg-amber-500"
+        : "bg-red-500";
+
+  return (
+    <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
+      {/* STATUS */}
+
+      <div
+        className={`px-6 py-8 text-center ${statusBackground}`}
+      >
+        {isConfirmed || isValid ? (
+          <CheckCircle2 className="mx-auto h-14 w-14 text-white" />
+        ) : (
+          <XCircle className="mx-auto h-14 w-14 text-white" />
+        )}
+
+        <h2 className="mt-4 text-2xl font-black text-white">
+          {statusTitle}
         </h2>
 
-        <p className="mt-3 text-sm leading-relaxed text-red-200">
+        <p className="mt-2 text-sm leading-6 text-white/85">
           {message}
         </p>
+      </div>
+
+      {/* TICKET */}
+
+      <div className="p-6">
+        <div className="mb-6 rounded-2xl bg-slate-50 p-5 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+            Numéro du billet
+          </p>
+
+          <p className="mt-2 break-all text-xl font-black text-slate-900">
+            {ticket.ticketNumber}
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <InfoRow
+            icon={
+              <User className="h-4 w-4" />
+            }
+            label="Participant"
+            value={
+              ticket.participantName
+            }
+          />
+
+          <InfoRow
+            icon={
+              <User className="h-4 w-4" />
+            }
+            label="Prénom"
+            value={
+              ticket.firstName || "—"
+            }
+          />
+
+          <InfoRow
+            icon={
+              <User className="h-4 w-4" />
+            }
+            label="Nom"
+            value={
+              ticket.lastName || "—"
+            }
+          />
+
+          <InfoRow
+            icon={
+              <Phone className="h-4 w-4" />
+            }
+            label="Téléphone"
+            value={
+              ticket.phone || "—"
+            }
+          />
+
+          <InfoRow
+            icon={
+              <Mail className="h-4 w-4" />
+            }
+            label="E-mail"
+            value={
+              ticket.email
+            }
+          />
+
+          <InfoRow
+            icon={
+              <TicketIcon className="h-4 w-4" />
+            }
+            label="Événement"
+            value={
+              ticket.eventTitle
+            }
+          />
+        </div>
+
+        {/* CONFIRM */}
+
+        {isValid &&
+          !isConfirmed &&
+          !isUsed &&
+          !isCancelled && (
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={busy}
+              className="mt-7 flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Validation...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-5 w-5" />
+                  Valider l'entrée
+                </>
+              )}
+            </button>
+          )}
+
+        {/* RESET */}
 
         <button
           type="button"
-          onClick={onRetry}
-          className="btn-gold mt-6 inline-flex items-center gap-2"
+          onClick={onReset}
+          disabled={busy}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-5 py-4 text-sm font-bold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50"
         >
-          <RefreshCw className="h-4 w-4" />
-          Réessayer
+          <RotateCcw className="h-5 w-5" />
+          Scanner un autre billet
         </button>
       </div>
     </div>
   );
 }
 
-function TicketInfo({
+/* =========================================================
+   INFO ROW
+   ========================================================= */
+
+function InfoRow({
   icon,
   label,
   value,
 }: {
-  icon: ReactNode;
+  icon: React.ReactNode;
   label: string;
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-4 rounded-2xl border border-gold-400/10 bg-ink-950/30 p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300">
+    <div className="flex items-start gap-3 border-b border-slate-100 pb-3 last:border-0">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
         {icon}
       </div>
 
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-cream-faint">
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-slate-400">
           {label}
         </p>
 
-        <p className="mt-1 break-words text-sm font-medium text-cream">
-          {value || "—"}
+        <p className="mt-0.5 break-words text-sm font-semibold text-slate-900">
+          {value}
         </p>
       </div>
     </div>
