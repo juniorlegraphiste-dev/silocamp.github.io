@@ -1,4 +1,4 @@
-import { HashRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { CartProvider } from "@/context/CartContext";
@@ -93,7 +93,7 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <CartProvider>
-      <HashRouter>
+      <BrowserRouter>
         <ScrollToTop />
 
         <div className="flex min-h-screen flex-col">
@@ -105,7 +105,7 @@ export default function App() {
 
           <Footer />
         </div>
-      </HashRouter>
+      </BrowserRouter>
     </CartProvider>
   );
 }
