@@ -327,3 +327,36 @@ export function getVerificationUrl(
     ticket.verificationToken,
   )}`;
 }
+
+/**
+ * Compatibilité avec les anciens composants.
+ * Vérifie un billet via son verificationToken auprès de l'API Neon.
+ */
+export async function validateTicketByToken(
+  verificationToken: string,
+): Promise<{
+  valid: boolean;
+  reason?: string | null;
+  message: string;
+  ticket?: Ticket;
+}> {
+  return verifyTicket(verificationToken);
+}
+
+/**
+ * Alias pour les composants qui utilisent encore validateTicket().
+ */
+export async function validateTicket(
+  ticketNumber: string,
+): Promise<Ticket> {
+  return markTicketAsUsed(ticketNumber);
+}
+
+/**
+ * Alias historique.
+ */
+export async function useTicket(
+  ticketNumber: string,
+): Promise<Ticket> {
+  return markTicketAsUsed(ticketNumber);
+}
