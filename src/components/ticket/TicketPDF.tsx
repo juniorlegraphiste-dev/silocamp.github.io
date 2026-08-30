@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   },
 
   brand: {
-    fontSize: 24,
+    fontSize: 25,
     fontFamily: "Helvetica-Bold",
     color: "#D4AF62",
     marginBottom: 6,
@@ -50,12 +50,35 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontFamily: "Helvetica-Bold",
-    marginBottom: 18,
+    marginBottom: 20,
     color: "#F5F0E8",
+    textAlign: "center",
+  },
+
+  eventBox: {
+    padding: 14,
+    marginBottom: 20,
+    borderRadius: 10,
+    backgroundColor: "#15120E",
+    borderWidth: 1,
+    borderColor: "#2E2921",
+  },
+
+  eventLabel: {
+    fontSize: 8,
+    color: "#A9A196",
+    textTransform: "uppercase",
+    marginBottom: 5,
+  },
+
+  eventTitle: {
+    fontSize: 14,
+    fontFamily: "Helvetica-Bold",
+    color: "#D4AF62",
   },
 
   section: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
   label: {
@@ -77,9 +100,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  reservationNumber: {
+    fontSize: 10,
+    fontFamily: "Helvetica",
+    color: "#C9C0B4",
+    marginTop: 3,
+  },
+
   status: {
-    marginTop: 12,
-    padding: 8,
+    marginTop: 8,
+    padding: 9,
     borderRadius: 8,
     backgroundColor: "#123D29",
     color: "#7BE0A7",
@@ -90,6 +120,9 @@ const styles = StyleSheet.create({
 
   qrSection: {
     marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#2E2921",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -106,6 +139,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  verificationUrl: {
+    marginTop: 6,
+    maxWidth: 430,
+    fontSize: 7,
+    color: "#70695F",
+    textAlign: "center",
+  },
+
   footer: {
     marginTop: 24,
     paddingTop: 12,
@@ -119,6 +160,13 @@ const styles = StyleSheet.create({
     color: "#8F887E",
     lineHeight: 1.4,
   },
+
+  footerBrand: {
+    marginTop: 5,
+    fontSize: 8,
+    color: "#B8954A",
+    fontFamily: "Helvetica-Bold",
+  },
 });
 
 export default function TicketPDF({
@@ -126,10 +174,25 @@ export default function TicketPDF({
   verificationUrl,
   qrCodeDataUrl,
 }: TicketPDFProps) {
+  const participantName =
+    ticket.participantName ||
+    [ticket.firstName, ticket.lastName]
+      .filter(Boolean)
+      .join(" ") ||
+    "Participant";
+
+  const statusLabel =
+    ticket.status === "VALID"
+      ? "BILLET VALIDE"
+      : ticket.status === "USED"
+        ? "BILLET DÉJÀ UTILISÉ"
+        : "BILLET ANNULÉ";
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.container}>
+          {/* HEADER */}
           <View style={styles.header}>
             <Text style={styles.brand}>SILO CAMP</Text>
 
@@ -138,20 +201,34 @@ export default function TicketPDF({
             </Text>
           </View>
 
+          {/* TITRE */}
           <Text style={styles.title}>
             E-BILLET DE PARTICIPATION
           </Text>
 
+          {/* ÉVÉNEMENT */}
+          <View style={styles.eventBox}>
+            <Text style={styles.eventLabel}>
+              Événement
+            </Text>
+
+            <Text style={styles.eventTitle}>
+              {ticket.eventTitle}
+            </Text>
+          </View>
+
+          {/* PARTICIPANT */}
           <View style={styles.section}>
             <Text style={styles.label}>
               Participant
             </Text>
 
             <Text style={styles.value}>
-              {ticket.participantName}
+              {participantName}
             </Text>
           </View>
 
+          {/* EMAIL */}
           <View style={styles.section}>
             <Text style={styles.label}>
               E-mail
@@ -162,6 +239,7 @@ export default function TicketPDF({
             </Text>
           </View>
 
+          {/* TÉLÉPHONE */}
           {ticket.phone && (
             <View style={styles.section}>
               <Text style={styles.label}>
@@ -174,16 +252,7 @@ export default function TicketPDF({
             </View>
           )}
 
-          <View style={styles.section}>
-            <Text style={styles.label}>
-              Événement
-            </Text>
-
-            <Text style={styles.value}>
-              {ticket.eventTitle}
-            </Text>
-          </View>
-
+          {/* DATE */}
           <View style={styles.section}>
             <Text style={styles.label}>
               Date
@@ -194,6 +263,7 @@ export default function TicketPDF({
             </Text>
           </View>
 
+          {/* HEURE */}
           <View style={styles.section}>
             <Text style={styles.label}>
               Heure
@@ -204,6 +274,20 @@ export default function TicketPDF({
             </Text>
           </View>
 
+          {/* DURÉE */}
+          {ticket.duration && (
+            <View style={styles.section}>
+              <Text style={styles.label}>
+                Durée
+              </Text>
+
+              <Text style={styles.value}>
+                {ticket.duration}
+              </Text>
+            </View>
+          )}
+
+          {/* LIEU */}
           <View style={styles.section}>
             <Text style={styles.label}>
               Lieu
@@ -214,6 +298,7 @@ export default function TicketPDF({
             </Text>
           </View>
 
+          {/* NUMÉRO DU BILLET */}
           <View style={styles.section}>
             <Text style={styles.label}>
               Numéro du billet
@@ -224,20 +309,23 @@ export default function TicketPDF({
             </Text>
           </View>
 
+          {/* NUMÉRO DE RÉSERVATION */}
           <View style={styles.section}>
             <Text style={styles.label}>
-              Réservation
+              Numéro de réservation
             </Text>
 
-            <Text style={styles.value}>
+            <Text style={styles.reservationNumber}>
               {ticket.reservationId || "—"}
             </Text>
           </View>
 
+          {/* STATUT */}
           <Text style={styles.status}>
-            BILLET VALIDE
+            {statusLabel}
           </Text>
 
+          {/* QR CODE */}
           {qrCodeDataUrl && (
             <View style={styles.qrSection}>
               <Image
@@ -246,24 +334,25 @@ export default function TicketPDF({
               />
 
               <Text style={styles.qrText}>
-                Présentez ce QR Code à l'entrée
+                Présentez ce QR Code à l'entrée du Camp
               </Text>
 
               {verificationUrl && (
-                <Text style={styles.qrText}>
+                <Text style={styles.verificationUrl}>
                   {verificationUrl}
                 </Text>
               )}
             </View>
           )}
 
+          {/* FOOTER */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
               Ce billet est personnel et contient un QR Code
               sécurisé permettant de vérifier son authenticité.
             </Text>
 
-            <Text style={styles.footerText}>
+            <Text style={styles.footerBrand}>
               SiloCamp — Camp International Silo 2026
             </Text>
           </View>
