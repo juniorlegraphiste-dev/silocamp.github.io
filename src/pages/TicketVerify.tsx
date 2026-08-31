@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import {
   CheckCircle2,
   XCircle,
@@ -10,6 +11,7 @@ import {
   CalendarDays,
   MapPin,
   Clock,
+  Hash,
   ShieldCheck,
 } from "lucide-react";
 
@@ -18,15 +20,24 @@ import {
   type Ticket,
 } from "@/services/ticketService";
 
+type VerificationState =
+  | "loading"
+  | "valid"
+  | "used"
+  | "cancelled"
+  | "not_found"
+  | "error";
+
 export default function TicketVerify() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] =
+    useState<VerificationState>("loading");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     let mounted = true;
 
-    async function verify() {
+    const verify = async () => {
       try {
         const params = new URLSearchParams(
           window.location.search,
@@ -36,10 +47,10 @@ export default function TicketVerify() {
 
         if (!token) {
           if (mounted) {
+            setState("not_found");
             setMessage(
-              "Aucun token de vérification n'a été fourni.",
+              "Token de vérification manquant.",
             );
-            setLoading(false);
           }
 
           return;
@@ -52,24 +63,45 @@ export default function TicketVerify() {
         }
 
         setTicket(result.ticket ?? null);
-        setMessage(result.message);
-        setLoading(false);
+        setMessage(result.message ?? "");
+
+        if (result.valid) {
+          setState("valid");
+          return;
+        }
+
+        if (result.ticket?.status === "USED") {
+          setState("used");
+          return;
+        }
+
+        if (
+          result.ticket?.status === "CANCELLED"
+        ) {
+          setState("cancelled");
+          return;
+        }
+
+        setState("not_found");
       } catch (error) {
+        console.error(
+          "[SiloCamp] Erreur vérification billet :",
+          error,
+        );
+
         if (!mounted) {
           return;
         }
 
         setTicket(null);
-
+        setState("error");
         setMessage(
           error instanceof Error
             ? error.message
             : "Impossible de vérifier ce billet.",
         );
-
-        setLoading(false);
       }
-    }
+    };
 
     void verify();
 
@@ -78,20 +110,20 @@ export default function TicketVerify() {
     };
   }, []);
 
-  if (loading) {
+  if (state === "loading") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#09070d] px-6">
-        <div className="text-center text-white">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/5">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/10 border-t-amber-400" />
+      <main className="flex min-h-screen items-center justify-center bg-[#09070D] px-6">
+        <div className="text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-gold-400/20 bg-gold-400/5">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/10 border-t-gold-400" />
           </div>
 
-          <h1 className="text-xl font-semibold">
+          <h1 className="mt-5 text-xl font-bold text-white">
             Vérification du billet
           </h1>
 
           <p className="mt-2 text-sm text-white/50">
-            Connexion au système SiloCamp...
+            Vérification auprès du système SiloCamp...
           </p>
         </div>
       </main>
@@ -100,23 +132,23 @@ export default function TicketVerify() {
 
   if (!ticket) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#09070d] px-6 py-10">
+      <main className="flex min-h-screen items-center justify-center bg-[#09070D] px-4 py-10">
         <div className="w-full max-w-md">
-          <div className="mb-8 text-center text-white">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-              <TicketIcon className="h-8 w-8 text-amber-400" />
+          <div className="mb-7 text-center text-white">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-gold-400/20 bg-gold-400/5">
+              <TicketIcon className="h-8 w-8 text-gold-300" />
             </div>
 
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-3xl font-black">
               SiloCamp
             </h1>
 
             <p className="mt-1 text-sm text-white/50">
-              Vérification officielle des billets
+              Vérification officielle du billet
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-3xl border border-red-400/20 bg-white shadow-2xl">
+          <div className="overflow-hidden rounded-[28px] bg-white shadow-2xl">
             <div className="bg-red-500 px-6 py-8 text-center text-white">
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/15">
                 <XCircle className="h-12 w-12" />
@@ -127,7 +159,8 @@ export default function TicketVerify() {
               </h2>
 
               <p className="mt-2 text-sm text-white/80">
-                Vérification impossible
+                {message ||
+                  "Ce QR Code ne correspond à aucun billet enregistré."}
               </p>
             </div>
 
@@ -136,19 +169,8 @@ export default function TicketVerify() {
                 <AlertCircle className="mx-auto h-7 w-7 text-red-600" />
 
                 <p className="mt-3 text-sm leading-6 text-red-700">
-                  {message ||
-                    "Ce QR Code ne correspond à aucun billet enregistré dans le système SiloCamp."}
-                </p>
-              </div>
-
-              <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Sécurité
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Si vous pensez qu'il s'agit d'une erreur,
-                  contactez l'organisation SiloCamp.
+                  Impossible de retrouver ce billet dans
+                  la base de données SiloCamp.
                 </p>
               </div>
             </div>
@@ -164,19 +186,19 @@ export default function TicketVerify() {
     );
   }
 
-  const isValid = ticket.status === "VALID";
-  const isUsed = ticket.status === "USED";
-  const isCancelled = ticket.status === "CANCELLED";
+  const isValid = state === "valid";
+  const isUsed = state === "used";
+  const isCancelled = state === "cancelled";
 
   return (
-    <main className="min-h-screen bg-[#09070d] px-4 py-8 sm:px-6 sm:py-12">
+    <main className="min-h-screen bg-[#09070D] px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto w-full max-w-lg">
         <div className="mb-8 text-center text-white">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/5">
-            <TicketIcon className="h-8 w-8 text-amber-400" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-gold-400/20 bg-gold-400/5">
+            <TicketIcon className="h-8 w-8 text-gold-300" />
           </div>
 
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-3xl font-black">
             SiloCamp
           </h1>
 
@@ -195,15 +217,13 @@ export default function TicketVerify() {
                   : "bg-red-500"
             }`}
           >
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/15">
-              {isValid ? (
-                <CheckCircle2 className="h-12 w-12" />
-              ) : (
-                <XCircle className="h-12 w-12" />
-              )}
-            </div>
+            {isValid ? (
+              <CheckCircle2 className="mx-auto h-14 w-14" />
+            ) : (
+              <XCircle className="mx-auto h-14 w-14" />
+            )}
 
-            <h2 className="mt-5 text-3xl font-black">
+            <h2 className="mt-4 text-3xl font-black">
               {isValid
                 ? "BILLET VALIDE"
                 : isUsed
@@ -211,66 +231,53 @@ export default function TicketVerify() {
                   : "BILLET ANNULÉ"}
             </h2>
 
-            <p className="mt-2 text-sm text-white/80">
-              {isValid
-                ? "Ce billet est enregistré dans le système SiloCamp."
-                : isUsed
-                  ? "Ce billet a déjà été présenté à l'entrée."
-                  : "Ce billet ne permet plus l'accès à l'événement."}
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-white/85">
+              {message ||
+                (isValid
+                  ? "Ce billet est enregistré dans le système SiloCamp."
+                  : isUsed
+                    ? "Ce billet a déjà été présenté."
+                    : "Ce billet n'est plus valable.")}
             </p>
           </div>
 
           <div className="p-6 sm:p-8">
-            <div className="mb-8 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            <div className="mb-8 rounded-2xl bg-slate-950 p-5 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">
                 Numéro du billet
               </p>
 
-              <p className="mt-2 break-all text-xl font-black tracking-wide text-slate-900">
+              <p className="mt-2 break-all text-xl font-black tracking-wider text-white">
                 {ticket.ticketNumber}
               </p>
             </div>
 
             <section>
-              <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                  <User className="h-5 w-5" />
-                </div>
+              <h3 className="mb-4 text-xs font-black uppercase tracking-[0.15em] text-slate-400">
+                Participant
+              </h3>
 
-                <div>
-                  <h3 className="font-bold text-slate-900">
-                    Participant
-                  </h3>
-
-                  <p className="text-xs text-slate-400">
-                    Informations du titulaire
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <InfoRow
                   icon={<User className="h-4 w-4" />}
                   label="Prénom"
-                  value={ticket.firstName}
+                  value={
+                    ticket.firstName ?? "—"
+                  }
                 />
 
                 <InfoRow
                   icon={<User className="h-4 w-4" />}
                   label="Nom"
-                  value={ticket.lastName}
-                />
-
-                <InfoRow
-                  icon={<User className="h-4 w-4" />}
-                  label="Nom complet"
-                  value={ticket.participantName}
+                  value={
+                    ticket.lastName ?? "—"
+                  }
                 />
 
                 <InfoRow
                   icon={<Phone className="h-4 w-4" />}
-                  label="Contact"
-                  value={ticket.phone}
+                  label="Téléphone"
+                  value={ticket.phone ?? "—"}
                 />
 
                 <InfoRow
@@ -281,32 +288,24 @@ export default function TicketVerify() {
               </div>
             </section>
 
-            <section className="mt-9 border-t border-slate-100 pt-8">
-              <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                  <CalendarDays className="h-5 w-5" />
-                </div>
+            <section className="mt-8 border-t border-slate-100 pt-8">
+              <h3 className="mb-4 text-xs font-black uppercase tracking-[0.15em] text-slate-400">
+                Événement
+              </h3>
 
-                <div>
-                  <h3 className="font-bold text-slate-900">
-                    Événement
-                  </h3>
-
-                  <p className="text-xs text-slate-400">
-                    Informations de l'événement
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <InfoRow
-                  icon={<TicketIcon className="h-4 w-4" />}
+                  icon={
+                    <TicketIcon className="h-4 w-4" />
+                  }
                   label="Événement"
                   value={ticket.eventTitle}
                 />
 
                 <InfoRow
-                  icon={<CalendarDays className="h-4 w-4" />}
+                  icon={
+                    <CalendarDays className="h-4 w-4" />
+                  }
                   label="Date"
                   value={ticket.dateLabel}
                 />
@@ -318,55 +317,38 @@ export default function TicketVerify() {
                 />
 
                 <InfoRow
-                  icon={<Clock className="h-4 w-4" />}
-                  label="Durée"
-                  value={ticket.duration}
-                />
-
-                <InfoRow
-                  icon={<MapPin className="h-4 w-4" />}
+                  icon={
+                    <MapPin className="h-4 w-4" />
+                  }
                   label="Lieu"
                   value={
                     ticket.venue && ticket.city
                       ? `${ticket.venue}, ${ticket.city}`
-                      : ticket.venue || ticket.city
+                      : ticket.venue ||
+                        ticket.city
                   }
                 />
               </div>
             </section>
 
-            <section className="mt-9 border-t border-slate-100 pt-8">
-              <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
+            <section className="mt-8 border-t border-slate-100 pt-8">
+              <h3 className="mb-4 text-xs font-black uppercase tracking-[0.15em] text-slate-400">
+                Réservation
+              </h3>
 
-                <div>
-                  <h3 className="font-bold text-slate-900">
-                    Vérification
-                  </h3>
-
-                  <p className="text-xs text-slate-400">
-                    État du billet
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <InfoRow
-                  icon={<TicketIcon className="h-4 w-4" />}
+                  icon={<Hash className="h-4 w-4" />}
                   label="Référence"
-                  value={ticket.reservationId}
+                  value={
+                    ticket.reservationId ?? "—"
+                  }
                 />
 
                 <InfoRow
-                  icon={<TicketIcon className="h-4 w-4" />}
-                  label="Quantité"
-                  value={String(ticket.quantity)}
-                />
-
-                <InfoRow
-                  icon={<ShieldCheck className="h-4 w-4" />}
+                  icon={
+                    <ShieldCheck className="h-4 w-4" />
+                  }
                   label="Statut"
                   value={
                     isValid
@@ -376,52 +358,68 @@ export default function TicketVerify() {
                         : "ANNULÉ"
                   }
                 />
+
+                <InfoRow
+                  icon={
+                    <TicketIcon className="h-4 w-4" />
+                  }
+                  label="Quantité"
+                  value={String(
+                    ticket.quantity,
+                  )}
+                />
               </div>
             </section>
 
             <div
-              className={`mt-8 rounded-2xl p-5 text-center ${
+              className={`mt-8 rounded-2xl border p-5 text-center ${
                 isValid
-                  ? "border border-emerald-200 bg-emerald-50"
+                  ? "border-emerald-200 bg-emerald-50"
                   : isUsed
-                    ? "border border-amber-200 bg-amber-50"
-                    : "border border-red-200 bg-red-50"
+                    ? "border-amber-200 bg-amber-50"
+                    : "border-red-200 bg-red-50"
               }`}
             >
-              {isValid ? (
+              {isValid && (
                 <>
                   <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
 
-                  <p className="mt-3 font-bold text-emerald-700">
-                    ACCÈS AUTORISÉ
+                  <p className="mt-3 font-black text-emerald-700">
+                    BILLET VALIDE
                   </p>
 
                   <p className="mt-1 text-xs leading-5 text-emerald-600">
-                    Ce billet est actuellement valide.
+                    Ce billet est valide et n'a pas encore
+                    été utilisé à l'entrée.
                   </p>
                 </>
-              ) : isUsed ? (
+              )}
+
+              {isUsed && (
                 <>
                   <XCircle className="mx-auto h-8 w-8 text-amber-600" />
 
-                  <p className="mt-3 font-bold text-amber-700">
-                    ACCÈS DÉJÀ UTILISÉ
+                  <p className="mt-3 font-black text-amber-700">
+                    BILLET DÉJÀ UTILISÉ
                   </p>
 
                   <p className="mt-1 text-xs leading-5 text-amber-600">
-                    Ce billet a déjà été présenté.
+                    Ce billet a déjà été présenté à
+                    l'entrée.
                   </p>
                 </>
-              ) : (
+              )}
+
+              {isCancelled && (
                 <>
                   <XCircle className="mx-auto h-8 w-8 text-red-600" />
 
-                  <p className="mt-3 font-bold text-red-700">
-                    ACCÈS REFUSÉ
+                  <p className="mt-3 font-black text-red-700">
+                    BILLET ANNULÉ
                   </p>
 
                   <p className="mt-1 text-xs leading-5 text-red-600">
-                    Ce billet est annulé.
+                    Ce billet ne permet plus l'accès.
                   </p>
                 </>
               )}
@@ -446,21 +444,21 @@ function InfoRow({
 }: {
   icon: React.ReactNode;
   label: string;
-  value?: string | null;
+  value: string;
 }) {
   return (
-    <div className="flex items-start gap-3 border-b border-slate-100 pb-3 last:border-0">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
+    <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm">
         {icon}
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-slate-400">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
           {label}
         </p>
 
-        <p className="mt-0.5 break-words text-sm font-semibold text-slate-900">
-          {value ?? "—"}
+        <p className="mt-1 break-words text-sm font-semibold text-slate-900">
+          {value || "—"}
         </p>
       </div>
     </div>
