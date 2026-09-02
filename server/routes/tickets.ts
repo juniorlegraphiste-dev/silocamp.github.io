@@ -106,9 +106,7 @@ router.get("/stats", async (_req, res) => {
 router.get("/verify", async (req, res) => {
   try {
     const token =
-      typeof req.query.token === "string"
-        ? req.query.token.trim()
-        : "";
+      typeof req.query.token === "string" ? req.query.token.trim() : "";
 
     if (!token) {
       return res.status(400).json({
@@ -323,9 +321,6 @@ router.post("/", async (req, res) => {
     const existingEmail = await prisma.ticket.findFirst({
       where: {
         email: normalizedEmail,
-        status: {
-          not: "CANCELLED",
-        },
       },
     });
 
@@ -340,9 +335,6 @@ router.post("/", async (req, res) => {
       const existingPhone = await prisma.ticket.findFirst({
         where: {
           phone: normalizedPhone,
-          status: {
-            not: "CANCELLED",
-          },
         },
       });
 

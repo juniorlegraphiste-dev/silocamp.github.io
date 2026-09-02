@@ -1,7 +1,4 @@
-export type TicketStatus =
-  | "VALID"
-  | "USED"
-  | "CANCELLED";
+export type TicketStatus = "VALID" | "USED" | "CANCELLED";
 
 export type Ticket = {
   id: string;
@@ -73,9 +70,9 @@ export type TicketStats = {
    API
 ========================================================= */
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") ||
-  window.location.origin;
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL || window.location.origin
+).replace(/\/$/, "");
 
 const API_URL = `${API_BASE_URL}/api/tickets`;
 
@@ -83,17 +80,30 @@ const API_URL = `${API_BASE_URL}/api/tickets`;
    RESPONSE
 ========================================================= */
 
-async function parseResponse<T>(
-  response: Response,
-): Promise<T> {
-  let data: unknown;
+async function parseResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") || "";
 
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error(
-      `Réponse invalide du serveur (${response.status}).`,
-    );
+  const rawText = await response.text();
+
+  let data: unknown = null;
+
+  if (rawText.trim()) {
+    if (contentType.includes("application/json")) {
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(
+          `Le serveur a renvoyé un JSON invalide (${response.status}).`,
+        );
+      }
+    } else {
+      throw new Error(
+        `Réponse serveur non JSON (${response.status}) : ${rawText.slice(
+          0,
+          300,
+        )}`,
+      );
+    }
   }
 
   if (!response.ok) {
@@ -130,8 +140,7 @@ function normalizeTicket(ticket: Ticket): Ticket {
 export async function getTickets(): Promise<Ticket[]> {
   const response = await fetch(API_URL);
 
-  const tickets =
-    await parseResponse<Ticket[]>(response);
+  const tickets = await parseResponse<Ticket[]>(response);
 
   return tickets.map(normalizeTicket);
 }
@@ -140,16 +149,10 @@ export async function getTickets(): Promise<Ticket[]> {
    GET BY ID
 ========================================================= */
 
-export async function getTicketById(
-  id: string,
-): Promise<Ticket | null> {
+export async function getTicketById(id: string): Promise<Ticket | null> {
   const tickets = await getTickets();
 
-  return (
-    tickets.find(
-      (ticket) => ticket.id === id,
-    ) ?? null
-  );
+  return tickets.find((ticket) => ticket.id === id) ?? null;
 }
 
 /* =========================================================
@@ -160,17 +163,14 @@ export async function getTicketByNumber(
   ticketNumber: string,
 ): Promise<Ticket | null> {
   const response = await fetch(
-    `${API_URL}/number/${encodeURIComponent(
-      ticketNumber,
-    )}`,
+    `${API_URL}/number/${encodeURIComponent(ticketNumber)}`,
   );
 
   if (response.status === 404) {
     return null;
   }
 
-  const ticket =
-    await parseResponse<Ticket>(response);
+  const ticket = await parseResponse<Ticket>(response);
 
   return normalizeTicket(ticket);
 }
@@ -179,17 +179,12 @@ export async function getTicketByNumber(
    GET BY EMAIL
 ========================================================= */
 
-export async function getTicketByEmail(
-  email: string,
-): Promise<Ticket[]> {
+export async function getTicketByEmail(email: string): Promise<Ticket[]> {
   const response = await fetch(
-    `${API_URL}/email/${encodeURIComponent(
-      email.trim().toLowerCase(),
-    )}`,
+    `${API_URL}/email/${encodeURIComponent(email.trim().toLowerCase())}`,
   );
 
-  const tickets =
-    await parseResponse<Ticket[]>(response);
+  const tickets = await parseResponse<Ticket[]>(response);
 
   return tickets.map(normalizeTicket);
 }
@@ -198,21 +193,14 @@ export async function getTicketByEmail(
    GET BY PHONE
 ========================================================= */
 
-export async function getTicketByPhone(
-  phone: string,
-): Promise<Ticket[]> {
-  const normalizedPhone = phone
-    .replace(/[^\d+]/g, "")
-    .trim();
+export async function getTicketByPhone(phone: string): Promise<Ticket[]> {
+  const normalizedPhone = phone.replace(/[^\d+]/g, "").trim();
 
   const response = await fetch(
-    `${API_URL}/phone/${encodeURIComponent(
-      normalizedPhone,
-    )}`,
+    `${API_URL}/phone/${encodeURIComponent(normalizedPhone)}`,
   );
 
-  const tickets =
-    await parseResponse<Ticket[]>(response);
+  const tickets = await parseResponse<Ticket[]>(response);
 
   return tickets.map(normalizeTicket);
 }
@@ -221,9 +209,7 @@ export async function getTicketByPhone(
    VERIFY TOKEN
 ========================================================= */
 
-export async function verifyTicket(
-  verificationToken: string,
-): Promise<{
+export async function verifyTicket(verificationToken: string): Promise<{
   valid: boolean;
   reason?: string | null;
   message: string;
@@ -240,30 +226,18 @@ export async function verifyTicket(
   }
 
   const response = await fetch(
-    `${API_URL}/verify?token=${encodeURIComponent(
-      token,
-    )}`,
+    `${API_URL}/verify?token=${encodeURIComponent(token)}`,
   );
 
-  let data: {
+  const data = await parseResponse<{
     valid: boolean;
     reason?: string | null;
     message: string;
     ticket?: Ticket;
-  };
-
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error(
-      `Réponse invalide du serveur (${response.status}).`,
-    );
-  }
+  }>(response);
 
   if (data.ticket) {
-    data.ticket = normalizeTicket(
-      data.ticket,
-    );
+    data.ticket = normalizeTicket(data.ticket);
   }
 
   return data;
@@ -273,24 +247,17 @@ export async function verifyTicket(
    CREATE TICKET
 ========================================================= */
 
-export async function createTicket(
-  input: CreateTicketInput,
-): Promise<Ticket> {
+export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
   const payload = {
     ...input,
 
-    email: input.email
-      .trim()
-      .toLowerCase(),
+    email: input.email.trim().toLowerCase(),
 
-    phone:
-      input.phone?.trim() || undefined,
+    phone: input.phone?.trim() || undefined,
 
     participantName:
       input.participantName?.trim() ||
-      `${input.firstName ?? ""} ${
-        input.lastName ?? ""
-      }`.trim(),
+      `${input.firstName ?? ""} ${input.lastName ?? ""}`.trim(),
 
     quantity: input.quantity ?? 1,
   };
@@ -305,12 +272,11 @@ export async function createTicket(
     body: JSON.stringify(payload),
   });
 
-  const data =
-    await parseResponse<{
-      success: boolean;
-      message: string;
-      ticket: Ticket;
-    }>(response);
+  const data = await parseResponse<{
+    success: boolean;
+    message: string;
+    ticket: Ticket;
+  }>(response);
 
   return normalizeTicket(data.ticket);
 }
@@ -319,13 +285,9 @@ export async function createTicket(
    USE TICKET
 ========================================================= */
 
-export async function markTicketAsUsed(
-  ticketNumber: string,
-): Promise<Ticket> {
+export async function markTicketAsUsed(ticketNumber: string): Promise<Ticket> {
   const response = await fetch(
-    `${API_URL}/${encodeURIComponent(
-      ticketNumber,
-    )}/use`,
+    `${API_URL}/${encodeURIComponent(ticketNumber)}/use`,
     {
       method: "PATCH",
       headers: {
@@ -334,12 +296,11 @@ export async function markTicketAsUsed(
     },
   );
 
-  const data =
-    await parseResponse<{
-      valid: boolean;
-      message: string;
-      ticket: Ticket;
-    }>(response);
+  const data = await parseResponse<{
+    valid: boolean;
+    message: string;
+    ticket: Ticket;
+  }>(response);
 
   return normalizeTicket(data.ticket);
 }
@@ -348,13 +309,9 @@ export async function markTicketAsUsed(
    CANCEL
 ========================================================= */
 
-export async function cancelTicket(
-  ticketNumber: string,
-): Promise<Ticket> {
+export async function cancelTicket(ticketNumber: string): Promise<Ticket> {
   const response = await fetch(
-    `${API_URL}/${encodeURIComponent(
-      ticketNumber,
-    )}/cancel`,
+    `${API_URL}/${encodeURIComponent(ticketNumber)}/cancel`,
     {
       method: "PATCH",
       headers: {
@@ -363,12 +320,11 @@ export async function cancelTicket(
     },
   );
 
-  const data =
-    await parseResponse<{
-      success: boolean;
-      message: string;
-      ticket: Ticket;
-    }>(response);
+  const data = await parseResponse<{
+    success: boolean;
+    message: string;
+    ticket: Ticket;
+  }>(response);
 
   return normalizeTicket(data.ticket);
 }
@@ -378,13 +334,9 @@ export async function cancelTicket(
 ========================================================= */
 
 export async function getTicketStats(): Promise<TicketStats> {
-  const response = await fetch(
-    `${API_URL}/stats`,
-  );
+  const response = await fetch(`${API_URL}/stats`);
 
-  return parseResponse<TicketStats>(
-    response,
-  );
+  return parseResponse<TicketStats>(response);
 }
 
 /* =========================================================
@@ -431,12 +383,8 @@ export function generateReservationId(): string {
    VERIFICATION URL
 ========================================================= */
 
-export function getVerificationUrl(
-  ticket: Ticket,
-): string {
-  return `${
-    window.location.origin
-  }/ticket/verify?token=${encodeURIComponent(
+export function getVerificationUrl(ticket: Ticket): string {
+  return `${window.location.origin}/ticket/verify?token=${encodeURIComponent(
     ticket.verificationToken,
   )}`;
 }
@@ -445,20 +393,14 @@ export function getVerificationUrl(
    COMPATIBILITY
 ========================================================= */
 
-export async function validateTicketByToken(
-  verificationToken: string,
-) {
+export async function validateTicketByToken(verificationToken: string) {
   return verifyTicket(verificationToken);
 }
 
-export async function validateTicket(
-  ticketNumber: string,
-): Promise<Ticket> {
+export async function validateTicket(ticketNumber: string): Promise<Ticket> {
   return markTicketAsUsed(ticketNumber);
 }
 
-export async function useTicket(
-  ticketNumber: string,
-): Promise<Ticket> {
+export async function useTicket(ticketNumber: string): Promise<Ticket> {
   return markTicketAsUsed(ticketNumber);
 }

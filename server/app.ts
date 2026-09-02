@@ -7,9 +7,6 @@ import ticketsRouter from "./routes/tickets";
 
 const app = express();
 
-/**
- * CORS
- */
 app.use(
   cors({
     origin: true,
@@ -17,14 +14,8 @@ app.use(
   }),
 );
 
-/**
- * JSON
- */
 app.use(express.json());
 
-/**
- * HEALTH CHECK
- */
 app.get("/api/health", (_req, res) => {
   return res.json({
     success: true,
@@ -34,14 +25,8 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-/**
- * TICKETS API
- */
 app.use("/api/tickets", ticketsRouter);
 
-/**
- * ROUTE INEXISTANTE
- */
 app.use((_req, res) => {
   return res.status(404).json({
     success: false,
@@ -49,9 +34,6 @@ app.use((_req, res) => {
   });
 });
 
-/**
- * ERREUR SERVEUR
- */
 app.use(
   (
     error: unknown,
