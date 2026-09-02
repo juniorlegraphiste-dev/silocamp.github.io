@@ -17,10 +17,10 @@ app.use(
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => {
-  return res.json({
-    success: true,
+  return res.status(200).json({
+    ok: true,
     service: "SiloCamp API",
-    status: "ok",
+    databaseConfigured: Boolean(process.env.DATABASE_URL),
     timestamp: new Date().toISOString(),
   });
 });
@@ -29,8 +29,8 @@ app.use("/api/tickets", ticketsRouter);
 
 app.use((_req, res) => {
   return res.status(404).json({
-    success: false,
-    message: "Route introuvable.",
+    ok: false,
+    message: "Route API introuvable.",
   });
 });
 
@@ -44,7 +44,7 @@ app.use(
     console.error("[SiloCamp API]", error);
 
     return res.status(500).json({
-      success: false,
+      ok: false,
       message: "Erreur interne du serveur.",
     });
   },
