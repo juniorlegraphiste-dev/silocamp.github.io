@@ -8,6 +8,8 @@
     "server": "tsx server/index.ts",
     "server:dev": "tsx watch server/index.ts",
     "build": "vite build",
+    "preview": "vite preview",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
