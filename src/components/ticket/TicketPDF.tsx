@@ -1,20 +1,3 @@
-/**
- * =========================================================
- * TICKET PDF — SILOCAMP
- * =========================================================
- *
- * E-billet officiel — Camp International Silo 2026
- *
- * Design :
- * - Une seule page A4
- * - Fond blanc
- * - Design premium
- * - QR Code à droite
- * - Informations participant à gauche
- * - Compatible @react-pdf/renderer
- * =========================================================
- */
-
 import {
   Document,
   Page,
@@ -28,10 +11,6 @@ import {
   Circle,
   Rect,
 } from "@react-pdf/renderer";
-
-/* =========================================================
-   POLICES
-========================================================= */
 
 Font.register({
   family: "Poppins",
@@ -55,37 +34,31 @@ Font.register({
   ],
 });
 
-/* =========================================================
-   TYPES
-========================================================= */
-
-export type TicketPDFProps = {
+export type TicketData = {
+  id: string;
   ticketNumber: string;
   participantName: string;
-
-  email?: string;
+  email: string;
   phone?: string;
-
+  reservationId?: string;
+  verificationToken?: string;
+  eventId: string;
   eventTitle: string;
   dateLabel: string;
   time: string;
   duration?: string;
-
   venue: string;
   city: string;
-
   quantity: number;
-
-  qrCodeDataUrl: string;
-
-  reservationId?: string;
-
-  createdAt?: string;
+  status: string;
+  createdAt: string;
+  usedAt?: string;
 };
 
-/* =========================================================
-   COULEURS
-========================================================= */
+export type TicketPDFProps = {
+  ticket: TicketData;
+  qrCodeDataUrl: string;
+};
 
 const COLORS = {
   purple: "#24104F",
@@ -94,28 +67,19 @@ const COLORS = {
   purpleLight: "#A78BFA",
   purpleSoft: "#F8F6FF",
   purpleBorder: "#E7DFFF",
-
   gold: "#C8A45D",
   goldLight: "#E7CF9A",
-
   green: "#047857",
   greenSoft: "#ECFDF5",
   greenBorder: "#A7F3D0",
-
   white: "#FFFFFF",
-
   text: "#171329",
   textSoft: "#4B5563",
   gray: "#6B7280",
   grayLight: "#9CA3AF",
-
   border: "#E5E7EB",
   background: "#F7F7FA",
 };
-
-/* =========================================================
-   ICÔNE CALENDRIER
-========================================================= */
 
 const CalendarIcon = () => (
   <Svg width={12} height={12} viewBox="0 0 24 24">
@@ -129,7 +93,6 @@ const CalendarIcon = () => (
       stroke={COLORS.purpleMedium}
       strokeWidth="2"
     />
-
     <Path
       d="M8 3v4M16 3v4"
       fill="none"
@@ -137,7 +100,6 @@ const CalendarIcon = () => (
       strokeWidth="2"
       strokeLinecap="round"
     />
-
     <Path
       d="M3 10h18"
       fill="none"
@@ -146,10 +108,6 @@ const CalendarIcon = () => (
     />
   </Svg>
 );
-
-/* =========================================================
-   ICÔNE HORLOGE
-========================================================= */
 
 const ClockIcon = () => (
   <Svg width={12} height={12} viewBox="0 0 24 24">
@@ -161,7 +119,6 @@ const ClockIcon = () => (
       stroke={COLORS.purpleMedium}
       strokeWidth="2"
     />
-
     <Path
       d="M12 7v5l3 2"
       fill="none"
@@ -173,10 +130,6 @@ const ClockIcon = () => (
   </Svg>
 );
 
-/* =========================================================
-   ICÔNE LOCALISATION
-========================================================= */
-
 const LocationIcon = () => (
   <Svg width={12} height={12} viewBox="0 0 24 24">
     <Path
@@ -187,7 +140,6 @@ const LocationIcon = () => (
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-
     <Circle
       cx="12"
       cy="10"
@@ -199,10 +151,6 @@ const LocationIcon = () => (
   </Svg>
 );
 
-/* =========================================================
-   ICÔNE DURÉE
-========================================================= */
-
 const TimerIcon = () => (
   <Svg width={12} height={12} viewBox="0 0 24 24">
     <Path
@@ -212,7 +160,6 @@ const TimerIcon = () => (
       strokeWidth="2"
       strokeLinecap="round"
     />
-
     <Circle
       cx="12"
       cy="14"
@@ -221,7 +168,6 @@ const TimerIcon = () => (
       stroke={COLORS.purpleMedium}
       strokeWidth="2"
     />
-
     <Path
       d="M12 10v4l2.5 1.5"
       fill="none"
@@ -233,10 +179,6 @@ const TimerIcon = () => (
   </Svg>
 );
 
-/* =========================================================
-   ICÔNE PARTICIPANT
-========================================================= */
-
 const ParticipantIcon = () => (
   <Svg width={13} height={13} viewBox="0 0 24 24">
     <Circle
@@ -247,7 +189,6 @@ const ParticipantIcon = () => (
       stroke={COLORS.purpleMedium}
       strokeWidth="2"
     />
-
     <Path
       d="M5 21c.8-4.1 3.2-6 7-6s6.2 1.9 7 6"
       fill="none"
@@ -258,23 +199,13 @@ const ParticipantIcon = () => (
   </Svg>
 );
 
-/* =========================================================
-   ICÔNE CHECK
-========================================================= */
-
 const CheckIcon = () => (
   <Svg width={11} height={11} viewBox="0 0 24 24">
-    <Circle
-      cx="12"
-      cy="12"
-      r="9"
-      fill={COLORS.green}
-    />
-
+    <Circle cx="12" cy="12" r="9" fill={COLORS.green} />
     <Path
       d="M8 12.5l2.5 2.5L16.5 9"
       fill="none"
-      stroke="#FFFFFF"
+      stroke={COLORS.white}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -282,15 +213,7 @@ const CheckIcon = () => (
   </Svg>
 );
 
-/* =========================================================
-   STYLES
-========================================================= */
-
 const styles = StyleSheet.create({
-  /* =======================================================
-     PAGE
-  ======================================================= */
-
   page: {
     width: "100%",
     height: "100%",
@@ -298,10 +221,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     fontFamily: "Poppins",
   },
-
-  /* =======================================================
-     TICKET
-  ======================================================= */
 
   ticket: {
     flex: 1,
@@ -311,10 +230,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     overflow: "hidden",
   },
-
-  /* =======================================================
-     HEADER
-  ======================================================= */
 
   header: {
     height: 128,
@@ -387,10 +302,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  /* =======================================================
-     EVENT INTRO
-  ======================================================= */
-
   intro: {
     paddingHorizontal: 28,
     paddingTop: 19,
@@ -417,10 +328,6 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: COLORS.gray,
   },
-
-  /* =======================================================
-     EVENT DETAILS
-  ======================================================= */
 
   details: {
     marginHorizontal: 28,
@@ -483,10 +390,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
   },
 
-  /* =======================================================
-     MAIN
-  ======================================================= */
-
   main: {
     flex: 1,
     marginHorizontal: 28,
@@ -506,10 +409,6 @@ const styles = StyleSheet.create({
     borderLeftColor: COLORS.border,
     alignItems: "center",
   },
-
-  /* =======================================================
-     PARTICIPANT
-  ======================================================= */
 
   participantHeader: {
     flexDirection: "row",
@@ -542,10 +441,6 @@ const styles = StyleSheet.create({
     fontSize: 6.5,
     color: COLORS.grayLight,
   },
-
-  /* =======================================================
-     PARTICIPATION
-  ======================================================= */
 
   participation: {
     marginTop: 16,
@@ -591,10 +486,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
   },
 
-  /* =======================================================
-     BENEFITS
-  ======================================================= */
-
   benefits: {
     marginTop: 14,
   },
@@ -613,10 +504,6 @@ const styles = StyleSheet.create({
     fontSize: 6.8,
     color: COLORS.textSoft,
   },
-
-  /* =======================================================
-     ACCESS
-  ======================================================= */
 
   accessBox: {
     marginTop: 12,
@@ -639,10 +526,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     letterSpacing: 1.1,
   },
-
-  /* =======================================================
-     QR
-  ======================================================= */
 
   qrTitle: {
     fontSize: 8,
@@ -711,10 +594,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
 
-  /* =======================================================
-     BOTTOM INFO
-  ======================================================= */
-
   bottom: {
     marginHorizontal: 28,
     marginTop: 12,
@@ -727,6 +606,7 @@ const styles = StyleSheet.create({
 
   bottomItem: {
     flex: 1,
+    paddingRight: 8,
   },
 
   bottomLabel: {
@@ -742,10 +622,6 @@ const styles = StyleSheet.create({
     fontWeight: 600,
     color: COLORS.text,
   },
-
-  /* =======================================================
-     FOOTER
-  ======================================================= */
 
   footer: {
     height: 38,
@@ -766,10 +642,6 @@ const styles = StyleSheet.create({
     fontWeight: 700,
   },
 
-  /* =======================================================
-     ACCENT
-  ======================================================= */
-
   accentBar: {
     position: "absolute",
     top: 0,
@@ -780,45 +652,56 @@ const styles = StyleSheet.create({
   },
 });
 
-/* =========================================================
-   FORMAT DATE
-========================================================= */
-
-function formatCreatedAt(value?: string): string {
-  if (!value) {
-    return "—";
+function safeText(value: unknown, fallback = "—"): string {
+  if (value === null || value === undefined) {
+    return fallback;
   }
 
-  try {
-    return new Intl.DateTimeFormat("fr-FR", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
+  const text = String(value).trim();
+
+  return text || fallback;
 }
 
-/* =========================================================
-   COMPONENT
-========================================================= */
+function formatStatus(status: string): string {
+  const normalized = status.trim().toUpperCase();
+
+  if (normalized === "VALID") {
+    return "CONFIRMÉ";
+  }
+
+  if (normalized === "USED") {
+    return "UTILISÉ";
+  }
+
+  if (normalized === "CANCELLED") {
+    return "ANNULÉ";
+  }
+
+  if (normalized === "CANCELED") {
+    return "ANNULÉ";
+  }
+
+  return normalized || "CONFIRMÉ";
+}
 
 export default function TicketPDF({
-  ticketNumber,
-  participantName,
-  email,
-  phone,
-  eventTitle,
-  dateLabel,
-  time,
-  duration,
-  venue,
-  city,
-  quantity,
+  ticket,
   qrCodeDataUrl,
-  reservationId,
-  createdAt,
 }: TicketPDFProps) {
+  const ticketNumber = safeText(ticket.ticketNumber);
+  const participantName = safeText(ticket.participantName, "Participant");
+  const eventTitle = safeText(ticket.eventTitle, "Camp International Silo 2026");
+  const dateLabel = safeText(ticket.dateLabel);
+  const time = safeText(ticket.time);
+  const venue = safeText(ticket.venue);
+  const city = safeText(ticket.city);
+  const duration = safeText(ticket.duration);
+  const email = safeText(ticket.email, "");
+  const phone = safeText(ticket.phone, "");
+  const reservationId = safeText(ticket.reservationId, "");
+  const quantity = Number(ticket.quantity) > 0 ? Number(ticket.quantity) : 1;
+  const status = formatStatus(ticket.status);
+
   return (
     <Document
       title={`SiloCamp - ${ticketNumber}`}
@@ -828,10 +711,6 @@ export default function TicketPDF({
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.ticket}>
-          {/* =================================================
-              HEADER
-          ================================================= */}
-
           <View style={styles.header}>
             <View style={styles.headerTop}>
               <View>
@@ -843,16 +722,14 @@ export default function TicketPDF({
               </View>
 
               <View style={styles.eTicketBadge}>
-                <Text style={styles.eTicketBadgeText}>
-                  E-BILLET
-                </Text>
+                <Text style={styles.eTicketBadgeText}>E-BILLET</Text>
               </View>
             </View>
 
             <View style={styles.headerBottom}>
               <View>
                 <Text style={styles.headerLabel}>
-                  NUMÉRO DE BILLET : 
+                  NUMÉRO DE BILLET
                 </Text>
 
                 <Text style={styles.headerNumber}>
@@ -866,39 +743,23 @@ export default function TicketPDF({
             </View>
           </View>
 
-          {/* =================================================
-              EVENT
-          ================================================= */}
-
           <View style={styles.intro}>
-            <Text style={styles.eyebrow}>
-              VOTRE ACCÈS
-            </Text>
+            <Text style={styles.eyebrow}>VOTRE ACCÈS</Text>
 
-            <Text style={styles.title}>
-              {eventTitle}
-            </Text>
+            <Text style={styles.title}>{eventTitle}</Text>
 
             <Text style={styles.introText}>
               Votre billet officiel pour le Camp International Silo.
             </Text>
           </View>
 
-          {/* =================================================
-              EVENT DETAILS
-          ================================================= */}
-
           <View style={styles.details}>
             <View style={styles.detailsRow}>
-              {/* DATE */}
-
               <View style={styles.detailFirst}>
                 <View style={styles.detailLabelRow}>
                   <CalendarIcon />
 
-                  <Text style={styles.detailLabel}>
-                    DATE
-                  </Text>
+                  <Text style={styles.detailLabel}>DATE</Text>
                 </View>
 
                 <Text style={styles.detailValue}>
@@ -908,15 +769,11 @@ export default function TicketPDF({
 
               <View style={styles.divider} />
 
-              {/* HEURE */}
-
               <View style={styles.detail}>
                 <View style={styles.detailLabelRow}>
                   <ClockIcon />
 
-                  <Text style={styles.detailLabel}>
-                    HEURE
-                  </Text>
+                  <Text style={styles.detailLabel}>HEURE</Text>
                 </View>
 
                 <Text style={styles.detailValue}>
@@ -926,15 +783,11 @@ export default function TicketPDF({
 
               <View style={styles.divider} />
 
-              {/* LIEU */}
-
               <View style={styles.detail}>
                 <View style={styles.detailLabelRow}>
                   <LocationIcon />
 
-                  <Text style={styles.detailLabel}>
-                    LIEU
-                  </Text>
+                  <Text style={styles.detailLabel}>LIEU</Text>
                 </View>
 
                 <Text style={styles.detailValue}>
@@ -948,36 +801,22 @@ export default function TicketPDF({
 
               <View style={styles.divider} />
 
-              {/* DURÉE */}
-
               <View style={styles.detailLast}>
                 <View style={styles.detailLabelRow}>
                   <TimerIcon />
 
-                  <Text style={styles.detailLabel}>
-                    DURÉE
-                  </Text>
+                  <Text style={styles.detailLabel}>DURÉE</Text>
                 </View>
 
                 <Text style={styles.detailValue}>
-                  {duration || "—"}
+                  {duration}
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* =================================================
-              MAIN
-          ================================================= */}
-
           <View style={styles.main}>
-            {/* =================================================
-                LEFT
-            ================================================= */}
-
             <View style={styles.leftColumn}>
-              {/* PARTICIPANT */}
-
               <View style={styles.participantHeader}>
                 <ParticipantIcon />
 
@@ -987,7 +826,7 @@ export default function TicketPDF({
               </View>
 
               <Text style={styles.participantName}>
-                {participantName || "Participant"}
+                {participantName}
               </Text>
 
               {email && (
@@ -1001,8 +840,6 @@ export default function TicketPDF({
                   {phone}
                 </Text>
               )}
-
-              {/* PARTICIPATION */}
 
               <View style={styles.participation}>
                 <View style={styles.participationTop}>
@@ -1018,13 +855,10 @@ export default function TicketPDF({
                 </View>
 
                 <Text style={styles.participationText}>
-                  Votre inscription est confirmée. Présentez
-                  votre QR Code à l'entrée pour accéder à
-                  l'événement.
+                  Votre inscription est confirmée. Présentez votre QR
+                  Code à l'entrée pour accéder à l'événement.
                 </Text>
               </View>
-
-              {/* AVANTAGES */}
 
               <View style={styles.benefits}>
                 <View style={styles.benefitRow}>
@@ -1058,8 +892,6 @@ export default function TicketPDF({
                 </View>
               </View>
 
-              {/* RÉFÉRENCE */}
-
               <View style={styles.accessBox}>
                 <Text style={styles.accessLabel}>
                   RÉFÉRENCE D'ACCÈS
@@ -1071,10 +903,6 @@ export default function TicketPDF({
               </View>
             </View>
 
-            {/* =================================================
-                QR CODE
-            ================================================= */}
-
             <View style={styles.rightColumn}>
               <Text style={styles.qrTitle}>
                 SCANNEZ À L'ENTRÉE
@@ -1085,10 +913,22 @@ export default function TicketPDF({
               </Text>
 
               <View style={styles.qrBox}>
-                <Image
-                  src={qrCodeDataUrl}
-                  style={styles.qr}
-                />
+                {qrCodeDataUrl ? (
+                  <Image
+                    src={qrCodeDataUrl}
+                    style={styles.qr}
+                  />
+                ) : (
+                  <Text
+                    style={{
+                      fontSize: 7,
+                      color: COLORS.gray,
+                      textAlign: "center",
+                    }}
+                  >
+                    QR Code indisponible
+                  </Text>
+                )}
               </View>
 
               <Text style={styles.qrNumber}>
@@ -1101,32 +941,23 @@ export default function TicketPDF({
                 </View>
 
                 <Text style={styles.validText}>
-                  BILLET VALIDE
+                  BILLET {status}
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* =================================================
-              BOTTOM
-          ================================================= */}
-
           <View style={styles.bottom}>
             <View style={styles.bottomItem}>
-              <Text style={styles.bottomLabel}>
-                PLACES
-              </Text>
+              <Text style={styles.bottomLabel}>PLACES</Text>
 
               <Text style={styles.bottomValue}>
-                {quantity}{" "}
-                {quantity > 1 ? "places" : "place"}
+                {quantity} {quantity > 1 ? "places" : "place"}
               </Text>
             </View>
 
             <View style={styles.bottomItem}>
-              <Text style={styles.bottomLabel}>
-                TARIF
-              </Text>
+              <Text style={styles.bottomLabel}>TARIF</Text>
 
               <Text style={styles.bottomValue}>
                 Gratuit
@@ -1134,19 +965,15 @@ export default function TicketPDF({
             </View>
 
             <View style={styles.bottomItem}>
-              <Text style={styles.bottomLabel}>
-                STATUT
-              </Text>
+              <Text style={styles.bottomLabel}>STATUT</Text>
 
               <Text style={styles.bottomValue}>
-                CONFIRMÉ
+                {status}
               </Text>
             </View>
 
             <View style={styles.bottomItem}>
-              <Text style={styles.bottomLabel}>
-                ACCÈS
-              </Text>
+              <Text style={styles.bottomLabel}>ACCÈS</Text>
 
               <Text style={styles.bottomValue}>
                 QR CODE
@@ -1166,15 +993,9 @@ export default function TicketPDF({
             )}
           </View>
 
-          {/* =================================================
-              FOOTER
-          ================================================= */}
-
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              <Text style={styles.footerStrong}>
-                SILOCAMP
-              </Text>
+              <Text style={styles.footerStrong}>SILOCAMP</Text>
               {"  "}Camp International Silo 2026
             </Text>
 
@@ -1182,8 +1003,6 @@ export default function TicketPDF({
               BILLET ÉLECTRONIQUE
             </Text>
           </View>
-
-          {/* ACCENT OR */}
 
           <View style={styles.accentBar} />
         </View>
