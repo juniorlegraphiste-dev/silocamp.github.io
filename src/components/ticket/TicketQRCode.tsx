@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
 import type { Ticket } from "@/services/ticketService";
-import { getTicketVerificationUrl } from "@/services/ticketService";
+import { getVerificationUrl } from "@/services/ticketService";
 
 type TicketQRCodeProps = {
   ticket: Ticket;
@@ -24,7 +24,7 @@ export default function TicketQRCode({
 
     async function generateQRCode() {
       try {
-        const verificationUrl = getTicketVerificationUrl(ticket);
+        const verificationUrl = getVerificationUrl(ticket);
 
         const dataUrl = await QRCode.toDataURL(verificationUrl, {
           width: size,
