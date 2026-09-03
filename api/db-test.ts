@@ -7,7 +7,6 @@ export default async function handler(_req: any, res: any) {
     if (!databaseUrl) {
       return res.status(500).json({
         ok: false,
-        database: false,
         error: "DATABASE_URL manquante",
       });
     }
@@ -15,23 +14,26 @@ export default async function handler(_req: any, res: any) {
     const sql = neon(databaseUrl);
 
     const result = await sql`
-      SELECT 1 AS connected
+      SELECT
+        column_name,
+        data_type,
+        is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'Ticket'
+      ORDER BY ordinal_position
     `;
 
     return res.status(200).json({
       ok: true,
-      database: true,
-      driver: "neon",
-      result,
-      message: "Connexion Neon PostgreSQL réussie",
+      table: "Ticket",
+      columns: result,
     });
   } catch (error: any) {
-    console.error("NEON TEST ERROR:", error);
+    console.error("TICKET TABLE TEST ERROR:", error);
 
     return res.status(500).json({
       ok: false,
-      database: false,
-      error: error?.message || "Erreur Neon inconnue",
+      error: error?.message || "Erreur inconnue",
     });
   }
 }
