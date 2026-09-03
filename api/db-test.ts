@@ -1,7 +1,7 @@
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "../generated/prisma/client";
 
-export default async function handler(_req: any, res: any) {
+export default async function handler(req: any, res: any) {
   let prisma: PrismaClient | undefined;
 
   try {
@@ -11,6 +11,7 @@ export default async function handler(_req: any, res: any) {
       return res.status(500).json({
         ok: false,
         prisma: false,
+        database: false,
         error: "DATABASE_URL manquante",
       });
     }
@@ -23,12 +24,15 @@ export default async function handler(_req: any, res: any) {
       adapter,
     });
 
-    await prisma.$queryRaw`SELECT 1`;
+    const result = await prisma.$queryRaw`
+      SELECT 1 AS connected
+    `;
 
     return res.status(200).json({
       ok: true,
       prisma: true,
       database: true,
+      result,
       message: "Prisma + Neon PostgreSQL fonctionnent correctement",
     });
   } catch (error: any) {
@@ -44,8 +48,8 @@ export default async function handler(_req: any, res: any) {
     if (prisma) {
       try {
         await prisma.$disconnect();
-      } catch (disconnectError) {
-        console.error("PRISMA DISCONNECT ERROR:", disconnectError);
+      } catch (error) {
+        console.error("PRISMA DISCONNECT ERROR:", error);
       }
     }
   }
