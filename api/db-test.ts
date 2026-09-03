@@ -1,16 +1,31 @@
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "../generated/prisma/client";
 
-export default async function handler(_req: any, res: any) {
+export default async function handler(
+  req: Request
+): Promise<Response> {
   try {
+    if (req.method !== "GET") {
+      return Response.json(
+        {
+          ok: false,
+          message: "Méthode non autorisée",
+        },
+        { status: 405 }
+      );
+    }
+
     const databaseUrl = process.env.DATABASE_URL;
 
     if (!databaseUrl) {
-      return res.status(500).json({
-        ok: false,
-        database: false,
-        error: "DATABASE_URL est absente de Vercel",
-      });
+      return Response.json(
+        {
+          ok: false,
+          database: false,
+          message: "DATABASE_URL est absente.",
+        },
+        { status: 500 }
+      );
     }
 
     const adapter = new PrismaNeon({
@@ -25,19 +40,24 @@ export default async function handler(_req: any, res: any) {
 
     await prisma.$disconnect();
 
-    return res.status(200).json({
+    return Response.json({
       ok: true,
       database: true,
       message: "Connexion Neon PostgreSQL réussie",
     });
   } catch (error) {
-    console.error("PRISMA ERROR:", error);
+    console.error("DB TEST ERROR:", error);
 
-    return res.status(500).json({
-      ok: false,
-      database: false,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    return Response.json(
+      {
+        ok: false,
+        database: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Erreur inconnue",
+      },
+      { status: 500 }
+    );
   }
 }
