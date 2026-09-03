@@ -1,35 +1,52 @@
-import { neon } from "@neondatabase/serverless";
+import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaClient } from "../generated/prisma/client";
 
 export default async function handler(_req: any, res: any) {
+  let prisma: PrismaClient | undefined;
+
   try {
     const databaseUrl = process.env.DATABASE_URL;
 
     if (!databaseUrl) {
       return res.status(500).json({
         ok: false,
-        database: false,
+        prisma: false,
         error: "DATABASE_URL manquante",
       });
     }
 
-    const sql = neon(databaseUrl);
+    const adapter = new PrismaNeon({
+      connectionString: databaseUrl,
+    });
 
-    const result = await sql`SELECT 1 AS connected`;
+    prisma = new PrismaClient({
+      adapter,
+    });
+
+    await prisma.$queryRaw`SELECT 1`;
 
     return res.status(200).json({
       ok: true,
+      prisma: true,
       database: true,
-      driver: "neon",
-      result,
-      message: "Connexion Neon PostgreSQL réussie",
+      message: "Prisma + Neon PostgreSQL fonctionnent correctement",
     });
   } catch (error: any) {
-    console.error("NEON TEST ERROR:", error);
+    console.error("PRISMA TEST ERROR:", error);
 
     return res.status(500).json({
       ok: false,
+      prisma: false,
       database: false,
-      error: error?.message || "Erreur Neon inconnue",
+      error: error?.message || "Erreur Prisma inconnue",
     });
+  } finally {
+    if (prisma) {
+      try {
+        await prisma.$disconnect();
+      } catch (disconnectError) {
+        console.error("PRISMA DISCONNECT ERROR:", disconnectError);
+      }
+    }
   }
 }
