@@ -1,14 +1,7 @@
-export default function handler() {
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      service: "health",
-    }),
-    {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-  );
+export default function handler(req: any, res: any) {
+  res.status(200).json({
+    ok: true,
+    service: "SiloCamp API",
+    message: "Vercel Function OK",
+  });
 }
