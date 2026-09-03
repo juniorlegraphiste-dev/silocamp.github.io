@@ -1,11 +1,30 @@
+/**
+ * =========================================================
+ * CHECKOUT — SILOCAMP
+ * =========================================================
+ *
+ * Page de réservation du Camp International Silo 2026.
+ *
+ * Règles :
+ * - Participation gratuite
+ * - 1 réservation = 1 billet
+ * - 1 participant = 1 seule place
+ * - Maximum 1200 participants
+ * - E-mail unique
+ * - Téléphone unique
+ * - Création du billet via l'API Vercel
+ * - Génération d'un numéro de réservation unique
+ * - Génération d'un billet sécurisé avec QR Code
+ * - Sauvegarde de la réservation dans sessionStorage
+ * - Redirection vers la confirmation
+ *
+ * Aucun paiement réel n'est traité.
+ * =========================================================
+ */
+
 import { useEffect, useState } from "react";
-
 import { Link, useNavigate } from "react-router-dom";
-
-import PhoneInput, {
-  isValidPhoneNumber,
-} from "react-phone-number-input";
-
+import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 import {
@@ -18,17 +37,17 @@ import {
   Ticket,
 } from "lucide-react";
 
-import {
-  useCart,
-  type CartLine,
-} from "@/context/CartContext";
-
+import { useCart, type CartLine } from "@/context/CartContext";
 import { Reveal } from "@/components/Reveal";
 
 import {
   createTicket,
-  generateReservationId,
+  checkTicketAvailability,
+  getTicketByEmail,
+  getTicketByPhone,
 } from "@/services/ticketService";
+
+import { generateReservationId } from "@/services/ticketService";
 
 /* =========================================================
    TYPES
@@ -43,6 +62,12 @@ type FormState = {
 
 type Errors = Partial<Record<keyof FormState, string>>;
 
+const MAX_PARTICIPANTS = 1200;
+
+/* =========================================================
+   FORMULAIRE INITIAL
+========================================================= */
+
 const EMPTY_FORM: FormState = {
   firstName: "",
   lastName: "",
@@ -50,31 +75,28 @@ const EMPTY_FORM: FormState = {
   phone: "",
 };
 
+/* =========================================================
+   ORDER
+========================================================= */
+
 export type Order = {
   reservationId: string;
-
-  ticketNumber: string;
-
   ticketId: string;
-
+  ticketNumber: string;
   verificationToken: string;
 
   eventId: string;
-
   eventTitle: string;
 
   city: string;
-
   venue: string;
 
   dateLabel: string;
-
   time: string;
 
   lines: CartLine[];
 
   total: number;
-
   count: number;
 
   customer: {
@@ -84,11 +106,15 @@ export type Order = {
     phone?: string;
   };
 
+  participantName: string;
+  email: string;
+  phone?: string;
+
   createdAt: string;
 };
 
 /* =========================================================
-   HELPERS
+   NORMALISATION
 ========================================================= */
 
 function normalizeEmail(email: string): string {
@@ -99,10 +125,18 @@ function normalizePhone(phone: string): string {
   return phone.replace(/[^\d+]/g, "").trim();
 }
 
+/* =========================================================
+   VALIDATION EMAIL
+========================================================= */
+
 function isValidEmail(email: string): boolean {
   const value = normalizeEmail(email);
 
-  if (!value || value.length > 254) {
+  if (!value) {
+    return false;
+  }
+
+  if (value.length > 254) {
     return false;
   }
 
@@ -112,49 +146,56 @@ function isValidEmail(email: string): boolean {
 }
 
 /* =========================================================
-   CHECKOUT
+   ERROR MESSAGE
+========================================================= */
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return "Une erreur est survenue lors de la réservation.";
+}
+
+/* =========================================================
+   COMPONENT
 ========================================================= */
 
 export default function Checkout() {
-  const {
-    event,
-    quantities,
-    setQuantity,
-    lines,
-    clear,
-  } = useCart();
+  const { event, quantities, setQuantity, lines, clear } = useCart();
 
   const navigate = useNavigate();
 
-  const [form, setForm] =
-    useState<FormState>(EMPTY_FORM);
-
-  const [errors, setErrors] =
-    useState<Errors>({});
-
-  const [submitError, setSubmitError] =
-    useState("");
-
-  const [submitting, setSubmitting] =
-    useState(false);
-
   /* =======================================================
-     PARTICIPATION
+     ÉTATS
   ======================================================= */
 
-  const participationCategory =
-    event?.categories?.[0];
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  const participationCategoryId =
-    participationCategory?.id ?? "";
+  const [errors, setErrors] = useState<Errors>({});
 
-  const participationQuantity =
-    participationCategoryId
-      ? quantities[participationCategoryId] ?? 0
-      : 0;
+  const [submitError, setSubmitError] = useState("");
+
+  const [submitting, setSubmitting] = useState(false);
 
   /* =======================================================
-     FORCE 1 PARTICIPATION
+     CATÉGORIE
+  ======================================================= */
+
+  const participationCategory = event?.categories?.[0];
+
+  const participationCategoryId = participationCategory?.id ?? "";
+
+  /* =======================================================
+     QUANTITÉ
+  ======================================================= */
+
+  const participationQuantity = participationCategoryId
+    ? (quantities[participationCategoryId] ?? 0)
+    : 0;
+
+  /* =======================================================
+     NORMALISER QUANTITÉ
   ======================================================= */
 
   useEffect(() => {
@@ -163,10 +204,7 @@ export default function Checkout() {
     }
 
     if (participationQuantity > 1) {
-      setQuantity(
-        participationCategoryId,
-        1,
-      );
+      setQuantity(participationCategoryId, 1);
     }
   }, [
     participationCategoryId,
@@ -175,13 +213,10 @@ export default function Checkout() {
   ]);
 
   /* =======================================================
-     UPDATE FORM
+     MODIFICATION FORMULAIRE
   ======================================================= */
 
-  const set = (
-    key: keyof FormState,
-    value: string,
-  ) => {
+  const set = (key: keyof FormState, value: string) => {
     setForm((current) => ({
       ...current,
       [key]: value,
@@ -196,37 +231,33 @@ export default function Checkout() {
   };
 
   /* =======================================================
-     VALIDATION CLIENT
+     VALIDATION
   ======================================================= */
 
-  const validate = (): boolean => {
+  const validate = async (): Promise<boolean> => {
     const nextErrors: Errors = {};
 
     /* -------------------------------------------------------
-       FIRST NAME
+       PRÉNOM
     ------------------------------------------------------- */
 
-    const firstName =
-      form.firstName.trim();
+    const firstName = form.firstName.trim();
 
     if (!firstName) {
-      nextErrors.firstName =
-        "Prénom requis.";
+      nextErrors.firstName = "Prénom requis.";
     } else if (firstName.length < 2) {
       nextErrors.firstName =
         "Le prénom doit contenir au moins 2 caractères.";
     }
 
     /* -------------------------------------------------------
-       LAST NAME
+       NOM
     ------------------------------------------------------- */
 
-    const lastName =
-      form.lastName.trim();
+    const lastName = form.lastName.trim();
 
     if (!lastName) {
-      nextErrors.lastName =
-        "Nom requis.";
+      nextErrors.lastName = "Nom requis.";
     } else if (lastName.length < 2) {
       nextErrors.lastName =
         "Le nom doit contenir au moins 2 caractères.";
@@ -236,52 +267,67 @@ export default function Checkout() {
        EMAIL
     ------------------------------------------------------- */
 
-    const email =
-      normalizeEmail(form.email);
+    const email = normalizeEmail(form.email);
 
     if (!email) {
-      nextErrors.email =
-        "E-mail requis.";
+      nextErrors.email = "E-mail requis.";
     } else if (!isValidEmail(email)) {
-      nextErrors.email =
-        "Adresse e-mail invalide.";
+      nextErrors.email = "Adresse e-mail invalide.";
+    } else {
+      try {
+        const existingTickets = await getTicketByEmail(email);
+
+        if (existingTickets.length > 0) {
+          nextErrors.email =
+            "Cette adresse e-mail a déjà été utilisée pour une participation.";
+        }
+      } catch (error) {
+        console.warn(
+          "[SiloCamp] Vérification email impossible :",
+          error,
+        );
+      }
     }
 
     /* -------------------------------------------------------
-       PHONE
+       TÉLÉPHONE
     ------------------------------------------------------- */
 
-    const phone =
-      normalizePhone(form.phone);
+    const phone = normalizePhone(form.phone);
 
     if (!phone) {
-      nextErrors.phone =
-        "Téléphone requis.";
+      nextErrors.phone = "Téléphone requis.";
     } else if (!isValidPhoneNumber(phone)) {
-      nextErrors.phone =
-        "Numéro de téléphone invalide.";
+      nextErrors.phone = "Numéro de téléphone invalide.";
     } else {
-      const digits =
-        phone.replace(/\D/g, "");
+      const digits = phone.replace(/\D/g, "");
 
-      if (
-        digits.length < 8 ||
-        digits.length > 15
-      ) {
-        nextErrors.phone =
-          "Numéro de téléphone invalide.";
+      if (digits.length < 8 || digits.length > 15) {
+        nextErrors.phone = "Numéro de téléphone invalide.";
+      } else {
+        try {
+          const existingTickets = await getTicketByPhone(phone);
+
+          if (existingTickets.length > 0) {
+            nextErrors.phone =
+              "Ce numéro de téléphone a déjà été utilisé pour une participation.";
+          }
+        } catch (error) {
+          console.warn(
+            "[SiloCamp] Vérification téléphone impossible :",
+            error,
+          );
+        }
       }
     }
 
     setErrors(nextErrors);
 
-    return (
-      Object.keys(nextErrors).length === 0
-    );
+    return Object.keys(nextErrors).length === 0;
   };
 
   /* =======================================================
-     SUBMIT
+     SOUMISSION
   ======================================================= */
 
   const submit = async () => {
@@ -289,20 +335,10 @@ export default function Checkout() {
       return;
     }
 
-    /* -------------------------------------------------------
-       EVENT
-    ------------------------------------------------------- */
-
-    if (!event) {
-      setSubmitError(
-        "L'événement est introuvable.",
-      );
-
-      return;
-    }
+    setSubmitError("");
 
     /* -------------------------------------------------------
-       PARTICIPATION
+       CATÉGORIE
     ------------------------------------------------------- */
 
     if (!participationCategory) {
@@ -314,7 +350,7 @@ export default function Checkout() {
     }
 
     /* -------------------------------------------------------
-       QUANTITY
+       QUANTITÉ
     ------------------------------------------------------- */
 
     if (participationQuantity <= 0) {
@@ -331,34 +367,67 @@ export default function Checkout() {
     }
 
     if (participationQuantity !== 1) {
-      setQuantity(
-        participationCategory.id,
-        1,
-      );
+      setQuantity(participationCategory.id, 1);
 
       setSubmitError(
         "Une seule place peut être réservée par participant.",
       );
 
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+
       return;
     }
 
     /* -------------------------------------------------------
-       START
+       FORMULAIRE
+    ------------------------------------------------------- */
+
+    const isValid = await validate();
+
+    if (!isValid) {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+
+      return;
+    }
+
+    /* -------------------------------------------------------
+       NORMALISATION
+    ------------------------------------------------------- */
+
+    const firstName = form.firstName.trim();
+
+    const lastName = form.lastName.trim();
+
+    const normalizedEmail = normalizeEmail(form.email);
+
+    const normalizedPhone = normalizePhone(form.phone);
+
+    const participantName = `${firstName} ${lastName}`.trim();
+
+    /* -------------------------------------------------------
+       DÉBUT
     ------------------------------------------------------- */
 
     setSubmitting(true);
 
-    setSubmitError("");
-
     try {
       /* =====================================================
-         1. VALIDATION LOCALE
+         VÉRIFICATION DES PLACES
       ===================================================== */
 
-      const valid = validate();
+      const availability = await checkTicketAvailability();
 
-      if (!valid) {
+      if (availability.remaining <= 0) {
+        setSubmitError(
+          "Les 1200 places disponibles ont déjà été réservées.",
+        );
+
         setSubmitting(false);
 
         window.scrollTo({
@@ -369,102 +438,121 @@ export default function Checkout() {
         return;
       }
 
-      /* =====================================================
-         2. NORMALISATION
-      ===================================================== */
+      if (availability.remaining < 1) {
+        setSubmitError(
+          "Il ne reste plus de place disponible.",
+        );
 
-      const firstName =
-        form.firstName.trim();
+        setSubmitting(false);
 
-      const lastName =
-        form.lastName.trim();
-
-      const email =
-        normalizeEmail(form.email);
-
-      const phone =
-        normalizePhone(form.phone);
-
-      const participantName =
-        `${firstName} ${lastName}`.trim();
+        return;
+      }
 
       /* =====================================================
-         3. GENERATION RESERVATION
+         DOUBLE VÉRIFICATION EMAIL
       ===================================================== */
 
-      const reservationId =
-        generateReservationId();
+      try {
+        const existingEmailTickets =
+          await getTicketByEmail(normalizedEmail);
 
-      /* =====================================================
-         4. CREATION DU BILLET
-         
-         IMPORTANT :
-         
-         On ne fait PAS ici :
-         
-         - getTicketByEmail()
-         - getTicketByPhone()
-         - checkTicketAvailability()
-         
-         Le backend POST /api/tickets s'occupe déjà de :
-         
-         - vérifier l'e-mail
-         - vérifier le téléphone
-         - vérifier la réservation
-         - vérifier les places
-         - générer ticketNumber
-         - générer verificationToken
-         - créer le billet Prisma
-      ===================================================== */
+        if (existingEmailTickets.length > 0) {
+          setErrors((current) => ({
+            ...current,
+            email:
+              "Cette adresse e-mail a déjà été utilisée pour une participation.",
+          }));
 
-      const ticket =
-        await createTicket({
-          firstName,
+          setSubmitting(false);
 
-          lastName,
+          window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+          });
 
-          participantName,
-
-          email,
-
-          phone,
-
-          reservationId,
-
-          eventId: event.id,
-
-          eventTitle:
-            event.title,
-
-          dateLabel:
-            event.dateLabel,
-
-          time:
-            event.time,
-
-          duration:
-            event.duration,
-
-          venue:
-            event.venue,
-
-          city:
-            event.city,
-
-          quantity: 1,
-        });
-
-      /* =====================================================
-         5. SECURITE : VERIFICATION REPONSE
-      ===================================================== */
-
-      if (!ticket) {
-        throw new Error(
-          "Le serveur n'a pas retourné le billet créé.",
+          return;
+        }
+      } catch (error) {
+        console.warn(
+          "[SiloCamp] Double vérification email impossible :",
+          error,
         );
       }
 
-      if (!ticket.id) {
+      /* =====================================================
+         DOUBLE VÉRIFICATION TÉLÉPHONE
+      ===================================================== */
+
+      try {
+        const existingPhoneTickets =
+          await getTicketByPhone(normalizedPhone);
+
+        if (existingPhoneTickets.length > 0) {
+          setErrors((current) => ({
+            ...current,
+            phone:
+              "Ce numéro de téléphone a déjà été utilisé pour une participation.",
+          }));
+
+          setSubmitting(false);
+
+          window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+          });
+
+          return;
+        }
+      } catch (error) {
+        console.warn(
+          "[SiloCamp] Double vérification téléphone impossible :",
+          error,
+        );
+      }
+
+      /* =====================================================
+         ID RÉSERVATION
+      ===================================================== */
+
+      const reservationId = generateReservationId();
+
+      /* =====================================================
+         CRÉATION DU BILLET VIA API VERCEL
+      ===================================================== */
+
+      const ticket = await createTicket({
+        firstName,
+        lastName,
+        participantName,
+
+        email: normalizedEmail,
+
+        phone: normalizedPhone,
+
+        reservationId,
+
+        eventId: event.id,
+
+        eventTitle: event.title,
+
+        dateLabel: event.dateLabel,
+
+        time: event.time,
+
+        duration: event.duration,
+
+        venue: event.venue,
+
+        city: event.city,
+
+        quantity: 1,
+      });
+
+      /* =====================================================
+         VÉRIFICATION DU BILLET RETOURNÉ
+      ===================================================== */
+
+      if (!ticket?.id) {
         throw new Error(
           "Le serveur n'a pas retourné l'identifiant du billet.",
         );
@@ -478,48 +566,38 @@ export default function Checkout() {
 
       if (!ticket.verificationToken) {
         throw new Error(
-          "Le serveur n'a pas retourné le token de vérification.",
+          "Le serveur n'a pas retourné le token de vérification du billet.",
         );
       }
 
       /* =====================================================
-         6. CREATION ORDER
+         COMMANDE
       ===================================================== */
 
       const order: Order = {
         reservationId,
 
-        ticketNumber:
-          ticket.ticketNumber,
+        ticketId: ticket.id,
 
-        ticketId:
-          ticket.id,
+        ticketNumber: ticket.ticketNumber,
 
-        verificationToken:
-          ticket.verificationToken,
+        verificationToken: ticket.verificationToken,
 
-        eventId:
-          event.id,
+        eventId: event.id,
 
-        eventTitle:
-          event.title,
+        eventTitle: event.title,
 
-        city:
-          event.city,
+        city: event.city,
 
-        venue:
-          event.venue,
+        venue: event.venue,
 
-        dateLabel:
-          event.dateLabel,
+        dateLabel: event.dateLabel,
 
-        time:
-          event.time,
+        time: event.time,
 
         lines: [
           {
-            category:
-              participationCategory,
+            category: participationCategory,
 
             quantity: 1,
 
@@ -536,17 +614,22 @@ export default function Checkout() {
 
           lastName,
 
-          email,
+          email: normalizedEmail,
 
-          phone,
+          phone: normalizedPhone,
         },
 
-        createdAt:
-          new Date().toISOString(),
+        participantName,
+
+        email: normalizedEmail,
+
+        phone: normalizedPhone,
+
+        createdAt: new Date().toISOString(),
       };
 
       /* =====================================================
-         7. SESSION STORAGE
+         SESSION STORAGE
       ===================================================== */
 
       try {
@@ -555,151 +638,74 @@ export default function Checkout() {
           JSON.stringify(order),
         );
 
-        /*
-         * Ancienne clé conservée
-         * pour compatibilité avec d'anciens composants.
-         */
-
         sessionStorage.setItem(
           "wg-last-order",
           JSON.stringify(order),
         );
       } catch (storageError) {
         console.warn(
-          "[SiloCamp] Impossible de sauvegarder la réservation :",
+          "[SiloCamp] Impossible de sauvegarder la réservation dans sessionStorage.",
           storageError,
         );
       }
 
       /* =====================================================
-         8. CLEAR CART
+         VIDER LE PANIER
       ===================================================== */
 
       clear();
 
       /* =====================================================
-         9. REDIRECTION CONFIRMATION
+         REDIRECTION CONFIRMATION
       ===================================================== */
 
-      navigate(
-        "/confirmation",
-        {
-          state: {
-            eventId:
-              event.id,
+      navigate("/confirmation", {
+        state: {
+          eventId: ticket.eventId ?? event.id,
 
-            ticketId:
-              ticket.id,
+          ticketId: ticket.id,
 
-            ticketNumber:
-              ticket.ticketNumber,
+          ticketNumber: ticket.ticketNumber,
 
-            reservationId,
+          verificationToken: ticket.verificationToken,
 
-            participantName,
+          reservationId:
+            ticket.reservationId ?? reservationId,
 
-            email,
+          participantName: ticket.participantName,
 
-            phone,
+          email: ticket.email,
 
-            verificationToken:
-              ticket.verificationToken,
-          },
+          phone: ticket.phone ?? normalizedPhone,
         },
-      );
+      });
     } catch (error) {
       console.error(
-        "[SiloCamp] Erreur création billet :",
+        "[SiloCamp] Erreur lors de la création du billet :",
         error,
       );
 
-      let message =
-        "Une erreur est survenue lors de la réservation.";
-
-      if (error instanceof Error) {
-        message = error.message;
-      }
-
-      /* =====================================================
-         MESSAGES PROPRES
-      ===================================================== */
-
-      const lowerMessage =
-        message.toLowerCase();
-
-      /* -------------------------------------------------------
-         EMAIL
-      ------------------------------------------------------- */
+      const message = getErrorMessage(error);
 
       if (
-        lowerMessage.includes("e-mail") ||
-        lowerMessage.includes("email")
+        message.toLowerCase().includes("email") ||
+        message.toLowerCase().includes("e-mail")
       ) {
         setErrors((current) => ({
           ...current,
           email:
-            "Cette adresse e-mail a déjà été utilisée pour une participation.",
+            "Cette adresse e-mail possède déjà une réservation.",
         }));
-
-        message =
-          "Cette adresse e-mail a déjà été utilisée pour une participation.";
-      }
-
-      /* -------------------------------------------------------
-         PHONE
-      ------------------------------------------------------- */
-
-      if (
-        lowerMessage.includes(
-          "téléphone",
-        ) ||
-        lowerMessage.includes(
-          "telephone",
-        )
+      } else if (
+        message.toLowerCase().includes("téléphone") ||
+        message.toLowerCase().includes("telephone") ||
+        message.toLowerCase().includes("phone")
       ) {
         setErrors((current) => ({
           ...current,
           phone:
-            "Ce numéro de téléphone a déjà été utilisé pour une participation.",
+            "Ce numéro de téléphone possède déjà une réservation.",
         }));
-
-        message =
-          "Ce numéro de téléphone a déjà été utilisé pour une participation.";
-      }
-
-      /* -------------------------------------------------------
-         PLACES
-      ------------------------------------------------------- */
-
-      if (
-        lowerMessage.includes(
-          "places",
-        ) ||
-        lowerMessage.includes(
-          "disponibles",
-        ) ||
-        lowerMessage.includes(
-          "suffisamment",
-        )
-      ) {
-        message =
-          "Il n'y a plus suffisamment de places disponibles.";
-      }
-
-      /* -------------------------------------------------------
-         RESERVATION
-      ------------------------------------------------------- */
-
-      if (
-        lowerMessage.includes(
-          "réservation",
-        ) &&
-        lowerMessage.includes(
-          "existe",
-        )
-      ) {
-        message =
-          "Cette réservation existe déjà. Veuillez réessayer.";
       }
 
       setSubmitError(message);
@@ -714,18 +720,17 @@ export default function Checkout() {
   };
 
   /* =======================================================
-     CANCEL
+     ANNULATION
   ======================================================= */
 
   const cancelReservation = () => {
-    if (submitting || !event) {
+    if (submitting) {
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        "Voulez-vous vraiment annuler votre participation ?",
-      );
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment annuler votre participation ?",
+    );
 
     if (!confirmed) {
       return;
@@ -739,27 +744,23 @@ export default function Checkout() {
 
     setSubmitError("");
 
-    navigate(
-      `/evenement/${event.slug}`,
-    );
+    navigate(`/evenement/${event?.slug ?? ""}`);
   };
 
   /* =======================================================
-     EVENT NOT FOUND
+     ÉVÉNEMENT INDISPONIBLE
   ======================================================= */
 
   if (!event) {
     return (
       <div className="container-px mx-auto flex min-h-[70vh] max-w-2xl items-center justify-center py-32">
         <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center">
-
           <h1 className="font-display text-3xl text-cream">
             Réservation indisponible
           </h1>
 
           <p className="mt-3 text-sm text-cream-dim">
-            L'événement demandé est
-            introuvable.
+            L'événement demandé est introuvable.
           </p>
 
           <Link
@@ -768,28 +769,25 @@ export default function Checkout() {
           >
             Voir les événements
           </Link>
-
         </div>
       </div>
     );
   }
 
   /* =======================================================
-     NO PARTICIPATION CATEGORY
+     CATÉGORIE INDISPONIBLE
   ======================================================= */
 
   if (!participationCategory) {
     return (
       <div className="container-px mx-auto flex min-h-[70vh] max-w-2xl items-center justify-center py-32">
         <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center">
-
           <h1 className="font-display text-3xl text-cream">
             Réservation indisponible
           </h1>
 
           <p className="mt-3 text-sm text-cream-dim">
-            Aucune catégorie de
-            participation n'est configurée
+            Aucune catégorie de participation n'est configurée
             pour cet événement.
           </p>
 
@@ -799,144 +797,108 @@ export default function Checkout() {
           >
             Voir les événements
           </Link>
-
         </div>
       </div>
     );
   }
 
   /* =======================================================
-     EMPTY CART
+     PANIER VIDE
   ======================================================= */
 
   if (participationQuantity === 0) {
-    return (
-      <EmptyCart
-        eventSlug={event.slug}
-      />
-    );
+    return <EmptyCart eventSlug={event.slug} />;
   }
 
   /* =======================================================
-     PAGE
+     RENDER
   ======================================================= */
 
   return (
     <div className="container-px mx-auto max-w-7xl pb-28 pt-28 md:pt-32 lg:pb-20">
-
       {/* ===================================================
-         HEADER
+          HEADER
       =================================================== */}
 
       <Reveal className="mb-10 text-center">
-
         <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.25em] text-gold-300">
-
           <CheckCircle2 className="h-4 w-4" />
-
           Étape 2 sur 2 · Confirmation
-
         </span>
 
         <h1 className="mt-5 font-display text-4xl font-medium text-cream sm:text-5xl">
-
           Confirmez votre{" "}
-
           <span className="text-gold-gradient">
             réservation
           </span>
-
         </h1>
 
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
-
-          Vérifiez vos informations puis
-          confirmez votre participation pour
-          recevoir votre e-billet avec QR Code.
-
+          Vérifiez vos informations puis confirmez votre
+          participation pour recevoir votre e-billet avec QR
+          Code.
         </p>
-
       </Reveal>
 
       {/* ===================================================
-         ERROR
+          ERREUR
       =================================================== */}
 
       {submitError && (
         <Reveal className="mx-auto mb-8 max-w-3xl">
-
           <div
             role="alert"
             className="rounded-2xl border border-red-400/20 bg-red-400/5 p-4 text-center"
           >
-
             <p className="text-sm font-medium text-red-300">
               {submitError}
             </p>
-
           </div>
-
         </Reveal>
       )}
 
       {/* ===================================================
-         STEPS
+          STEPS
       =================================================== */}
 
       <Steps current={2} />
 
       {/* ===================================================
-         CONTENT
+          CONTENU
       =================================================== */}
 
       <div className="mt-12 grid gap-10 lg:grid-cols-[1.6fr_1fr] lg:gap-14">
-
         <div className="space-y-10">
-
           {/* =================================================
-             RESERVATION
+              RÉSERVATION
           ================================================= */}
 
           <Section
             title="Votre réservation"
             subtitle={event.title}
           >
-
             <div className="mb-6 flex flex-wrap items-center gap-6 text-sm text-cream-dim">
-
               <div className="flex items-center gap-2">
-
                 <CalendarDays className="h-4 w-4 text-gold-300" />
 
                 <span>
-                  {event.dateLabel}
-                  {" · "}
-                  {event.time}
+                  {event.dateLabel} · {event.time}
                 </span>
-
               </div>
 
               <div className="flex items-center gap-2">
-
                 <MapPin className="h-4 w-4 text-gold-300" />
 
                 <span>
-                  {event.venue},{" "}
-                  {event.city}
+                  {event.venue}, {event.city}
                 </span>
-
               </div>
-
             </div>
 
             <div className="rounded-3xl border border-gold-400/40 bg-gold-400/5 p-6">
-
               <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-
                 <div className="flex-1">
-
                   <div className="flex flex-wrap items-center gap-3">
-
                     <h3 className="font-display text-xl text-cream">
                       Participation
                     </h3>
@@ -944,21 +906,15 @@ export default function Checkout() {
                     <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
                       Gratuit
                     </span>
-
                   </div>
 
                   <p className="mt-3 max-w-lg text-sm leading-relaxed text-cream-faint">
-
-                    Réservez gratuitement votre
-                    place au Camp International
-                    Silo 2026. Votre e-billet avec
-                    QR Code sera généré après
-                    confirmation.
-
+                    Réservez gratuitement votre place au Camp
+                    International Silo 2026. Votre e-billet avec
+                    QR Code sera généré après confirmation.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-
                     <span className="rounded-full border border-gold-400/15 px-3 py-1 text-xs text-cream-faint">
                       ✓ Accès au Camp
                     </span>
@@ -970,44 +926,32 @@ export default function Checkout() {
                     <span className="rounded-full border border-gold-400/15 px-3 py-1 text-xs text-cream-faint">
                       ✓ QR Code
                     </span>
-
                   </div>
-
                 </div>
 
                 <div className="flex shrink-0 items-center">
-
                   <div className="flex h-10 min-w-16 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 text-sm font-semibold text-emerald-300">
                     1 place
                   </div>
-
                 </div>
-
               </div>
-
             </div>
-
           </Section>
 
           {/* =================================================
-             USER INFORMATION
+              INFORMATIONS
           ================================================= */}
 
           <Section
             title="Vos informations"
             subtitle="Ces informations seront utilisées pour générer votre e-billet."
           >
-
             <div className="grid gap-4 sm:grid-cols-2">
-
               <Field
                 label="Prénom"
                 value={form.firstName}
                 onChange={(value) =>
-                  set(
-                    "firstName",
-                    value,
-                  )
+                  set("firstName", value)
                 }
                 error={errors.firstName}
                 autoComplete="given-name"
@@ -1017,10 +961,7 @@ export default function Checkout() {
                 label="Nom"
                 value={form.lastName}
                 onChange={(value) =>
-                  set(
-                    "lastName",
-                    value,
-                  )
+                  set("lastName", value)
                 }
                 error={errors.lastName}
                 autoComplete="family-name"
@@ -1031,10 +972,7 @@ export default function Checkout() {
                 type="email"
                 value={form.email}
                 onChange={(value) =>
-                  set(
-                    "email",
-                    value,
-                  )
+                  set("email", value)
                 }
                 error={errors.email}
                 autoComplete="email"
@@ -1043,32 +981,21 @@ export default function Checkout() {
               />
 
               <div className="sm:col-span-2">
-
                 <label className="mb-2 block text-sm font-medium text-cream">
                   Téléphone
                 </label>
 
                 <div className="phone-wrapper">
-
                   <PhoneInput
                     international
                     defaultCountry="MA"
-                    value={
-                      form.phone ||
-                      undefined
-                    }
+                    value={form.phone || undefined}
                     onChange={(value) =>
-                      set(
-                        "phone",
-                        value ?? "",
-                      )
+                      set("phone", value ?? "")
                     }
                     placeholder="Entrez votre numéro"
-                    countryCallingCodeEditable={
-                      false
-                    }
+                    countryCallingCodeEditable={false}
                   />
-
                 </div>
 
                 {errors.phone && (
@@ -1076,39 +1003,28 @@ export default function Checkout() {
                     {errors.phone}
                   </p>
                 )}
-
               </div>
-
             </div>
 
             <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
-
               <p className="text-xs leading-relaxed text-cream-faint">
-
-                Vos informations permettent de
-                générer votre e-billet personnel et
-                de sécuriser votre accès grâce à un
-                QR Code unique.
-
+                Vos informations permettent de générer votre
+                e-billet personnel et de sécuriser votre accès
+                grâce à un QR Code unique.
               </p>
-
             </div>
-
           </Section>
 
           {/* =================================================
-             CONFIRMATION
+              CONFIRMATION
           ================================================= */}
 
           <Section
             title="Confirmation de votre participation"
             subtitle="Vérifiez vos informations avant de valider votre inscription."
           >
-
             <div className="rounded-2xl border border-gold-400/15 bg-ink-950/40 p-6">
-
               <div className="space-y-5">
-
                 <ConfirmationItem
                   title="Participation gratuite"
                   text="Votre inscription est totalement gratuite. Aucun paiement ne sera demandé."
@@ -1128,49 +1044,35 @@ export default function Checkout() {
                   title="Entrée simplifiée"
                   text="Présentez votre QR Code à l'accueil du Camp pour accéder rapidement à l'événement."
                 />
-
               </div>
 
               <div className="mt-6 rounded-2xl border border-gold-400/15 bg-gold-400/5 p-4">
-
                 <p className="text-sm leading-relaxed text-cream-dim">
-
                   En cliquant sur{" "}
-
                   <span className="font-semibold text-cream">
                     « Confirmer ma participation »
                   </span>
-                  , votre inscription sera
-                  enregistrée et votre e-billet sera
-                  généré.
-
+                  , votre inscription sera enregistrée et votre
+                  e-billet sera généré.
                 </p>
-
               </div>
-
             </div>
-
           </Section>
-
         </div>
 
-        {/* ===================================================
-           SUMMARY
-        =================================================== */}
+        {/* =================================================
+            SUMMARY
+        ================================================= */}
 
         <aside>
-
           <Summary
             lines={lines}
             onSubmit={submit}
             onCancel={cancelReservation}
             submitting={submitting}
           />
-
         </aside>
-
       </div>
-
     </div>
   );
 }
@@ -1179,11 +1081,7 @@ export default function Checkout() {
    STEPS
 ========================================================= */
 
-function Steps({
-  current,
-}: {
-  current: number;
-}) {
+function Steps({ current }: { current: number }) {
   const steps = [
     "Événement",
     "Réservation",
@@ -1192,69 +1090,56 @@ function Steps({
 
   return (
     <div className="mx-auto flex max-w-2xl items-center justify-between">
+      {steps.map((step, index) => {
+        const stepNumber = index + 1;
 
-      {steps.map(
-        (step, index) => {
-          const stepNumber =
-            index + 1;
-
-          return (
-            <div
-              key={step}
-              className="flex flex-1 items-center"
-            >
-
-              <div className="flex flex-col items-center gap-3">
-
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-300 ${
-                    stepNumber < current
-                      ? "border-gold-400 bg-gold-400 text-ink-950"
-                      : stepNumber === current
-                        ? "border-gold-400 bg-gold-400/10 text-gold-300"
-                        : "border-gold-400/20 bg-transparent text-cream-faint"
-                  }`}
-                >
-
-                  {stepNumber <
-                  current ? (
-                    <CheckCircle2 className="h-5 w-5" />
-                  ) : (
-                    <span className="text-sm font-semibold">
-                      {stepNumber}
-                    </span>
-                  )}
-
-                </div>
-
-                <span
-                  className={`text-center text-[10px] font-medium uppercase tracking-[0.15em] sm:text-[11px] sm:tracking-[0.2em] ${
-                    stepNumber <= current
-                      ? "text-gold-300"
-                      : "text-cream-faint"
-                  }`}
-                >
-                  {step}
-                </span>
-
+        return (
+          <div
+            key={step}
+            className="flex flex-1 items-center"
+          >
+            <div className="flex flex-col items-center gap-3">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-300 ${
+                  stepNumber < current
+                    ? "border-gold-400 bg-gold-400 text-ink-950"
+                    : stepNumber === current
+                      ? "border-gold-400 bg-gold-400/10 text-gold-300"
+                      : "border-gold-400/20 bg-transparent text-cream-faint"
+                }`}
+              >
+                {stepNumber < current ? (
+                  <CheckCircle2 className="h-5 w-5" />
+                ) : (
+                  <span className="text-sm font-semibold">
+                    {stepNumber}
+                  </span>
+                )}
               </div>
 
-              {index <
-                steps.length - 1 && (
-                <div
-                  className={`mx-2 h-[2px] flex-1 rounded-full sm:mx-4 ${
-                    stepNumber < current
-                      ? "bg-gold-400"
-                      : "bg-gold-400/15"
-                  }`}
-                />
-              )}
-
+              <span
+                className={`text-center text-[10px] font-medium uppercase tracking-[0.15em] sm:text-[11px] sm:tracking-[0.2em] ${
+                  stepNumber <= current
+                    ? "text-gold-300"
+                    : "text-cream-faint"
+                }`}
+              >
+                {step}
+              </span>
             </div>
-          );
-        },
-      )}
 
+            {index < steps.length - 1 && (
+              <div
+                className={`mx-2 h-[2px] flex-1 rounded-full sm:mx-4 ${
+                  stepNumber < current
+                    ? "bg-gold-400"
+                    : "bg-gold-400/15"
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1274,11 +1159,8 @@ function Section({
 }) {
   return (
     <Reveal>
-
       <section className="rounded-3xl border border-gold-400/12 bg-ink-900/40 p-6 sm:p-8">
-
         <div className="mb-6 border-b border-gold-400/10 pb-5">
-
           <h2 className="font-display text-2xl font-medium text-cream">
             {title}
           </h2>
@@ -1288,13 +1170,10 @@ function Section({
               {subtitle}
             </p>
           )}
-
         </div>
 
         {children}
-
       </section>
-
     </Reveal>
   );
 }
@@ -1316,27 +1195,16 @@ function Field({
 }: {
   label: string;
   value: string;
-  onChange: (
-    value: string,
-  ) => void;
+  onChange: (value: string) => void;
   error?: string;
   type?: string;
   placeholder?: string;
   autoComplete?: string;
-  inputMode?:
-    | "text"
-    | "numeric"
-    | "email"
-    | "tel";
+  inputMode?: "text" | "numeric" | "email" | "tel";
   className?: string;
 }) {
   return (
-    <label
-      className={`block ${
-        className ?? ""
-      }`}
-    >
-
+    <label className={`block ${className ?? ""}`}>
       <span className="mb-1.5 block text-xs uppercase tracking-wider text-cream-dim">
         {label}
       </span>
@@ -1345,9 +1213,7 @@ function Field({
         type={type}
         value={value}
         onChange={(event) =>
-          onChange(
-            event.target.value,
-          )
+          onChange(event.target.value)
         }
         placeholder={placeholder}
         autoComplete={autoComplete}
@@ -1364,7 +1230,6 @@ function Field({
           {error}
         </span>
       )}
-
     </label>
   );
 }
@@ -1382,13 +1247,11 @@ function ConfirmationItem({
 }) {
   return (
     <div className="flex items-start gap-3">
-
       <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
         ✓
       </div>
 
       <div>
-
         <h4 className="font-medium text-cream">
           {title}
         </h4>
@@ -1396,9 +1259,7 @@ function ConfirmationItem({
         <p className="mt-1 text-sm leading-relaxed text-cream-dim">
           {text}
         </p>
-
       </div>
-
     </div>
   );
 }
@@ -1420,20 +1281,18 @@ function Summary({
 }) {
   return (
     <div className="lg:sticky lg:top-24">
-
       <div className="glass overflow-hidden rounded-3xl">
+        {/* -------------------------------------------------
+            HEADER
+        ------------------------------------------------- */}
 
-        {/* HEADER */}
         <div className="border-b border-gold-400/12 p-6">
-
           <div className="flex items-center gap-3">
-
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300">
               <Ticket className="h-5 w-5" />
             </div>
 
             <div>
-
               <h2 className="font-display text-2xl font-medium text-cream">
                 Votre inscription
               </h2>
@@ -1441,29 +1300,23 @@ function Summary({
               <p className="mt-1 text-xs text-cream-faint">
                 Camp International Silo 2026
               </p>
-
             </div>
-
           </div>
-
         </div>
 
-        {/* LINES */}
-        <div className="space-y-4 p-6">
+        {/* -------------------------------------------------
+            LIGNES
+        ------------------------------------------------- */}
 
+        <div className="space-y-4 p-6">
           {lines.length > 0 ? (
             lines.map((line) => (
               <div
-                key={
-                  line.category.id
-                }
+                key={line.category.id}
                 className="flex items-start justify-between gap-3"
               >
-
                 <div>
-
                   <div className="flex flex-wrap items-center gap-2">
-
                     <span className="font-medium text-cream">
                       Participation
                     </span>
@@ -1471,33 +1324,30 @@ function Summary({
                     <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
                       Gratuit
                     </span>
-
                   </div>
 
                   <p className="mt-1 text-xs text-cream-faint">
                     1 place réservée
                   </p>
-
                 </div>
 
                 <span className="text-sm font-medium text-emerald-300">
                   Offerte
                 </span>
-
               </div>
             ))
           ) : (
             <div className="text-sm text-cream-faint">
-              Aucune participation
-              sélectionnée.
+              Aucune participation sélectionnée.
             </div>
           )}
-
         </div>
 
-        {/* DETAILS */}
-        <div className="space-y-3 border-t border-gold-400/12 p-6">
+        {/* -------------------------------------------------
+            DÉTAILS
+        ------------------------------------------------- */}
 
+        <div className="space-y-3 border-t border-gold-400/12 p-6">
           <Row
             label="Participant"
             value="1 personne"
@@ -1516,7 +1366,6 @@ function Summary({
           <div className="my-2 h-px bg-gold-400/12" />
 
           <div className="flex items-center justify-between">
-
             <span className="font-display text-lg text-cream">
               Total
             </span>
@@ -1524,35 +1373,31 @@ function Summary({
             <span className="font-display text-2xl font-semibold text-emerald-300">
               Gratuit
             </span>
-
           </div>
-
         </div>
 
-        {/* BUTTONS */}
-        <div className="p-6 pt-0">
+        {/* -------------------------------------------------
+            ACTIONS
+        ------------------------------------------------- */}
 
+        <div className="p-6 pt-0">
           <button
             type="button"
             onClick={onSubmit}
             disabled={submitting}
             className="btn-gold flex w-full items-center justify-center gap-2 text-base disabled:cursor-not-allowed disabled:opacity-60"
           >
-
             {submitting ? (
               <>
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-
                 Confirmation...
               </>
             ) : (
               <>
                 Confirmer ma participation
-
                 <ArrowRight className="h-4 w-4" />
               </>
             )}
-
           </button>
 
           <button
@@ -1565,15 +1410,11 @@ function Summary({
           </button>
 
           <p className="mt-3 text-center text-[11px] leading-relaxed text-cream-faint">
-            1 billet par participant •
-            Inscription 100 % gratuite •
-            QR Code sécurisé
+            1 billet par participant • Inscription 100 %
+            gratuite • QR Code sécurisé
           </p>
-
         </div>
-
       </div>
-
     </div>
   );
 }
@@ -1591,15 +1432,11 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 text-cream-dim">
-
-      <span>
-        {label}
-      </span>
+      <span>{label}</span>
 
       <span className="text-right text-cream">
         {value}
       </span>
-
     </div>
   );
 }
@@ -1615,80 +1452,57 @@ function EmptyCart({
 }) {
   return (
     <div className="container-px mx-auto flex min-h-[75vh] max-w-2xl flex-col items-center justify-center py-32 text-center">
-
       <div className="flex h-20 w-20 items-center justify-center rounded-full border border-gold-400/20 bg-gold-400/5 text-gold-300">
-
         <Ticket
           className="h-9 w-9"
           strokeWidth={1.5}
         />
-
       </div>
 
       <h1 className="mt-8 font-display text-4xl text-cream">
-        Aucune participation
-        sélectionnée
+        Aucune participation sélectionnée
       </h1>
 
       <p className="mt-4 max-w-lg text-lg leading-relaxed text-cream-dim">
-
-        Vous n'avez pas encore
-        sélectionné votre participation
-        au{" "}
-
+        Vous n'avez pas encore sélectionné votre
+        participation au{" "}
         <span className="font-medium text-gold-300">
           Camp International Silo 2026
         </span>
         .
-
       </p>
 
       <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-6">
-
         <h3 className="flex items-center justify-center gap-2 font-display text-xl text-cream">
-
           <BadgeCheck className="h-6 w-6 text-emerald-400" />
-
           Réservation 100 % gratuite
-
         </h3>
 
         <p className="mt-3 text-sm leading-relaxed text-cream-dim">
-
-          Une seule place peut être
-          réservée par participant.
-          Aucun paiement n'est demandé.
-
+          Une seule place peut être réservée par
+          participant. Aucun paiement n'est demandé.
         </p>
-
       </div>
 
       <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-
         <Link
           to={`/evenement/${eventSlug}`}
           className="btn-gold group inline-flex items-center gap-2"
         >
-
           Réserver gratuitement
 
           <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
-
         </Link>
 
         <Link
           to="/contact"
           className="btn-ghost group inline-flex items-center gap-2"
         >
-
           <MessageCircle className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
 
           Contacter l'organisation
-
         </Link>
-
       </div>
-
     </div>
   );
 }
