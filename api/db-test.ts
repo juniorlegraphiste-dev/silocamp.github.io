@@ -1,21 +1,28 @@
-import { prisma } from "../server/db";
-
 export default async function handler(_req: any, res: any) {
   try {
+    const { prisma } = await import("../server/db");
+
     await prisma.$queryRaw`SELECT 1`;
 
-    res.status(200).json({
+    return res.status(200).json({
       ok: true,
       database: true,
       message: "Connexion Neon PostgreSQL réussie",
     });
   } catch (error) {
-    console.error("DB TEST ERROR:", error);
+    console.error("PRISMA DB TEST ERROR:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
       database: false,
-      error: error instanceof Error ? error.message : String(error),
+      error:
+        error instanceof Error
+          ? error.message
+          : String(error),
+      stack:
+        error instanceof Error
+          ? error.stack
+          : undefined,
     });
   }
 }
