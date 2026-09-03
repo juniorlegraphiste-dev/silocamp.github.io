@@ -1,7 +1,15 @@
-export default async function handler() {
-  return Response.json({
-    ok: true,
-    message: "db-test fonctionne",
-    runtime: "vercel",
-  });
+export default function handler() {
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      service: "db-test",
+      message: "Serverless function OK",
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
 }

@@ -1,7 +1,14 @@
-export default function handler(req: any, res: any) {
-  res.status(200).json({
-    ok: true,
-    service: "SiloCamp API",
-    method: req.method,
-  });
+export default function handler() {
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      service: "health",
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
 }
