@@ -1,42 +1,9 @@
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { PrismaClient } from "../generated/prisma/client";
+export default function handler(_req: any, res: any) {
+  const databaseUrl = process.env.DATABASE_URL;
 
-export default async function handler(_req: any, res: any) {
-  try {
-    const databaseUrl = process.env.DATABASE_URL;
-
-    if (!databaseUrl) {
-      return res.status(500).json({
-        ok: false,
-        database: false,
-        error: "DATABASE_URL manquante",
-      });
-    }
-
-    const adapter = new PrismaNeon({
-      connectionString: databaseUrl,
-    });
-
-    const prisma = new PrismaClient({
-      adapter,
-    });
-
-    await prisma.$queryRaw`SELECT 1`;
-
-    await prisma.$disconnect();
-
-    return res.status(200).json({
-      ok: true,
-      database: true,
-      message: "Connexion Neon PostgreSQL réussie",
-    });
-  } catch (error: any) {
-    console.error("DB TEST ERROR:", error);
-
-    return res.status(500).json({
-      ok: false,
-      database: false,
-      error: error?.message || "Erreur inconnue",
-    });
-  }
+  return res.status(200).json({
+    ok: true,
+    databaseUrlExists: Boolean(databaseUrl),
+    databaseUrlLength: databaseUrl?.length ?? 0,
+  });
 }
