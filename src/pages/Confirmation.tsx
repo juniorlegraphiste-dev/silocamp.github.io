@@ -1,73 +1,703 @@
-import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { QRCodeCanvas } from "qrcode.react";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
 import {
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
+  Clock3,
   Download,
-  Mail,
+  Home,
+  Loader2,
   MapPin,
-  Phone,
-  Printer,
-  QrCode,
+  ShieldCheck,
   Ticket as TicketIcon,
-  User,
+  UserRound,
 } from "lucide-react";
+
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { QRCodeCanvas } from "qrcode.react";
+import { pdf } from "@react-pdf/renderer";
+
+import TicketPDF from "@/components/ticket/TicketPDF";
 
 import {
   getTicketById,
   getTicketByNumber,
-  verifyTicket,
   getVerificationUrl,
   type Ticket,
-} from "../services/ticketService";
-import TicketPDF from "@/components/ticket/TicketPDF";
+} from "@/services/ticketService";
 
 type ConfirmationState = {
   eventId?: string;
   ticketId?: string;
   ticketNumber?: string;
-  verificationToken?: string;
   reservationId?: string;
   participantName?: string;
   email?: string;
   phone?: string;
+  verificationToken?: string;
 };
 
-type StoredOrder = ConfirmationState;
+type StoredOrder = ConfirmationState & {
+  ticketId?: string;
+  ticketNumber?: string;
+  verificationToken?: string;
+};
 
-function readStoredOrder(): StoredOrder | null {
-  try {
-    const keys = ["silocamp-last-order", "wg-last-order"];
+export default function Confirmation() {
+  const location = useLocation();
+  const navigate = useNavigate();
 
-    for (const key of keys) {
-      const raw = sessionStorage.getItem(key);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-      if (!raw) {
-        continue;
+  const [loading, setLoading] = useState(true);
+  const [ticketNotFound, setTicketNotFound] = useState(false);
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [order, setOrder] = useState<StoredOrder | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+
+  const navigationState = (location.state as ConfirmationState | null) ?? null;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadTicket = async () => {
+      try {
+        setLoading(true);
+        setTicketNotFound(false);
+
+        let storedOrder: StoredOrder | null = null;
+
+        const silocampOrder = sessionStorage.getItem("silocamp-last-order");
+
+        const legacyOrder = sessionStorage.getItem("wg-last-order");
+
+        const rawOrder = silocampOrder || legacyOrder;
+
+        if (rawOrder) {
+          try {
+            storedOrder = JSON.parse(rawOrder) as StoredOrder;
+          } catch (error) {
+            console.error(
+              "[SiloCamp] Impossible de lire la réservation :",
+              error,
+            );
+          }
+        }
+
+        if (!mounted) return;
+
+        setOrder(storedOrder);
+
+        const mergedOrder: StoredOrder = {
+          ...(storedOrder ?? {}),
+          ...(navigationState ?? {}),
+        };
+
+        let foundTicket: Ticket | null = null;
+
+        if (mergedOrder.ticketId) {
+          foundTicket = await getTicketById(mergedOrder.ticketId);
+        }
+
+        if (!foundTicket && mergedOrder.ticketNumber) {
+          foundTicket = await getTicketByNumber(mergedOrder.ticketNumber);
+        }
+
+        if (!mounted) return;
+
+        if (!foundTicket) {
+          setTicket(null);
+          setTicketNotFound(true);
+          return;
+        }
+
+        setTicket(foundTicket);
+      } catch (error) {
+        console.error("[SiloCamp] Erreur récupération du billet :", error);
+
+        if (mounted) {
+          setTicket(null);
+          setTicketNotFound(true);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
+    };
 
-      const parsed = JSON.parse(raw);
+    loadTicket();
 
-      if (parsed && typeof parsed === "object") {
-        return parsed as StoredOrder;
-      }
+    return () => {
+      mounted = false;
+    };
+  }, [navigationState]);
+
+  const participantName =
+    ticket?.participantName ||
+    navigationState?.participantName ||
+    order?.participantName ||
+    "Participant";
+
+  const participantEmail =
+    ticket?.email || navigationState?.email || order?.email || "";
+
+  const participantPhone =
+    ticket?.phone || navigationState?.phone || order?.phone || "";
+
+  const verificationToken =
+    ticket?.verificationToken ??
+    navigationState?.verificationToken ??
+    order?.verificationToken ??
+    "";
+
+  const verificationUrl = verificationToken
+    ? `${window.location.origin}/verify-ticket?token=${encodeURIComponent(
+        verificationToken,
+      )}`
+    : "";
+
+  const qrValue =
+    verificationUrl || ticket?.verificationToken || ticket?.ticketNumber || "";
+
+  const downloadQRCode = () => {
+    const canvas = qrCanvasRef.current;
+
+    if (!canvas) {
+      window.alert("Le QR Code n'est pas encore prêt. Veuillez réessayer.");
+      return;
     }
 
-    return null;
-  } catch (error) {
-    console.error("Erreur lecture réservation :", error);
-    return null;
+    try {
+      const image = canvas.toDataURL("image/png");
+
+      const link = document.createElement("a");
+
+      link.href = image;
+      link.download = `${ticket?.ticketNumber ?? "silocamp-ticket"}-qrcode.png`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setDownloaded(true);
+    } catch (error) {
+      console.error("[SiloCamp] Erreur téléchargement QR Code :", error);
+
+      window.alert("Impossible de télécharger le QR Code.");
+    }
+  };
+
+  const downloadTicketPDF = async () => {
+    if (!ticket) {
+      window.alert("Billet introuvable.");
+      return;
+    }
+
+    if (!qrCanvasRef.current) {
+      window.alert(
+        "Le QR Code n'est pas encore prêt. Veuillez patienter puis réessayer.",
+      );
+      return;
+    }
+
+    try {
+      setIsDownloading(true);
+
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 150);
+      });
+
+      const qrCanvas = qrCanvasRef.current;
+
+      if (!qrCanvas) {
+        throw new Error("QR Code introuvable.");
+      }
+
+      const qrCodeDataUrl = qrCanvas.toDataURL("image/png");
+
+      const pdfDocument = (
+        <TicketPDF
+          ticket={ticket}
+          verificationUrl={verificationUrl}
+          qrCodeDataUrl={qrCodeDataUrl}
+        />
+      );
+
+      const blob = await pdf(pdfDocument).toBlob();
+
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `${ticket.ticketNumber}-SiloCamp-2026.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+
+      setDownloaded(true);
+
+      console.info(`[SiloCamp] Billet PDF téléchargé : ${ticket.ticketNumber}`);
+    } catch (error) {
+      console.error("[SiloCamp] Erreur génération du billet PDF :", error);
+
+      window.alert("Impossible de télécharger le billet. Veuillez réessayer.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink-950 px-6">
+        <div className="text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-gold-400/20 bg-gold-400/5">
+            <Loader2 className="h-6 w-6 animate-spin text-gold-300" />
+          </div>
+
+          <p className="mt-5 text-sm text-cream-dim">
+            Préparation de votre e-billet...
+          </p>
+        </div>
+      </div>
+    );
   }
+
+  if (ticketNotFound || !ticket) {
+    return (
+      <main className="min-h-screen bg-ink-950 px-4 pb-16 pt-24 sm:px-6 md:pt-28">
+        <div className="container-px mx-auto flex min-h-[75vh] max-w-2xl items-center justify-center py-16">
+          <div className="w-full rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-400/10 text-red-300">
+              <TicketIcon className="h-7 w-7" />
+            </div>
+
+            <h1 className="mt-6 font-display text-3xl text-cream">
+              Billet introuvable
+            </h1>
+
+            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-cream-dim">
+              Votre billet n&apos;a pas pu être retrouvé. Veuillez revenir aux
+              événements et effectuer une nouvelle réservation si nécessaire.
+            </p>
+
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link
+                to="/evenements"
+                className="btn-gold inline-flex items-center justify-center gap-2"
+              >
+                Voir les événements
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+
+              <Link
+                to="/"
+                className="btn-ghost inline-flex items-center justify-center gap-2"
+              >
+                <Home className="h-4 w-4" />
+                Accueil
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <>
+      <style>
+        {`
+          @media print {
+            @page {
+              size: A4 portrait;
+              margin: 6mm;
+            }
+
+            html,
+            body {
+              width: 210mm !important;
+              min-height: 297mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+            }
+
+            body {
+              overflow: hidden !important;
+            }
+
+            body * {
+              visibility: hidden;
+            }
+
+            #silocamp-print-ticket,
+            #silocamp-print-ticket * {
+              visibility: visible;
+            }
+
+            #silocamp-print-ticket {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            .silocamp-print-hidden {
+              display: none !important;
+            }
+
+            .silocamp-ticket {
+              width: 100% !important;
+              max-width: none !important;
+              margin: 0 !important;
+              border: 1px solid #d4af37 !important;
+              border-radius: 0 !important;
+              box-shadow: none !important;
+              background: white !important;
+              color: #111111 !important;
+            }
+
+            .silocamp-ticket * {
+              color: #111111 !important;
+              border-color: #dddddd !important;
+            }
+
+            .silocamp-ticket-qr {
+              background: white !important;
+              border-color: #dddddd !important;
+              box-shadow: none !important;
+            }
+
+            .silocamp-ticket-section {
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+            }
+          }
+        `}
+      </style>
+
+      <main className="min-h-screen bg-ink-950 px-4 pb-16 pt-24 sm:px-6 md:pt-28">
+        <div className="silocamp-print-hidden mx-auto mb-6 flex max-w-3xl flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 rounded-full border border-gold-400/15 bg-gold-400/5 px-4 py-2.5 text-sm text-cream-dim transition hover:border-gold-400/30 hover:text-cream"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Retour
+          </button>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={downloadQRCode}
+              className="inline-flex items-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/5 px-4 py-2.5 text-sm font-medium text-gold-300 transition hover:bg-gold-400/10"
+            >
+              <Download className="h-4 w-4" />
+
+              {downloaded ? "QR Code téléchargé" : "Télécharger QR"}
+            </button>
+
+            <button
+              type="button"
+              onClick={downloadTicketPDF}
+              disabled={isDownloading}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-gold-400 px-4 py-2.5 text-sm font-semibold text-ink-950 transition hover:bg-gold-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Génération...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Télécharger le billet
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="silocamp-print-ticket"
+          className="mx-auto w-full max-w-[794px]"
+        >
+          <div className="silocamp-ticket overflow-hidden rounded-[2rem] border border-gold-400/20 bg-ink-900 shadow-[0_25px_80px_rgba(0,0,0,0.35)]">
+            <div className="silocamp-ticket-section relative overflow-hidden border-b border-gold-400/15 bg-gradient-to-br from-gold-400/10 via-transparent to-gold-400/5 px-6 py-6 sm:px-9">
+              <div className="relative flex items-start justify-between gap-5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-gold-400/20 bg-gold-400/10">
+                    <TicketIcon className="h-5 w-5 text-gold-300" />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold-300">
+                      SiloCamp
+                    </p>
+
+                    <p className="mt-0.5 text-[11px] text-cream-faint">
+                      E-billet officiel
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Confirmé
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="silocamp-ticket-section px-6 pt-6 text-center sm:px-9">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-gold-300">
+                Participation gratuite
+              </p>
+
+              <h1 className="mt-2 font-display text-3xl font-medium leading-tight text-cream sm:text-4xl">
+                {ticket.eventTitle}
+              </h1>
+
+              <p className="mt-2 text-sm text-cream-dim">
+                Camp International Silo 2026
+              </p>
+            </div>
+
+            <div className="silocamp-ticket-section flex justify-center px-6 py-6 sm:px-9">
+              <div
+                id="silocamp-ticket-qr"
+                className="silocamp-ticket-qr rounded-3xl border border-gold-400/20 bg-white p-4 shadow-xl"
+              >
+                <QRCodeCanvas
+                  ref={qrCanvasRef}
+                  value={qrValue}
+                  size={190}
+                  bgColor="#ffffff"
+                  fgColor="#111111"
+                  level="H"
+                  includeMargin
+                />
+              </div>
+            </div>
+
+            <div className="silocamp-ticket-section px-6 text-center sm:px-9">
+              <p className="text-xs text-cream-faint">
+                Présentez ce QR Code à l&apos;accueil du Camp.
+              </p>
+
+              <p className="mt-2 break-all font-mono text-sm font-semibold tracking-wider text-gold-300">
+                {ticket.ticketNumber}
+              </p>
+            </div>
+
+            <div className="silocamp-ticket-section px-6 py-6 sm:px-9">
+              <div className="rounded-2xl border border-gold-400/10 bg-ink-950/50 p-4">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300">
+                    <UserRound className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cream-faint">
+                      Participant
+                    </p>
+
+                    <h2 className="mt-1 font-display text-xl text-cream">
+                      {participantName}
+                    </h2>
+
+                    {participantEmail && (
+                      <p className="mt-1 break-all text-sm text-cream-dim">
+                        {participantEmail}
+                      </p>
+                    )}
+
+                    {participantPhone && (
+                      <p className="mt-1 text-xs text-cream-faint">
+                        {participantPhone}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="silocamp-ticket-section px-6 pb-6 sm:px-9">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <InfoCard
+                  icon={<CalendarDays className="h-5 w-5" />}
+                  label="Date"
+                  value={ticket.dateLabel}
+                />
+
+                <InfoCard
+                  icon={<Clock3 className="h-5 w-5" />}
+                  label="Heure"
+                  value={ticket.time}
+                />
+
+                <InfoCard
+                  icon={<MapPin className="h-5 w-5" />}
+                  label="Lieu"
+                  value={ticket.venue}
+                />
+
+                <InfoCard
+                  icon={<MapPin className="h-5 w-5" />}
+                  label="Ville"
+                  value={ticket.city}
+                />
+              </div>
+            </div>
+
+            <div className="silocamp-ticket-section border-y border-gold-400/10 bg-gold-400/5 px-6 py-5 sm:px-9">
+              <div className="grid gap-5 sm:grid-cols-3">
+                <TicketDetail label="Type" value="Participation" />
+
+                <TicketDetail label="Quantité" value="1 billet" />
+
+                <TicketDetail label="Tarif" value="Gratuit" highlight />
+              </div>
+            </div>
+
+            <div className="silocamp-ticket-section px-6 py-6 sm:px-9">
+              <div className="flex items-start gap-4 rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-300">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <h3 className="font-medium text-cream">Billet sécurisé</h3>
+
+                  <p className="mt-1 text-xs leading-relaxed text-cream-dim">
+                    Ce billet possède un QR Code unique. Il sera vérifié à
+                    l&apos;entrée du Camp afin de confirmer votre participation.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="silocamp-ticket-section border-t border-gold-400/10 px-6 py-5 text-center sm:px-9">
+              <p className="text-xs leading-relaxed text-cream-faint">
+                Conservez précieusement ce billet jusqu&apos;au jour de
+                l&apos;événement.
+              </p>
+
+              <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-gold-300">
+                SiloCamp · Camp International Silo 2026
+              </p>
+
+              <p className="mt-2 text-[10px] text-cream-faint">
+                Billet généré le {formatDate(ticket.createdAt)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="silocamp-print-hidden mx-auto mt-7 flex max-w-3xl flex-col justify-center gap-3 sm:flex-row">
+          <Link
+            to="/"
+            className="btn-ghost inline-flex items-center justify-center gap-2"
+          >
+            <Home className="h-4 w-4" />
+            Retour à l&apos;accueil
+          </Link>
+
+          <button
+            type="button"
+            onClick={downloadTicketPDF}
+            disabled={isDownloading}
+            className="btn-gold inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isDownloading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Génération du PDF...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Télécharger mon billet
+              </>
+            )}
+          </button>
+        </div>
+      </main>
+    </>
+  );
 }
 
-function formatDate(value: string | Date | null | undefined): string {
-  if (!value) {
-    return "—";
-  }
+function InfoCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gold-400/10 text-gold-300">
+          {icon}
+        </div>
 
-  const date = value instanceof Date ? value : new Date(value);
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-cream-faint">
+            {label}
+          </p>
+
+          <p className="mt-1 break-words text-sm font-medium text-cream">
+            {value}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TicketDetail({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="text-center">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cream-faint">
+        {label}
+      </p>
+
+      <p
+        className={`mt-1 font-medium ${
+          highlight ? "text-emerald-300" : "text-cream"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatDate(value: string | Date): string {
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return String(value);
@@ -75,585 +705,9 @@ function formatDate(value: string | Date | null | undefined): string {
 
   return new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
-    month: "long",
+    month: "2-digit",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Une erreur est survenue lors de la récupération de votre réservation.";
-}
-
-export default function Confirmation() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [storedOrder, setStoredOrder] = useState<StoredOrder | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [qrDownloaded, setQrDownloaded] = useState(false);
-
-  const locationState = (location.state ?? {}) as ConfirmationState;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadTicket() {
-      setLoading(true);
-      setError("");
-
-      try {
-        const sessionOrder = readStoredOrder();
-
-        if (cancelled) {
-          return;
-        }
-
-        const order: StoredOrder = {
-          ...(sessionOrder ?? {}),
-          ...locationState,
-        };
-
-        setStoredOrder(order);
-
-        let foundTicket: Ticket | null = null;
-
-        /*
-         * 1. Recherche par ticketId
-         */
-        if (order.ticketId) {
-          try {
-            foundTicket = await getTicketById(order.ticketId);
-          } catch (ticketIdError) {
-            console.warn("Recherche par ticketId impossible :", ticketIdError);
-          }
-        }
-
-        /*
-         * 2. Recherche par ticketNumber
-         */
-        if (!foundTicket && order.ticketNumber) {
-          try {
-            foundTicket = await getTicketByNumber(order.ticketNumber);
-          } catch (ticketNumberError) {
-            console.warn(
-              "Recherche par ticketNumber impossible :",
-              ticketNumberError,
-            );
-          }
-        }
-
-        /*
-         * 3. Recherche par verificationToken
-         */
-        if (!foundTicket && order.verificationToken) {
-          try {
-            const verification = await verifyTicket(order.verificationToken);
-
-            if (verification.valid && verification.ticket) {
-              foundTicket = verification.ticket;
-            }
-          } catch (verificationError) {
-            console.warn(
-              "Vérification par token impossible :",
-              verificationError,
-            );
-          }
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        if (!foundTicket) {
-          setError(
-            "Votre réservation n'a pas pu être retrouvée. Vérifiez que vous avez bien terminé votre réservation.",
-          );
-          setTicket(null);
-          return;
-        }
-
-        setTicket(foundTicket);
-      } catch (loadError) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error("Erreur Confirmation :", loadError);
-
-        setTicket(null);
-        setError(getErrorMessage(loadError));
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadTicket();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    locationState.ticketId,
-    locationState.ticketNumber,
-    locationState.verificationToken,
-  ]);
-
-  const verificationUrl = useMemo(() => {
-    if (!ticket) {
-      return "";
-    }
-
-    return getVerificationUrl(ticket);
-  }, [ticket]);
-
-  function downloadQRCode() {
-    const canvas = document.getElementById(
-      "silocamp-ticket-qr",
-    ) as HTMLCanvasElement | null;
-
-    if (!canvas || !ticket) {
-      return;
-    }
-
-    try {
-      const link = document.createElement("a");
-
-      link.download = `${ticket.ticketNumber}-QRCode.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-
-      setQrDownloaded(true);
-
-      window.setTimeout(() => {
-        setQrDownloaded(false);
-      }, 2500);
-    } catch (downloadError) {
-      console.error("Erreur téléchargement QR :", downloadError);
-      alert("Impossible de télécharger le QR Code.");
-    }
-  }
-
-  function printTicket() {
-    window.print();
-  }
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center px-6">
-        <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-xl p-8 text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-violet-100">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-200 border-t-violet-700" />
-          </div>
-
-          <h1 className="text-2xl font-bold text-slate-900">
-            Confirmation de votre réservation
-          </h1>
-
-          <p className="mt-3 text-slate-500">
-            Nous récupérons votre billet sécurisé...
-          </p>
-        </div>
-      </main>
-    );
-  }
-
-  if (error || !ticket) {
-    return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-lg rounded-3xl bg-white border border-slate-200 shadow-xl p-8 text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-            <TicketIcon className="h-8 w-8 text-red-600" />
-          </div>
-
-          <h1 className="text-2xl font-bold text-slate-900">
-            Réservation introuvable
-          </h1>
-
-          <p className="mt-4 text-slate-500 leading-7">
-            {error ||
-              "Impossible de retrouver votre billet. Votre réservation n'a peut-être pas encore été enregistrée."}
-          </p>
-
-          {storedOrder?.ticketNumber && (
-            <div className="mt-6 rounded-2xl bg-slate-50 border border-slate-200 p-4 text-left">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Numéro de billet recherché
-              </p>
-
-              <p className="mt-1 font-mono font-bold text-slate-900">
-                {storedOrder.ticketNumber}
-              </p>
-            </div>
-          )}
-
-          <div className="mt-8 flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Retour à l'accueil
-            </button>
-
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="flex-1 rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Réessayer
-            </button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  const participantName =
-    ticket.participantName ||
-    `${ticket.firstName ?? ""} ${ticket.lastName ?? ""}`.trim() ||
-    storedOrder?.participantName ||
-    "Participant";
-
-  const reservationId =
-    ticket.reservationId || storedOrder?.reservationId || "—";
-
-  const createdAt = formatDate(ticket.createdAt);
-
-  function getQRCodeDataUrl(): string | null {
-    const canvas = document.getElementById(
-      "silocamp-ticket-qr",
-    ) as HTMLCanvasElement | null;
-
-    if (!canvas) {
-      return null;
-    }
-
-    try {
-      return canvas.toDataURL("image/png");
-    } catch (error) {
-      console.error("Erreur lors de la récupération du QR Code :", error);
-      return null;
-    }
-  }
-
-  return (
-    <main className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 print:bg-white print:py-0">
-      <div className="mx-auto w-full max-w-5xl">
-        {/* Header */}
-        <div className="mb-8 text-center print:hidden">
-          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
-            <CheckCircle2 className="h-11 w-11 text-emerald-600" />
-          </div>
-
-          <p className="mb-2 text-sm font-bold uppercase tracking-[0.25em] text-violet-700">
-            SiloCamp 2026
-          </p>
-
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-950">
-            Réservation confirmée !
-          </h1>
-
-          <p className="mx-auto mt-4 max-w-2xl text-base sm:text-lg leading-7 text-slate-500">
-            Félicitations{" "}
-            <strong className="text-slate-800">{participantName}</strong>. Votre
-            participation au Camp International Silo 2026 est confirmée.
-          </p>
-        </div>
-
-        {/* Ticket */}
-        <section
-          id="silocamp-ticket"
-          className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl print:rounded-none print:border-0 print:shadow-none"
-        >
-          {/* Ticket Header */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-violet-950 via-violet-900 to-slate-950 px-6 py-8 sm:px-10 sm:py-10 text-white">
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl" />
-            <div className="absolute -bottom-24 -left-20 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl" />
-
-            <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-violet-200">
-                  Billet officiel
-                </p>
-
-                <h2 className="mt-2 text-2xl sm:text-3xl font-black">
-                  Camp International Silo 2026
-                </h2>
-
-                <p className="mt-2 text-violet-200">
-                  Votre accès officiel à l'événement
-                </p>
-              </div>
-
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-200">
-                <CheckCircle2 className="h-4 w-4" />
-                VALIDE
-              </div>
-            </div>
-          </div>
-
-          {/* Ticket Body */}
-          <div className="grid lg:grid-cols-[1fr_280px]">
-            <div className="p-6 sm:p-10">
-              {/* Participant */}
-              <div className="mb-8">
-                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-violet-700">
-                  <User className="h-4 w-4" />
-                  Participant
-                </div>
-
-                <h3 className="text-2xl sm:text-3xl font-black text-slate-950">
-                  {participantName}
-                </h3>
-              </div>
-
-              {/* Event details */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Date
-                  </p>
-
-                  <p className="mt-2 font-bold text-slate-900">
-                    {ticket.dateLabel || "—"}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Heure
-                  </p>
-
-                  <p className="mt-2 font-bold text-slate-900">
-                    {ticket.time || "—"}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    <MapPin className="h-4 w-4" />
-                    Lieu
-                  </div>
-
-                  <p className="mt-2 font-bold text-slate-900">
-                    {ticket.venue || "—"}
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    {ticket.city || "—"}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Durée
-                  </p>
-
-                  <p className="mt-2 font-bold text-slate-900">
-                    {ticket.duration || "—"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Contact */}
-              <div className="mt-6 grid sm:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-slate-200 p-5">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    <Mail className="h-4 w-4" />
-                    Email
-                  </div>
-
-                  <p className="mt-2 break-all font-medium text-slate-800">
-                    {ticket.email || "—"}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 p-5">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    <Phone className="h-4 w-4" />
-                    Téléphone
-                  </div>
-
-                  <p className="mt-2 font-medium text-slate-800">
-                    {ticket.phone || "—"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Identifiers */}
-              <div className="mt-6 border-t border-dashed border-slate-300 pt-6">
-                <div className="grid sm:grid-cols-2 gap-x-6 gap-y-5">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Numéro de réservation
-                    </p>
-
-                    <p className="mt-1 break-all font-mono text-sm font-bold text-slate-900">
-                      {reservationId}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Numéro de billet
-                    </p>
-
-                    <p className="mt-1 break-all font-mono text-sm font-bold text-violet-800">
-                      {ticket.ticketNumber}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Réservation créée le
-                    </p>
-
-                    <p className="mt-1 text-sm font-medium text-slate-700">
-                      {createdAt}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Quantité
-                    </p>
-
-                    <p className="mt-1 text-sm font-bold text-slate-900">
-                      {ticket.quantity} place
-                      {ticket.quantity > 1 ? "s" : ""}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* QR */}
-            <div className="border-t lg:border-t-0 lg:border-l border-dashed border-slate-300 bg-slate-50 p-6 sm:p-10 flex flex-col items-center justify-center">
-              <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-violet-800">
-                <QrCode className="h-4 w-4" />
-                QR Code
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-lg">
-                <QRCodeCanvas
-                  id="silocamp-ticket-qr"
-                  value={verificationUrl}
-                  size={220}
-                  level="H"
-                  includeMargin
-                />
-              </div>
-
-              <p className="mt-5 max-w-[220px] text-center text-xs leading-5 text-slate-500">
-                Présentez ce QR Code à l'entrée pour contrôler votre billet.
-              </p>
-
-              <p className="mt-3 text-center font-mono text-[10px] break-all text-slate-400">
-                {ticket.verificationToken}
-              </p>
-            </div>
-          </div>
-
-          {/* Ticket Footer */}
-          <div className="border-t border-slate-200 bg-violet-950 px-6 py-5 sm:px-10 text-center text-sm text-violet-100">
-            <p className="font-semibold">Camp International Silo 2026</p>
-
-            <p className="mt-1 text-violet-300">
-              Ce billet est nominatif et associé à une réservation unique.
-            </p>
-          </div>
-        </section>
-
-        {/* Actions */}
-        <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
-          <PDFDownloadLink
-            document={
-              <TicketPDF
-                ticket={ticket}
-                verificationUrl={verificationUrl}
-                qrCodeDataUrl={getQRCodeDataUrl() ?? undefined}
-              />
-            }
-            fileName={`${ticket.ticketNumber}-SiloCamp-2026.pdf`}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 py-3.5 font-bold text-white transition hover:bg-violet-800"
-          >
-            {({ loading: pdfLoading }) => (
-              <>
-                <Download className="h-5 w-5" />
-                {pdfLoading ? "Préparation..." : "Télécharger PDF"}
-              </>
-            )}
-          </PDFDownloadLink>
-
-          <button
-            type="button"
-            onClick={downloadQRCode}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3.5 font-bold text-slate-800 transition hover:bg-slate-50"
-          >
-            <QrCode className="h-5 w-5" />
-            {qrDownloaded ? "QR téléchargé" : "Télécharger QR"}
-          </button>
-
-          <button
-            type="button"
-            onClick={printTicket}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3.5 font-bold text-slate-800 transition hover:bg-slate-50"
-          >
-            <Printer className="h-5 w-5" />
-            Imprimer
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3.5 font-bold text-white transition hover:bg-slate-800"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            Accueil
-          </button>
-        </div>
-
-        {/* Email notice */}
-        <div className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 px-5 py-4 text-center print:hidden">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-sm text-violet-900">
-            <Mail className="h-4 w-4 shrink-0" />
-            <span>
-              Conservez ce billet et votre QR Code pour le contrôle à l'entrée.
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        @media print {
-          @page {
-            size: A4;
-            margin: 10mm;
-          }
-
-          body {
-            background: white !important;
-          }
-
-          #silocamp-ticket {
-            width: 100%;
-            max-width: none;
-          }
-
-          .print\\:hidden {
-            display: none !important;
-          }
-        }
-      `}</style>
-    </main>
-  );
 }

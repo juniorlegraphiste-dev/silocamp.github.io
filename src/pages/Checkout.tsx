@@ -12,17 +12,17 @@
  * - Maximum 1200 participants
  * - E-mail unique
  * - Téléphone unique
- * - Création du billet via l'API Vercel
- * - Génération d'un numéro de réservation unique
- * - Génération d'un billet sécurisé avec QR Code
- * - Sauvegarde de la réservation dans sessionStorage
+ * - Création du billet via ticketService
+ * - Génération d'un numéro de billet unique
+ * - Génération d'un identifiant de réservation unique
+ * - Sauvegarde de la réservation
  * - Redirection vers la confirmation
  *
  * Aucun paiement réel n'est traité.
  * =========================================================
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
@@ -47,7 +47,7 @@ import {
   getTicketByPhone,
 } from "@/services/ticketService";
 
-import { generateReservationId } from "@/services/ticketService";
+import { generateReservationId } from "@/utils/format";
 
 /* =========================================================
    TYPES
@@ -61,8 +61,6 @@ type FormState = {
 };
 
 type Errors = Partial<Record<keyof FormState, string>>;
-
-const MAX_PARTICIPANTS = 1200;
 
 /* =========================================================
    FORMULAIRE INITIAL
@@ -81,9 +79,10 @@ const EMPTY_FORM: FormState = {
 
 export type Order = {
   reservationId: string;
-  ticketId: string;
   ticketNumber: string;
-  verificationToken: string;
+
+  ticketId?: string;
+  verificationToken?: string;
 
   eventId: string;
   eventTitle: string;
@@ -105,10 +104,6 @@ export type Order = {
     email: string;
     phone?: string;
   };
-
-  participantName: string;
-  email: string;
-  phone?: string;
 
   createdAt: string;
 };
@@ -143,18 +138,6 @@ function isValidEmail(email: string): boolean {
   return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/.test(
     value,
   );
-}
-
-/* =========================================================
-   ERROR MESSAGE
-========================================================= */
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return "Une erreur est survenue lors de la réservation.";
 }
 
 /* =========================================================
@@ -273,20 +256,6 @@ export default function Checkout() {
       nextErrors.email = "E-mail requis.";
     } else if (!isValidEmail(email)) {
       nextErrors.email = "Adresse e-mail invalide.";
-    } else {
-      try {
-        const existingTickets = await getTicketByEmail(email);
-
-        if (existingTickets.length > 0) {
-          nextErrors.email =
-            "Cette adresse e-mail a déjà été utilisée pour une participation.";
-        }
-      } catch (error) {
-        console.warn(
-          "[SiloCamp] Vérification email impossible :",
-          error,
-        );
-      }
     }
 
     /* -------------------------------------------------------
@@ -304,22 +273,15 @@ export default function Checkout() {
 
       if (digits.length < 8 || digits.length > 15) {
         nextErrors.phone = "Numéro de téléphone invalide.";
-      } else {
-        try {
-          const existingTickets = await getTicketByPhone(phone);
-
-          if (existingTickets.length > 0) {
-            nextErrors.phone =
-              "Ce numéro de téléphone a déjà été utilisé pour une participation.";
-          }
-        } catch (error) {
-          console.warn(
-            "[SiloCamp] Vérification téléphone impossible :",
-            error,
-          );
-        }
       }
     }
+
+    /*
+     * On affiche d'abord les erreurs de formulaire.
+     * Les vérifications serveur email/téléphone sont faites
+     * ensuite dans submit() pour éviter de bloquer inutilement
+     * la validation locale.
+     */
 
     setErrors(nextErrors);
 
@@ -334,8 +296,6 @@ export default function Checkout() {
     if (submitting) {
       return;
     }
-
-    setSubmitError("");
 
     /* -------------------------------------------------------
        CATÉGORIE
@@ -373,21 +333,16 @@ export default function Checkout() {
         "Une seule place peut être réservée par participant.",
       );
 
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-
       return;
     }
 
     /* -------------------------------------------------------
-       FORMULAIRE
+       VALIDATION FORMULAIRE
     ------------------------------------------------------- */
 
-    const isValid = await validate();
+    const isFormValid = await validate();
 
-    if (!isValid) {
+    if (!isFormValid) {
       window.scrollTo({
         top: 0,
         behavior: "smooth",
@@ -400,13 +355,13 @@ export default function Checkout() {
        NORMALISATION
     ------------------------------------------------------- */
 
-    const firstName = form.firstName.trim();
-
-    const lastName = form.lastName.trim();
-
     const normalizedEmail = normalizeEmail(form.email);
 
     const normalizedPhone = normalizePhone(form.phone);
+
+    const firstName = form.firstName.trim();
+
+    const lastName = form.lastName.trim();
 
     const participantName = `${firstName} ${lastName}`.trim();
 
@@ -415,6 +370,8 @@ export default function Checkout() {
     ------------------------------------------------------- */
 
     setSubmitting(true);
+
+    setSubmitError("");
 
     try {
       /* =====================================================
@@ -438,76 +395,52 @@ export default function Checkout() {
         return;
       }
 
-      if (availability.remaining < 1) {
-        setSubmitError(
-          "Il ne reste plus de place disponible.",
-        );
-
-        setSubmitting(false);
-
-        return;
-      }
-
       /* =====================================================
          DOUBLE VÉRIFICATION EMAIL
       ===================================================== */
 
-      try {
-        const existingEmailTickets =
-          await getTicketByEmail(normalizedEmail);
+      const existingEmailTickets =
+        await getTicketByEmail(normalizedEmail);
 
-        if (existingEmailTickets.length > 0) {
-          setErrors((current) => ({
-            ...current,
-            email:
-              "Cette adresse e-mail a déjà été utilisée pour une participation.",
-          }));
+      if (existingEmailTickets.length > 0) {
+        setErrors((current) => ({
+          ...current,
+          email:
+            "Cette adresse e-mail a déjà été utilisée pour une participation.",
+        }));
 
-          setSubmitting(false);
+        setSubmitting(false);
 
-          window.scrollTo({
-            top: 0,
-            behavior: "smooth",
-          });
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
 
-          return;
-        }
-      } catch (error) {
-        console.warn(
-          "[SiloCamp] Double vérification email impossible :",
-          error,
-        );
+        return;
       }
 
       /* =====================================================
          DOUBLE VÉRIFICATION TÉLÉPHONE
       ===================================================== */
 
-      try {
-        const existingPhoneTickets =
-          await getTicketByPhone(normalizedPhone);
+      const existingPhoneTickets =
+        await getTicketByPhone(normalizedPhone);
 
-        if (existingPhoneTickets.length > 0) {
-          setErrors((current) => ({
-            ...current,
-            phone:
-              "Ce numéro de téléphone a déjà été utilisé pour une participation.",
-          }));
+      if (existingPhoneTickets.length > 0) {
+        setErrors((current) => ({
+          ...current,
+          phone:
+            "Ce numéro de téléphone a déjà été utilisé pour une participation.",
+        }));
 
-          setSubmitting(false);
+        setSubmitting(false);
 
-          window.scrollTo({
-            top: 0,
-            behavior: "smooth",
-          });
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
 
-          return;
-        }
-      } catch (error) {
-        console.warn(
-          "[SiloCamp] Double vérification téléphone impossible :",
-          error,
-        );
+        return;
       }
 
       /* =====================================================
@@ -517,56 +450,37 @@ export default function Checkout() {
       const reservationId = generateReservationId();
 
       /* =====================================================
-         CRÉATION DU BILLET VIA API VERCEL
+         CRÉATION BILLET
       ===================================================== */
 
       const ticket = await createTicket({
         firstName,
         lastName,
         participantName,
-
         email: normalizedEmail,
-
         phone: normalizedPhone,
-
         reservationId,
-
         eventId: event.id,
-
         eventTitle: event.title,
-
         dateLabel: event.dateLabel,
-
         time: event.time,
-
         duration: event.duration,
-
         venue: event.venue,
-
         city: event.city,
-
         quantity: 1,
       });
 
       /* =====================================================
-         VÉRIFICATION DU BILLET RETOURNÉ
+         VÉRIFICATION RETOUR SERVEUR
       ===================================================== */
 
-      if (!ticket?.id) {
+      if (
+        !ticket ||
+        !ticket.id ||
+        !ticket.ticketNumber
+      ) {
         throw new Error(
-          "Le serveur n'a pas retourné l'identifiant du billet.",
-        );
-      }
-
-      if (!ticket.ticketNumber) {
-        throw new Error(
-          "Le serveur n'a pas retourné le numéro du billet.",
-        );
-      }
-
-      if (!ticket.verificationToken) {
-        throw new Error(
-          "Le serveur n'a pas retourné le token de vérification du billet.",
+          "Le serveur n'a pas retourné le billet créé.",
         );
       }
 
@@ -577,11 +491,12 @@ export default function Checkout() {
       const order: Order = {
         reservationId,
 
-        ticketId: ticket.id,
-
         ticketNumber: ticket.ticketNumber,
 
-        verificationToken: ticket.verificationToken,
+        ticketId: ticket.id,
+
+        verificationToken:
+          ticket.verificationToken,
 
         eventId: event.id,
 
@@ -598,9 +513,7 @@ export default function Checkout() {
         lines: [
           {
             category: participationCategory,
-
             quantity: 1,
-
             subtotal: 0,
           },
         ],
@@ -611,19 +524,10 @@ export default function Checkout() {
 
         customer: {
           firstName,
-
           lastName,
-
           email: normalizedEmail,
-
           phone: normalizedPhone,
         },
-
-        participantName,
-
-        email: normalizedEmail,
-
-        phone: normalizedPhone,
 
         createdAt: new Date().toISOString(),
       };
@@ -656,27 +560,27 @@ export default function Checkout() {
       clear();
 
       /* =====================================================
-         REDIRECTION CONFIRMATION
+         REDIRECTION
       ===================================================== */
 
       navigate("/confirmation", {
         state: {
-          eventId: ticket.eventId ?? event.id,
+          eventId: event.id,
 
           ticketId: ticket.id,
 
           ticketNumber: ticket.ticketNumber,
 
-          verificationToken: ticket.verificationToken,
+          verificationToken:
+            ticket.verificationToken,
 
-          reservationId:
-            ticket.reservationId ?? reservationId,
+          reservationId,
 
-          participantName: ticket.participantName,
+          participantName,
 
-          email: ticket.email,
+          email: normalizedEmail,
 
-          phone: ticket.phone ?? normalizedPhone,
+          phone: normalizedPhone,
         },
       });
     } catch (error) {
@@ -685,30 +589,11 @@ export default function Checkout() {
         error,
       );
 
-      const message = getErrorMessage(error);
-
-      if (
-        message.toLowerCase().includes("email") ||
-        message.toLowerCase().includes("e-mail")
-      ) {
-        setErrors((current) => ({
-          ...current,
-          email:
-            "Cette adresse e-mail possède déjà une réservation.",
-        }));
-      } else if (
-        message.toLowerCase().includes("téléphone") ||
-        message.toLowerCase().includes("telephone") ||
-        message.toLowerCase().includes("phone")
-      ) {
-        setErrors((current) => ({
-          ...current,
-          phone:
-            "Ce numéro de téléphone possède déjà une réservation.",
-        }));
-      }
-
-      setSubmitError(message);
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Une erreur est survenue lors de la réservation.",
+      );
 
       setSubmitting(false);
 
@@ -744,7 +629,11 @@ export default function Checkout() {
 
     setSubmitError("");
 
-    navigate(`/evenement/${event?.slug ?? ""}`);
+    if (event?.slug) {
+      navigate(`/evenement/${event.slug}`);
+    } else {
+      navigate("/evenements");
+    }
   };
 
   /* =======================================================
@@ -787,8 +676,8 @@ export default function Checkout() {
           </h1>
 
           <p className="mt-3 text-sm text-cream-dim">
-            Aucune catégorie de participation n'est configurée
-            pour cet événement.
+            Aucune catégorie de participation n'est
+            configurée pour cet événement.
           </p>
 
           <Link
@@ -835,8 +724,8 @@ export default function Checkout() {
 
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
           Vérifiez vos informations puis confirmez votre
-          participation pour recevoir votre e-billet avec QR
-          Code.
+          participation pour recevoir votre e-billet avec
+          QR Code.
         </p>
       </Reveal>
 
@@ -909,9 +798,10 @@ export default function Checkout() {
                   </div>
 
                   <p className="mt-3 max-w-lg text-sm leading-relaxed text-cream-faint">
-                    Réservez gratuitement votre place au Camp
-                    International Silo 2026. Votre e-billet avec
-                    QR Code sera généré après confirmation.
+                    Réservez gratuitement votre place au
+                    Camp International Silo 2026. Votre
+                    e-billet avec QR Code sera généré après
+                    confirmation.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -1008,9 +898,9 @@ export default function Checkout() {
 
             <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
               <p className="text-xs leading-relaxed text-cream-faint">
-                Vos informations permettent de générer votre
-                e-billet personnel et de sécuriser votre accès
-                grâce à un QR Code unique.
+                Vos informations permettent de générer
+                votre e-billet personnel et de sécuriser
+                votre accès grâce à un QR Code unique.
               </p>
             </div>
           </Section>
@@ -1052,8 +942,8 @@ export default function Checkout() {
                   <span className="font-semibold text-cream">
                     « Confirmer ma participation »
                   </span>
-                  , votre inscription sera enregistrée et votre
-                  e-billet sera généré.
+                  , votre inscription sera enregistrée et
+                  votre e-billet sera généré.
                 </p>
               </div>
             </div>
@@ -1155,7 +1045,7 @@ function Section({
 }: {
   title: string;
   subtitle?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <Reveal>

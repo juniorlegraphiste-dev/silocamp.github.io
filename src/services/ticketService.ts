@@ -4,21 +4,28 @@ export type Ticket = {
   id: string;
   ticketNumber: string;
   verificationToken: string;
+
   firstName?: string | null;
   lastName?: string | null;
+
   participantName: string;
   email: string;
   phone?: string | null;
+
   reservationId?: string | null;
   eventId?: string | null;
+
   eventTitle: string;
   dateLabel: string;
   time: string;
   duration?: string | null;
+
   venue: string;
   city: string;
+
   quantity: number;
   status: TicketStatus;
+
   createdAt: string | Date;
   usedAt?: string | Date | null;
   cancelledAt?: string | Date | null;
@@ -28,16 +35,21 @@ export type CreateTicketInput = {
   firstName?: string;
   lastName?: string;
   participantName?: string;
+
   email: string;
   phone?: string;
+
   reservationId?: string;
   eventId?: string;
+
   eventTitle: string;
   dateLabel: string;
   time: string;
   duration?: string;
+
   venue: string;
   city: string;
+
   quantity?: number;
 };
 
@@ -52,56 +64,18 @@ export type TicketStats = {
   remaining: number;
 };
 
-type TicketsResponse = {
-  ok: boolean;
-  tickets: Ticket[];
-};
-
-type TicketResponse = {
-  ok: boolean;
-  ticket: Ticket;
-};
-
-type ErrorResponse = {
-  ok?: boolean;
-  success?: boolean;
-  message?: string;
-  error?: string;
-};
-
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL || window.location.origin
 ).replace(/\/$/, "");
 
 const API_URL = `${API_BASE_URL}/api/tickets`;
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const rawText = await response.text();
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
 
-  let data: unknown = null;
-
-  if (rawText.trim()) {
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      throw new Error(
-        `Le serveur a renvoyé un JSON invalide (${response.status}).`,
-      );
-    }
-  }
-
-  if (!response.ok) {
-    const errorData = data as ErrorResponse | null;
-
-    const message =
-      errorData?.error ||
-      errorData?.message ||
-      `Erreur serveur (${response.status}).`;
-
-    throw new Error(message);
-  }
-
-  return data as T;
+function normalizePhone(value: string): string {
+  return value.replace(/[^\d+]/g, "").trim();
 }
 
 function normalizeTicket(ticket: Ticket): Ticket {
@@ -112,16 +86,67 @@ function normalizeTicket(ticket: Ticket): Ticket {
   };
 }
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
+async function parseJson(response: Response): Promise<unknown> {
+  const contentType = response.headers.get("content-type") || "";
+  const text = await response.text();
+
+  if (!text.trim()) {
+    return null;
+  }
+
+  if (!contentType.toLowerCase().includes("application/json")) {
+    throw new Error(
+      `Réponse serveur non JSON (${response.status}) : ${text.slice(0, 300)}`,
+    );
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      `Le serveur a renvoyé un JSON invalide (${response.status}).`,
+    );
+  }
 }
 
-function normalizePhone(phone: string): string {
-  return phone.replace(/[^\d+]/g, "").trim();
+function getApiError(data: unknown, fallback: string): string {
+  if (typeof data === "object" && data !== null) {
+    const value = data as Record<string, unknown>;
+
+    if (typeof value.error === "string" && value.error.trim()) {
+      return value.error;
+    }
+
+    if (typeof value.message === "string" && value.message.trim()) {
+      return value.message;
+    }
+  }
+
+  return fallback;
+}
+
+function extractTickets(data: unknown): Ticket[] | null {
+  if (Array.isArray(data)) {
+    return data as Ticket[];
+  }
+
+  if (typeof data === "object" && data !== null) {
+    const value = data as Record<string, unknown>;
+
+    if (Array.isArray(value.tickets)) {
+      return value.tickets as Ticket[];
+    }
+
+    if (Array.isArray(value.data)) {
+      return value.data as Ticket[];
+    }
+  }
+
+  return null;
 }
 
 /* =========================================================
-   GET ALL
+   RÉCUPÉRER TOUS LES BILLETS
 ========================================================= */
 
 export async function getTickets(): Promise<Ticket[]> {
@@ -130,22 +155,37 @@ export async function getTickets(): Promise<Ticket[]> {
     headers: {
       Accept: "application/json",
     },
-    cache: "no-store",
   });
 
-  const data = await parseResponse<TicketsResponse>(response);
+  const data = await parseJson(response);
 
-  if (!data?.ok || !Array.isArray(data.tickets)) {
+  if (!response.ok) {
+    throw new Error(
+      getApiError(
+        data,
+        `Erreur lors de la récupération des billets (${response.status}).`,
+      ),
+    );
+  }
+
+  const tickets = extractTickets(data);
+
+  if (!tickets) {
+    console.error(
+      "[SiloCamp] Réponse reçue depuis /api/tickets :",
+      data,
+    );
+
     throw new Error(
       "La réponse du serveur ne contient pas une liste de billets valide.",
     );
   }
 
-  return data.tickets.map(normalizeTicket);
+  return tickets.map(normalizeTicket);
 }
 
 /* =========================================================
-   GET BY ID
+   BILLET PAR ID
 ========================================================= */
 
 export async function getTicketById(
@@ -160,20 +200,18 @@ export async function getTicketById(
   const tickets = await getTickets();
 
   return (
-    tickets.find(
-      (ticket) => ticket.id === normalizedId,
-    ) ?? null
+    tickets.find((ticket) => ticket.id === normalizedId) ?? null
   );
 }
 
 /* =========================================================
-   GET BY NUMBER
+   BILLET PAR NUMÉRO
 ========================================================= */
 
 export async function getTicketByNumber(
   ticketNumber: string,
 ): Promise<Ticket | null> {
-  const normalizedNumber = ticketNumber.trim();
+  const normalizedNumber = ticketNumber.trim().toLowerCase();
 
   if (!normalizedNumber) {
     return null;
@@ -184,14 +222,13 @@ export async function getTicketByNumber(
   return (
     tickets.find(
       (ticket) =>
-        ticket.ticketNumber.trim().toUpperCase() ===
-        normalizedNumber.toUpperCase(),
+        ticket.ticketNumber.trim().toLowerCase() === normalizedNumber,
     ) ?? null
   );
 }
 
 /* =========================================================
-   GET BY EMAIL
+   BILLET PAR EMAIL
 ========================================================= */
 
 export async function getTicketByEmail(
@@ -206,13 +243,12 @@ export async function getTicketByEmail(
   const tickets = await getTickets();
 
   return tickets.filter(
-    (ticket) =>
-      normalizeEmail(ticket.email) === normalizedEmail,
+    (ticket) => normalizeEmail(ticket.email) === normalizedEmail,
   );
 }
 
 /* =========================================================
-   GET BY PHONE
+   BILLET PAR TÉLÉPHONE
 ========================================================= */
 
 export async function getTicketByPhone(
@@ -228,13 +264,12 @@ export async function getTicketByPhone(
 
   return tickets.filter(
     (ticket) =>
-      ticket.phone &&
-      normalizePhone(ticket.phone) === normalizedPhone,
+      normalizePhone(ticket.phone ?? "") === normalizedPhone,
   );
 }
 
 /* =========================================================
-   VERIFY TOKEN
+   VÉRIFICATION TOKEN
 ========================================================= */
 
 export async function verifyTicket(
@@ -257,17 +292,15 @@ export async function verifyTicket(
 
   const tickets = await getTickets();
 
-  const ticket =
-    tickets.find(
-      (item) =>
-        item.verificationToken === token,
-    ) ?? null;
+  const ticket = tickets.find(
+    (item) => item.verificationToken === token,
+  );
 
   if (!ticket) {
     return {
       valid: false,
       reason: "TICKET_NOT_FOUND",
-      message: "Billet introuvable.",
+      message: "Billet introuvable ou QR Code invalide.",
     };
   }
 
@@ -283,7 +316,7 @@ export async function verifyTicket(
   if (ticket.status === "USED") {
     return {
       valid: false,
-      reason: "TICKET_USED",
+      reason: "TICKET_ALREADY_USED",
       message: "Ce billet a déjà été utilisé.",
       ticket,
     };
@@ -298,7 +331,7 @@ export async function verifyTicket(
 }
 
 /* =========================================================
-   CREATE
+   CRÉATION BILLET
 ========================================================= */
 
 export async function createTicket(
@@ -325,20 +358,55 @@ export async function createTicket(
     body: JSON.stringify(payload),
   });
 
-  const data =
-    await parseResponse<TicketResponse>(response);
+  const data = await parseJson(response);
 
-  if (!data?.ok || !data.ticket) {
+  if (!response.ok) {
+    throw new Error(
+      getApiError(
+        data,
+        `Erreur lors de la création du billet (${response.status}).`,
+      ),
+    );
+  }
+
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("ticket" in data)
+  ) {
+    console.error(
+      "[SiloCamp] Réponse création billet :",
+      data,
+    );
+
     throw new Error(
       "Le serveur n'a pas retourné le billet créé.",
     );
   }
 
-  return normalizeTicket(data.ticket);
+  const ticket = (data as { ticket?: Ticket }).ticket;
+
+  if (
+    !ticket ||
+    typeof ticket !== "object" ||
+    !ticket.id ||
+    !ticket.ticketNumber
+  ) {
+    console.error(
+      "[SiloCamp] Billet retourné invalide :",
+      ticket,
+    );
+
+    throw new Error(
+      "Le serveur n'a pas retourné un billet valide.",
+    );
+  }
+
+  return normalizeTicket(ticket);
 }
 
 /* =========================================================
-   STATS
+   STATISTIQUES
 ========================================================= */
 
 export async function getTicketStats(): Promise<TicketStats> {
@@ -347,29 +415,76 @@ export async function getTicketStats(): Promise<TicketStats> {
     headers: {
       Accept: "application/json",
     },
-    cache: "no-store",
   });
 
-  return parseResponse<TicketStats>(response);
+  const data = await parseJson(response);
+
+  if (!response.ok) {
+    throw new Error(
+      getApiError(
+        data,
+        `Erreur lors de la récupération des statistiques (${response.status}).`,
+      ),
+    );
+  }
+
+  if (
+    typeof data !== "object" ||
+    data === null
+  ) {
+    throw new Error(
+      "Les statistiques retournées par le serveur sont invalides.",
+    );
+  }
+
+  const stats = data as Partial<TicketStats>;
+
+  if (
+    typeof stats.capacity !== "number" ||
+    typeof stats.reserved !== "number" ||
+    typeof stats.remaining !== "number"
+  ) {
+    throw new Error(
+      "Les statistiques retournées par le serveur sont invalides.",
+    );
+  }
+
+  return data as TicketStats;
 }
 
 /* =========================================================
-   AVAILABILITY
+   DISPONIBILITÉ
 ========================================================= */
 
-export async function checkTicketAvailability(): Promise<{
+export async function checkTicketAvailability(
+  requestedQuantity = 1,
+): Promise<{
+  available: boolean;
   capacity: number;
   reserved: number;
   remaining: number;
+  message?: string;
 }> {
   const stats = await getTicketStats();
 
+  const available =
+    requestedQuantity > 0 &&
+    requestedQuantity <= stats.remaining;
+
   return {
+    available,
     capacity: stats.capacity,
     reserved: stats.reserved,
     remaining: stats.remaining,
+    message: available
+      ? undefined
+      : `Il ne reste que ${stats.remaining} place(s) disponible(s).`,
   };
 }
+
+/* =========================================================
+   PLACES RESTANTES
+========================================================= */
 
 export async function getTicketsRemaining(): Promise<number> {
   const stats = await getTicketStats();
@@ -378,7 +493,7 @@ export async function getTicketsRemaining(): Promise<number> {
 }
 
 /* =========================================================
-   RESERVATION ID
+   ID RÉSERVATION
 ========================================================= */
 
 export function generateReservationId(): string {
@@ -394,20 +509,17 @@ export function generateReservationId(): string {
 }
 
 /* =========================================================
-   VERIFICATION URL
+   URL VÉRIFICATION
 ========================================================= */
 
-export function getVerificationUrl(
-  ticket: Ticket,
-): string {
-  return (
-    `${window.location.origin}/ticket/verify?token=` +
-    encodeURIComponent(ticket.verificationToken)
-  );
+export function getVerificationUrl(ticket: Ticket): string {
+  return `${window.location.origin}/ticket/verify?token=${encodeURIComponent(
+    ticket.verificationToken,
+  )}`;
 }
 
 /* =========================================================
-   COMPATIBILITY
+   ALIAS
 ========================================================= */
 
 export async function validateTicketByToken(
@@ -416,42 +528,38 @@ export async function validateTicketByToken(
   return verifyTicket(verificationToken);
 }
 
+/* =========================================================
+   VALIDATION PHYSIQUE
+========================================================= */
+
 export async function validateTicket(
   ticketNumber: string,
 ): Promise<Ticket> {
-  const ticket = await getTicketByNumber(ticketNumber);
-
-  if (!ticket) {
-    throw new Error("Billet introuvable.");
-  }
-
-  if (ticket.status !== "VALID") {
-    throw new Error(
-      ticket.status === "USED"
-        ? "Ce billet a déjà été utilisé."
-        : "Ce billet est annulé.",
-    );
-  }
-
-  return ticket;
+  throw new Error(
+    `La validation physique du billet "${ticketNumber}" n'est pas encore exposée par l'API.`,
+  );
 }
 
 export async function useTicket(
   ticketNumber: string,
 ): Promise<Ticket> {
-  return validateTicket(ticketNumber);
+  throw new Error(
+    `La validation physique du billet "${ticketNumber}" n'est pas encore exposée par l'API.`,
+  );
 }
 
 export async function markTicketAsUsed(
   ticketNumber: string,
 ): Promise<Ticket> {
-  return validateTicket(ticketNumber);
+  throw new Error(
+    `La validation physique du billet "${ticketNumber}" n'est pas encore exposée par l'API.`,
+  );
 }
 
 export async function cancelTicket(
   ticketNumber: string,
 ): Promise<Ticket> {
   throw new Error(
-    "L'annulation des billets nécessite encore l'endpoint API /cancel.",
+    `L'annulation du billet "${ticketNumber}" n'est pas encore exposée par l'API.`,
   );
 }
