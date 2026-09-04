@@ -290,9 +290,7 @@ export async function verifyTicket(verificationToken: string): Promise<{
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({
-      token,
-    }),
+    body: JSON.stringify({ token }),
   });
 
   const data = await parseJson(response);
