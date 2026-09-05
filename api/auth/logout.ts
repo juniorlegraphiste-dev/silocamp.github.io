@@ -1,8 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { getScanCookieName } from "./_session";
 
-import { createLogoutCookie } from "./_session";
-
-export default async function handler(
+export default function handler(
   req: VercelRequest,
   res: VercelResponse,
 ) {
@@ -13,10 +12,25 @@ export default async function handler(
     });
   }
 
-  res.setHeader("Set-Cookie", createLogoutCookie());
+  const isProduction =
+    process.env.VERCEL_ENV === "production";
+
+  const cookie = [
+    `${getScanCookieName()}=`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Max-Age=0",
+    isProduction ? "Secure" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  res.setHeader("Set-Cookie", cookie);
 
   return res.status(200).json({
     ok: true,
+    authenticated: false,
     message: "Déconnexion réussie.",
   });
 }

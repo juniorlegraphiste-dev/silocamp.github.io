@@ -128,6 +128,7 @@ export default function ScanTicket() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify({
           login: login.trim(),
@@ -135,11 +136,39 @@ export default function ScanTicket() {
         }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
 
-      if (!response.ok || !data.ok) {
+      const text = await response.text();
+
+      let data: {
+        ok?: boolean;
+        authenticated?: boolean;
+        message?: string;
+      } = {};
+
+      if (text.trim()) {
+        if (!contentType.toLowerCase().includes("application/json")) {
+          throw new Error(
+            `Le serveur d'authentification a renvoyé une réponse inattendue (${response.status}).`,
+          );
+        }
+
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(
+            "Le serveur d'authentification a renvoyé un JSON invalide.",
+          );
+        }
+      }
+
+      if (!response.ok || data.ok !== true) {
         setAuthenticated(false);
-        setAuthError(data.message || "Identifiant ou mot de passe incorrect.");
+
+        setAuthError(
+          data.message || `Authentification refusée (${response.status}).`,
+        );
+
         return;
       }
 
@@ -154,12 +183,16 @@ export default function ScanTicket() {
       console.error("[SiloCamp Auth Login]", error);
 
       setAuthenticated(false);
-      setAuthError("Impossible de contacter le serveur.");
+
+      setAuthError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de contacter le serveur.",
+      );
     } finally {
       setAuthBusy(false);
     }
   }
-
   async function handleLogout() {
     await stopScanner();
 

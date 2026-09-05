@@ -1,153 +1,156 @@
-import { createHmac, createHash, timingSafeEqual } from "node:crypto";
+import crypto from "node:crypto";
+import type { VercelRequest } from "@vercel/node";
 
 const COOKIE_NAME = "silocamp_scan_session";
-const SESSION_DURATION = 8 * 60 * 60 * 1000;
 
-function getSecret() {
-  const secret = process.env.SILOCAMP_SCAN_AUTH_SECRET;
+type SessionPayload = {
+  username: string;
+  exp: number;
+};
+
+function getSecret(): string {
+  const secret = process.env.SCANNER_SESSION_SECRET;
 
   if (!secret) {
-    throw new Error("SILOCAMP_SCAN_AUTH_SECRET est introuvable.");
+    throw new Error(
+      "SCANNER_SESSION_SECRET est introuvable dans les variables d'environnement.",
+    );
   }
 
   return secret;
 }
 
-function safeEqual(a: string, b: string) {
-  const hashA = createHash("sha256").update(a).digest();
-  const hashB = createHash("sha256").update(b).digest();
-
-  return timingSafeEqual(hashA, hashB);
+function base64UrlEncode(value: string): string {
+  return Buffer.from(value, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
-function sign(value: string) {
-  return createHmac("sha256", getSecret())
+function base64UrlDecode(value: string): string {
+  return Buffer.from(
+    value.replace(/-/g, "+").replace(/_/g, "/"),
+    "base64",
+  ).toString("utf8");
+}
+
+function sign(value: string): string {
+  return crypto
+    .createHmac("sha256", getSecret())
     .update(value)
-    .digest("base64url");
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
-export function createScanSession() {
-  const payload = Buffer.from(
-    JSON.stringify({
-      sub: "silocamp-scan",
-      exp: Date.now() + SESSION_DURATION,
-    }),
-  ).toString("base64url");
+function safeEqual(a: string, b: string): boolean {
+  const bufferA = Buffer.from(a);
+  const bufferB = Buffer.from(b);
 
-  const signature = sign(payload);
-
-  return `${payload}.${signature}`;
-}
-
-export function verifyScanSession(token: string | undefined) {
-  if (!token) {
+  if (bufferA.length !== bufferB.length) {
     return false;
   }
 
-  try {
-    const [payload, signature] = token.split(".");
+  return crypto.timingSafeEqual(bufferA, bufferB);
+}
 
-    if (!payload || !signature) {
-      return false;
+function parseCookies(req: VercelRequest): Record<string, string> {
+  const header = req.headers.cookie;
+
+  if (!header) {
+    return {};
+  }
+
+  return header.split(";").reduce<Record<string, string>>(
+    (cookies, part) => {
+      const separatorIndex = part.indexOf("=");
+
+      if (separatorIndex === -1) {
+        return cookies;
+      }
+
+      const key = part.slice(0, separatorIndex).trim();
+      const value = part.slice(separatorIndex + 1).trim();
+
+      cookies[key] = decodeURIComponent(value);
+
+      return cookies;
+    },
+    {},
+  );
+}
+
+export function createScanSession(username: string): string {
+  const payload: SessionPayload = {
+    username,
+    exp: Date.now() + 8 * 60 * 60 * 1000,
+  };
+
+  const encodedPayload = base64UrlEncode(
+    JSON.stringify(payload),
+  );
+
+  const signature = sign(encodedPayload);
+
+  return `${encodedPayload}.${signature}`;
+}
+
+export function getScanSession(
+  req: VercelRequest,
+): SessionPayload | null {
+  try {
+    const cookies = parseCookies(req);
+    const session = cookies[COOKIE_NAME];
+
+    if (!session) {
+      return null;
     }
+
+    const parts = session.split(".");
+
+    if (parts.length !== 2) {
+      return null;
+    }
+
+    const [payload, signature] = parts;
 
     const expectedSignature = sign(payload);
 
     if (!safeEqual(signature, expectedSignature)) {
-      return false;
+      return null;
     }
 
-    const decoded = JSON.parse(
-      Buffer.from(payload, "base64url").toString("utf8"),
-    );
+    const data = JSON.parse(
+      base64UrlDecode(payload),
+    ) as SessionPayload;
 
     if (
-      !decoded ||
-      decoded.sub !== "silocamp-scan" ||
-      typeof decoded.exp !== "number"
+      !data ||
+      typeof data.username !== "string" ||
+      typeof data.exp !== "number"
     ) {
-      return false;
+      return null;
     }
 
-    if (decoded.exp <= Date.now()) {
-      return false;
+    if (Date.now() >= data.exp) {
+      return null;
     }
 
-    return true;
-  } catch {
-    return false;
+    return data;
+  } catch (error) {
+    console.error("[SiloCamp Session]", error);
+    return null;
   }
 }
 
-export function getScanSessionFromRequest(req: {
-  headers: {
-    cookie?: string;
-  };
-}) {
-  const cookies = req.headers.cookie || "";
-
-  const match = cookies
-    .split(";")
-    .map((cookie) => cookie.trim())
-    .find((cookie) => cookie.startsWith(`${COOKIE_NAME}=`));
-
-  if (!match) {
-    return undefined;
-  }
-
-  return decodeURIComponent(
-    match.substring(`${COOKIE_NAME}=`.length),
-  );
+export function isScanAuthenticated(
+  req: VercelRequest,
+): boolean {
+  return getScanSession(req) !== null;
 }
 
-export function isScanAuthenticated(req: {
-  headers: {
-    cookie?: string;
-  };
-}) {
-  const token = getScanSessionFromRequest(req);
-
-  return verifyScanSession(token);
-}
-
-export function createSessionCookie(token: string) {
-  return [
-    `${COOKIE_NAME}=${encodeURIComponent(token)}`,
-    "Path=/",
-    "HttpOnly",
-    "Secure",
-    "SameSite=Lax",
-    `Max-Age=${SESSION_DURATION / 1000}`,
-  ].join("; ");
-}
-
-export function createLogoutCookie() {
-  return [
-    `${COOKIE_NAME}=`,
-    "Path=/",
-    "HttpOnly",
-    "Secure",
-    "SameSite=Lax",
-    "Max-Age=0",
-    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
-  ].join("; ");
-}
-
-export function validateScanCredentials(
-  login: string,
-  password: string,
-) {
-  const expectedLogin = process.env.SILOCAMP_SCAN_LOGIN;
-  const expectedPassword = process.env.SILOCAMP_SCAN_PASSWORD;
-
-  if (!expectedLogin || !expectedPassword) {
-    throw new Error(
-      "Les identifiants SiloCamp ne sont pas configurés.",
-    );
-  }
-
-  return (
-    safeEqual(login, expectedLogin) &&
-    safeEqual(password, expectedPassword)
-  );
+export function getScanCookieName(): string {
+  return COOKIE_NAME;
 }
