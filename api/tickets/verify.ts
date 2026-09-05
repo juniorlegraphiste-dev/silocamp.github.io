@@ -55,7 +55,7 @@ export default async function handler(req: any, res: any) {
     const sql = neon(databaseUrl);
 
     const token = normalizeToken(
-      req.body?.verificationToken,
+      req.body?.token,
     );
 
     if (!token) {
