@@ -591,14 +591,14 @@ export default function Confirmation() {
               Télécharger le billet PDF
             </button>
 
-            <button
+            {/* <button
               type="button"
               onClick={() => window.print()}
               className="btn-ghost inline-flex items-center justify-center gap-2"
             >
               <Printer className="h-4 w-4" />
               Imprimer
-            </button>
+            </button> */}
           </div>
         </div>
       </Reveal>
