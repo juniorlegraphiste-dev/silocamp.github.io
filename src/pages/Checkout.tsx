@@ -449,28 +449,19 @@ export default function Checkout() {
       ===================================================== */
 
       const ticket = await createTicket({
+        firstName,
+        lastName,
         participantName,
-
         email: normalizedEmail,
-
         phone: normalizedPhone,
-
         reservationId,
-
         eventId: event.id,
-
         eventTitle: event.title,
-
         dateLabel: event.dateLabel,
-
         time: event.time,
-
         duration: event.duration,
-
         venue: event.venue,
-
         city: event.city,
-
         quantity: 1,
       });
 
