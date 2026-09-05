@@ -14,7 +14,6 @@
  * - Téléphone unique
  * - Création du billet via ticketService
  * - Génération d'un numéro de billet unique
- * - Génération d'un identifiant de réservation unique
  * - Sauvegarde de la réservation
  * - Redirection vers la confirmation
  *
@@ -22,7 +21,7 @@
  * =========================================================
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
@@ -81,9 +80,6 @@ export type Order = {
   reservationId: string;
   ticketNumber: string;
 
-  ticketId?: string;
-  verificationToken?: string;
-
   eventId: string;
   eventTitle: string;
 
@@ -106,6 +102,8 @@ export type Order = {
   };
 
   createdAt: string;
+  ticketId?: string;
+  verificationToken?: string;
 };
 
 /* =========================================================
@@ -189,11 +187,7 @@ export default function Checkout() {
     if (participationQuantity > 1) {
       setQuantity(participationCategoryId, 1);
     }
-  }, [
-    participationCategoryId,
-    participationQuantity,
-    setQuantity,
-  ]);
+  }, [participationCategoryId, participationQuantity, setQuantity]);
 
   /* =======================================================
      MODIFICATION FORMULAIRE
@@ -229,8 +223,7 @@ export default function Checkout() {
     if (!firstName) {
       nextErrors.firstName = "Prénom requis.";
     } else if (firstName.length < 2) {
-      nextErrors.firstName =
-        "Le prénom doit contenir au moins 2 caractères.";
+      nextErrors.firstName = "Le prénom doit contenir au moins 2 caractères.";
     }
 
     /* -------------------------------------------------------
@@ -242,8 +235,7 @@ export default function Checkout() {
     if (!lastName) {
       nextErrors.lastName = "Nom requis.";
     } else if (lastName.length < 2) {
-      nextErrors.lastName =
-        "Le nom doit contenir au moins 2 caractères.";
+      nextErrors.lastName = "Le nom doit contenir au moins 2 caractères.";
     }
 
     /* -------------------------------------------------------
@@ -256,6 +248,13 @@ export default function Checkout() {
       nextErrors.email = "E-mail requis.";
     } else if (!isValidEmail(email)) {
       nextErrors.email = "Adresse e-mail invalide.";
+    } else {
+      const existingTickets = await getTicketByEmail(email);
+
+      if (existingTickets.length > 0) {
+        nextErrors.email =
+          "Cette adresse e-mail a déjà été utilisée pour une participation.";
+      }
     }
 
     /* -------------------------------------------------------
@@ -273,15 +272,15 @@ export default function Checkout() {
 
       if (digits.length < 8 || digits.length > 15) {
         nextErrors.phone = "Numéro de téléphone invalide.";
+      } else {
+        const existingTickets = await getTicketByPhone(phone);
+
+        if (existingTickets.length > 0) {
+          nextErrors.phone =
+            "Ce numéro de téléphone a déjà été utilisé pour une participation.";
+        }
       }
     }
-
-    /*
-     * On affiche d'abord les erreurs de formulaire.
-     * Les vérifications serveur email/téléphone sont faites
-     * ensuite dans submit() pour éviter de bloquer inutilement
-     * la validation locale.
-     */
 
     setErrors(nextErrors);
 
@@ -314,9 +313,7 @@ export default function Checkout() {
     ------------------------------------------------------- */
 
     if (participationQuantity <= 0) {
-      setSubmitError(
-        "Veuillez sélectionner votre participation.",
-      );
+      setSubmitError("Veuillez sélectionner votre participation.");
 
       window.scrollTo({
         top: 0,
@@ -329,20 +326,16 @@ export default function Checkout() {
     if (participationQuantity !== 1) {
       setQuantity(participationCategory.id, 1);
 
-      setSubmitError(
-        "Une seule place peut être réservée par participant.",
-      );
+      setSubmitError("Une seule place peut être réservée par participant.");
 
       return;
     }
 
     /* -------------------------------------------------------
-       VALIDATION FORMULAIRE
+       FORMULAIRE
     ------------------------------------------------------- */
 
-    const isFormValid = await validate();
-
-    if (!isFormValid) {
+    if (!(await validate())) {
       window.scrollTo({
         top: 0,
         behavior: "smooth",
@@ -359,18 +352,11 @@ export default function Checkout() {
 
     const normalizedPhone = normalizePhone(form.phone);
 
-    const firstName = form.firstName.trim();
-
-    const lastName = form.lastName.trim();
-
-    const participantName = `${firstName} ${lastName}`.trim();
-
     /* -------------------------------------------------------
        DÉBUT
     ------------------------------------------------------- */
 
     setSubmitting(true);
-
     setSubmitError("");
 
     try {
@@ -378,11 +364,12 @@ export default function Checkout() {
          VÉRIFICATION DES PLACES
       ===================================================== */
 
-      const availability = await checkTicketAvailability();
+      const availability = await checkTicketAvailability(1);
 
-      if (availability.remaining <= 0) {
+      if (!availability.available) {
         setSubmitError(
-          "Les 1200 places disponibles ont déjà été réservées.",
+          availability.message ??
+            "Les places demandées ne sont plus disponibles.",
         );
 
         setSubmitting(false);
@@ -399,8 +386,7 @@ export default function Checkout() {
          DOUBLE VÉRIFICATION EMAIL
       ===================================================== */
 
-      const existingEmailTickets =
-        await getTicketByEmail(normalizedEmail);
+      const existingEmailTickets = await getTicketByEmail(normalizedEmail);
 
       if (existingEmailTickets.length > 0) {
         setErrors((current) => ({
@@ -423,8 +409,7 @@ export default function Checkout() {
          DOUBLE VÉRIFICATION TÉLÉPHONE
       ===================================================== */
 
-      const existingPhoneTickets =
-        await getTicketByPhone(normalizedPhone);
+      const existingPhoneTickets = await getTicketByPhone(normalizedPhone);
 
       if (existingPhoneTickets.length > 0) {
         setErrors((current) => ({
@@ -444,6 +429,16 @@ export default function Checkout() {
       }
 
       /* =====================================================
+         NOM PARTICIPANT
+      ===================================================== */
+
+      const firstName = form.firstName.trim();
+
+      const lastName = form.lastName.trim();
+
+      const participantName = `${firstName} ${lastName}`;
+
+      /* =====================================================
          ID RÉSERVATION
       ===================================================== */
 
@@ -454,35 +449,30 @@ export default function Checkout() {
       ===================================================== */
 
       const ticket = await createTicket({
-        firstName,
-        lastName,
         participantName,
+
         email: normalizedEmail,
+
         phone: normalizedPhone,
+
         reservationId,
+
         eventId: event.id,
+
         eventTitle: event.title,
+
         dateLabel: event.dateLabel,
+
         time: event.time,
+
         duration: event.duration,
+
         venue: event.venue,
+
         city: event.city,
+
         quantity: 1,
       });
-
-      /* =====================================================
-         VÉRIFICATION RETOUR SERVEUR
-      ===================================================== */
-
-      if (
-        !ticket ||
-        !ticket.id ||
-        !ticket.ticketNumber
-      ) {
-        throw new Error(
-          "Le serveur n'a pas retourné le billet créé.",
-        );
-      }
 
       /* =====================================================
          COMMANDE
@@ -491,12 +481,11 @@ export default function Checkout() {
       const order: Order = {
         reservationId,
 
-        ticketNumber: ticket.ticketNumber,
-
         ticketId: ticket.id,
 
-        verificationToken:
-          ticket.verificationToken,
+        verificationToken: ticket.verificationToken,
+
+        ticketNumber: ticket.ticketNumber,
 
         eventId: event.id,
 
@@ -513,7 +502,9 @@ export default function Checkout() {
         lines: [
           {
             category: participationCategory,
+
             quantity: 1,
+
             subtotal: 0,
           },
         ],
@@ -524,8 +515,11 @@ export default function Checkout() {
 
         customer: {
           firstName,
+
           lastName,
+
           email: normalizedEmail,
+
           phone: normalizedPhone,
         },
 
@@ -537,15 +531,13 @@ export default function Checkout() {
       ===================================================== */
 
       try {
-        sessionStorage.setItem(
-          "silocamp-last-order",
-          JSON.stringify(order),
-        );
+        sessionStorage.setItem("silocamp-last-order", JSON.stringify(order));
 
-        sessionStorage.setItem(
-          "wg-last-order",
-          JSON.stringify(order),
-        );
+        /*
+         * Compatibilité avec une éventuelle
+         * ancienne page de confirmation.
+         */
+        sessionStorage.setItem("wg-last-order", JSON.stringify(order));
       } catch (storageError) {
         console.warn(
           "[SiloCamp] Impossible de sauvegarder la réservation dans sessionStorage.",
@@ -571,8 +563,7 @@ export default function Checkout() {
 
           ticketNumber: ticket.ticketNumber,
 
-          verificationToken:
-            ticket.verificationToken,
+          verificationToken: ticket.verificationToken,
 
           reservationId,
 
@@ -584,10 +575,7 @@ export default function Checkout() {
         },
       });
     } catch (error) {
-      console.error(
-        "[SiloCamp] Erreur lors de la création du billet :",
-        error,
-      );
+      console.error("[SiloCamp] Erreur lors de la création du billet :", error);
 
       setSubmitError(
         error instanceof Error
@@ -629,11 +617,7 @@ export default function Checkout() {
 
     setSubmitError("");
 
-    if (event?.slug) {
-      navigate(`/evenement/${event.slug}`);
-    } else {
-      navigate("/evenements");
-    }
+    navigate(`/evenement/${event.slug}`);
   };
 
   /* =======================================================
@@ -652,10 +636,7 @@ export default function Checkout() {
             L'événement demandé est introuvable.
           </p>
 
-          <Link
-            to="/evenements"
-            className="btn-gold mt-6 inline-flex"
-          >
+          <Link to="/evenements" className="btn-gold mt-6 inline-flex">
             Voir les événements
           </Link>
         </div>
@@ -676,14 +657,11 @@ export default function Checkout() {
           </h1>
 
           <p className="mt-3 text-sm text-cream-dim">
-            Aucune catégorie de participation n'est
-            configurée pour cet événement.
+            Aucune catégorie de participation n'est configurée pour cet
+            événement.
           </p>
 
-          <Link
-            to="/evenements"
-            className="btn-gold mt-6 inline-flex"
-          >
+          <Link to="/evenements" className="btn-gold mt-6 inline-flex">
             Voir les événements
           </Link>
         </div>
@@ -717,15 +695,12 @@ export default function Checkout() {
 
         <h1 className="mt-5 font-display text-4xl font-medium text-cream sm:text-5xl">
           Confirmez votre{" "}
-          <span className="text-gold-gradient">
-            réservation
-          </span>
+          <span className="text-gold-gradient">réservation</span>
         </h1>
 
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
-          Vérifiez vos informations puis confirmez votre
-          participation pour recevoir votre e-billet avec
-          QR Code.
+          Vérifiez vos informations puis confirmez votre participation pour
+          recevoir votre e-billet avec QR Code.
         </p>
       </Reveal>
 
@@ -739,9 +714,7 @@ export default function Checkout() {
             role="alert"
             className="rounded-2xl border border-red-400/20 bg-red-400/5 p-4 text-center"
           >
-            <p className="text-sm font-medium text-red-300">
-              {submitError}
-            </p>
+            <p className="text-sm font-medium text-red-300">{submitError}</p>
           </div>
         </Reveal>
       )}
@@ -762,10 +735,7 @@ export default function Checkout() {
               RÉSERVATION
           ================================================= */}
 
-          <Section
-            title="Votre réservation"
-            subtitle={event.title}
-          >
+          <Section title="Votre réservation" subtitle={event.title}>
             <div className="mb-6 flex flex-wrap items-center gap-6 text-sm text-cream-dim">
               <div className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-gold-300" />
@@ -798,9 +768,8 @@ export default function Checkout() {
                   </div>
 
                   <p className="mt-3 max-w-lg text-sm leading-relaxed text-cream-faint">
-                    Réservez gratuitement votre place au
-                    Camp International Silo 2026. Votre
-                    e-billet avec QR Code sera généré après
+                    Réservez gratuitement votre place au Camp International Silo
+                    2026. Votre e-billet avec QR Code sera généré après
                     confirmation.
                   </p>
 
@@ -840,9 +809,7 @@ export default function Checkout() {
               <Field
                 label="Prénom"
                 value={form.firstName}
-                onChange={(value) =>
-                  set("firstName", value)
-                }
+                onChange={(value) => set("firstName", value)}
                 error={errors.firstName}
                 autoComplete="given-name"
               />
@@ -850,9 +817,7 @@ export default function Checkout() {
               <Field
                 label="Nom"
                 value={form.lastName}
-                onChange={(value) =>
-                  set("lastName", value)
-                }
+                onChange={(value) => set("lastName", value)}
                 error={errors.lastName}
                 autoComplete="family-name"
               />
@@ -861,9 +826,7 @@ export default function Checkout() {
                 label="E-mail"
                 type="email"
                 value={form.email}
-                onChange={(value) =>
-                  set("email", value)
-                }
+                onChange={(value) => set("email", value)}
                 error={errors.email}
                 autoComplete="email"
                 className="sm:col-span-2"
@@ -880,27 +843,22 @@ export default function Checkout() {
                     international
                     defaultCountry="MA"
                     value={form.phone || undefined}
-                    onChange={(value) =>
-                      set("phone", value ?? "")
-                    }
+                    onChange={(value) => set("phone", value ?? "")}
                     placeholder="Entrez votre numéro"
                     countryCallingCodeEditable={false}
                   />
                 </div>
 
                 {errors.phone && (
-                  <p className="mt-1.5 text-xs text-red-400">
-                    {errors.phone}
-                  </p>
+                  <p className="mt-1.5 text-xs text-red-400">{errors.phone}</p>
                 )}
               </div>
             </div>
 
             <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
               <p className="text-xs leading-relaxed text-cream-faint">
-                Vos informations permettent de générer
-                votre e-billet personnel et de sécuriser
-                votre accès grâce à un QR Code unique.
+                Vos informations permettent de générer votre e-billet personnel
+                et de sécuriser votre accès grâce à un QR Code unique.
               </p>
             </div>
           </Section>
@@ -942,8 +900,8 @@ export default function Checkout() {
                   <span className="font-semibold text-cream">
                     « Confirmer ma participation »
                   </span>
-                  , votre inscription sera enregistrée et
-                  votre e-billet sera généré.
+                  , votre inscription sera enregistrée et votre e-billet sera
+                  généré.
                 </p>
               </div>
             </div>
@@ -972,11 +930,7 @@ export default function Checkout() {
 ========================================================= */
 
 function Steps({ current }: { current: number }) {
-  const steps = [
-    "Événement",
-    "Réservation",
-    "Confirmation",
-  ];
+  const steps = ["Événement", "Réservation", "Confirmation"];
 
   return (
     <div className="mx-auto flex max-w-2xl items-center justify-between">
@@ -984,10 +938,7 @@ function Steps({ current }: { current: number }) {
         const stepNumber = index + 1;
 
         return (
-          <div
-            key={step}
-            className="flex flex-1 items-center"
-          >
+          <div key={step} className="flex flex-1 items-center">
             <div className="flex flex-col items-center gap-3">
               <div
                 className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-300 ${
@@ -1001,17 +952,13 @@ function Steps({ current }: { current: number }) {
                 {stepNumber < current ? (
                   <CheckCircle2 className="h-5 w-5" />
                 ) : (
-                  <span className="text-sm font-semibold">
-                    {stepNumber}
-                  </span>
+                  <span className="text-sm font-semibold">{stepNumber}</span>
                 )}
               </div>
 
               <span
                 className={`text-center text-[10px] font-medium uppercase tracking-[0.15em] sm:text-[11px] sm:tracking-[0.2em] ${
-                  stepNumber <= current
-                    ? "text-gold-300"
-                    : "text-cream-faint"
+                  stepNumber <= current ? "text-gold-300" : "text-cream-faint"
                 }`}
               >
                 {step}
@@ -1021,9 +968,7 @@ function Steps({ current }: { current: number }) {
             {index < steps.length - 1 && (
               <div
                 className={`mx-2 h-[2px] flex-1 rounded-full sm:mx-4 ${
-                  stepNumber < current
-                    ? "bg-gold-400"
-                    : "bg-gold-400/15"
+                  stepNumber < current ? "bg-gold-400" : "bg-gold-400/15"
                 }`}
               />
             )}
@@ -1045,7 +990,7 @@ function Section({
 }: {
   title: string;
   subtitle?: string;
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <Reveal>
@@ -1056,9 +1001,7 @@ function Section({
           </h2>
 
           {subtitle && (
-            <p className="mt-1 text-sm text-cream-dim">
-              {subtitle}
-            </p>
+            <p className="mt-1 text-sm text-cream-dim">{subtitle}</p>
           )}
         </div>
 
@@ -1102,9 +1045,7 @@ function Field({
       <input
         type={type}
         value={value}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
         inputMode={inputMode}
@@ -1116,9 +1057,7 @@ function Field({
       />
 
       {error && (
-        <span className="mt-1 block text-xs text-red-400">
-          {error}
-        </span>
+        <span className="mt-1 block text-xs text-red-400">{error}</span>
       )}
     </label>
   );
@@ -1128,13 +1067,7 @@ function Field({
    CONFIRMATION ITEM
 ========================================================= */
 
-function ConfirmationItem({
-  title,
-  text,
-}: {
-  title: string;
-  text: string;
-}) {
+function ConfirmationItem({ title, text }: { title: string; text: string }) {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
@@ -1142,13 +1075,9 @@ function ConfirmationItem({
       </div>
 
       <div>
-        <h4 className="font-medium text-cream">
-          {title}
-        </h4>
+        <h4 className="font-medium text-cream">{title}</h4>
 
-        <p className="mt-1 text-sm leading-relaxed text-cream-dim">
-          {text}
-        </p>
+        <p className="mt-1 text-sm leading-relaxed text-cream-dim">{text}</p>
       </div>
     </div>
   );
@@ -1238,27 +1167,16 @@ function Summary({
         ------------------------------------------------- */}
 
         <div className="space-y-3 border-t border-gold-400/12 p-6">
-          <Row
-            label="Participant"
-            value="1 personne"
-          />
+          <Row label="Participant" value="1 personne" />
 
-          <Row
-            label="Billet"
-            value="E-billet gratuit"
-          />
+          <Row label="Billet" value="E-billet gratuit" />
 
-          <Row
-            label="Accès"
-            value="QR Code sécurisé"
-          />
+          <Row label="Accès" value="QR Code sécurisé" />
 
           <div className="my-2 h-px bg-gold-400/12" />
 
           <div className="flex items-center justify-between">
-            <span className="font-display text-lg text-cream">
-              Total
-            </span>
+            <span className="font-display text-lg text-cream">Total</span>
 
             <span className="font-display text-2xl font-semibold text-emerald-300">
               Gratuit
@@ -1300,8 +1218,8 @@ function Summary({
           </button>
 
           <p className="mt-3 text-center text-[11px] leading-relaxed text-cream-faint">
-            1 billet par participant • Inscription 100 %
-            gratuite • QR Code sécurisé
+            1 billet par participant • Inscription 100 % gratuite • QR Code
+            sécurisé
           </p>
         </div>
       </div>
@@ -1313,20 +1231,12 @@ function Summary({
    ROW
 ========================================================= */
 
-function Row({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4 text-cream-dim">
       <span>{label}</span>
 
-      <span className="text-right text-cream">
-        {value}
-      </span>
+      <span className="text-right text-cream">{value}</span>
     </div>
   );
 }
@@ -1335,18 +1245,11 @@ function Row({
    EMPTY CART
 ========================================================= */
 
-function EmptyCart({
-  eventSlug,
-}: {
-  eventSlug: string;
-}) {
+function EmptyCart({ eventSlug }: { eventSlug: string }) {
   return (
     <div className="container-px mx-auto flex min-h-[75vh] max-w-2xl flex-col items-center justify-center py-32 text-center">
       <div className="flex h-20 w-20 items-center justify-center rounded-full border border-gold-400/20 bg-gold-400/5 text-gold-300">
-        <Ticket
-          className="h-9 w-9"
-          strokeWidth={1.5}
-        />
+        <Ticket className="h-9 w-9" strokeWidth={1.5} />
       </div>
 
       <h1 className="mt-8 font-display text-4xl text-cream">
@@ -1354,8 +1257,7 @@ function EmptyCart({
       </h1>
 
       <p className="mt-4 max-w-lg text-lg leading-relaxed text-cream-dim">
-        Vous n'avez pas encore sélectionné votre
-        participation au{" "}
+        Vous n'avez pas encore sélectionné votre participation au{" "}
         <span className="font-medium text-gold-300">
           Camp International Silo 2026
         </span>
@@ -1369,8 +1271,8 @@ function EmptyCart({
         </h3>
 
         <p className="mt-3 text-sm leading-relaxed text-cream-dim">
-          Une seule place peut être réservée par
-          participant. Aucun paiement n'est demandé.
+          Une seule place peut être réservée par participant. Aucun paiement
+          n'est demandé.
         </p>
       </div>
 
@@ -1380,7 +1282,6 @@ function EmptyCart({
           className="btn-gold group inline-flex items-center gap-2"
         >
           Réserver gratuitement
-
           <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
         </Link>
 
@@ -1389,7 +1290,6 @@ function EmptyCart({
           className="btn-ghost group inline-flex items-center gap-2"
         >
           <MessageCircle className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
-
           Contacter l'organisation
         </Link>
       </div>

@@ -152,6 +152,7 @@ export default function ScanTicket() {
 
       switch (result.reason) {
         case "USED":
+        case "TICKET_ALREADY_USED":
           setState("used");
 
           setMessage(
@@ -162,6 +163,7 @@ export default function ScanTicket() {
           break;
 
         case "CANCELLED":
+        case "TICKET_CANCELLED":
           setState("cancelled");
 
           setMessage(
@@ -172,6 +174,7 @@ export default function ScanTicket() {
           break;
 
         case "NOT_FOUND":
+        case "TICKET_NOT_FOUND":
           setState("not-found");
 
           setMessage(

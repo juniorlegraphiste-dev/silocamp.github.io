@@ -1,464 +1,22 @@
+import {
+  Document,
+  Page,
+  Text,
+  View,
+  Image,
+  StyleSheet,
+  Font,
+  Svg,
+  Path,
+  Circle,
+  Rect,
+} from "@react-pdf/renderer";
 import { Ticket } from "@/services/ticketService";
+
 import PoppinsRegular from "@/assets/fonts/Poppins-Regular.ttf?url";
 import PoppinsMedium from "@/assets/fonts/Poppins-Medium.ttf?url";
 import PoppinsSemiBold from "@/assets/fonts/Poppins-SemiBold.ttf?url";
 import PoppinsBold from "@/assets/fonts/Poppins-Bold.ttf?url";
-import {
-  Document,
-  Font,
-  Image,
-  Page,
-  Path,
-  StyleSheet,
-  Svg,
-  Text,
-  View,
-} from "@react-pdf/renderer";
-
-export type TicketData = Ticket;
-
-export type TicketPDFProps = {
-  ticket: TicketData;
-  verificationUrl?: string;
-  qrCodeDataUrl?: string;
-};
-
-const COLORS = {
-  purple: "#5B2A86",
-  purpleDark: "#32164F",
-  purpleDeep: "#24132F",
-  gold: "#D4AF63",
-  goldDark: "#9B752D",
-  white: "#FFFFFF",
-  background: "#F7F5FC",
-  text: "#18213A",
-  muted: "#6B7280",
-  light: "#E8E4EF",
-  softPurple: "#F3EFF8",
-  softGold: "#FFFCF5",
-  green: "#237A52",
-};
-
-const styles = StyleSheet.create({
-  infoHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-
-  infoIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    backgroundColor: COLORS.softGold,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  page: {
-    width: "100%",
-    minHeight: "100%",
-    backgroundColor: COLORS.background,
-    fontFamily: "Poppins",
-    color: COLORS.text,
-  },
-
-  outer: {
-    padding: 24,
-    minHeight: "100%",
-  },
-
-  ticket: {
-    minHeight: 744,
-    backgroundColor: COLORS.white,
-    borderRadius: 18,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: COLORS.light,
-  },
-
-  header: {
-    backgroundColor: COLORS.purpleDark,
-    paddingHorizontal: 28,
-    paddingVertical: 25,
-  },
-
-  headerTop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-  },
-
-  brandBlock: {
-    width: "72%",
-  },
-
-  brand: {
-    color: COLORS.gold,
-    fontFamily: "Poppins",
-    fontSize: 9,
-    fontWeight: 700,
-    letterSpacing: 2.5,
-    textTransform: "uppercase",
-  },
-
-  eventTitle: {
-    marginTop: 8,
-    color: COLORS.white,
-    fontFamily: "Poppins",
-    fontSize: 22,
-    fontWeight: 800,
-    lineHeight: 1.15,
-  },
-
-  eventSubtitle: {
-    marginTop: 7,
-    color: "#D9D0E3",
-    fontFamily: "Poppins",
-    fontSize: 9,
-    fontWeight: 400,
-  },
-
-  headerBadge: {
-    width: 74,
-    height: 74,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#7B559D",
-    backgroundColor: "#432260",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  headerBadgeText: {
-    color: COLORS.gold,
-    fontFamily: "Poppins",
-    fontSize: 8,
-    fontWeight: 700,
-    textAlign: "center",
-    lineHeight: 1.4,
-  },
-
-  headerBadgeMain: {
-    marginTop: 4,
-    color: COLORS.white,
-    fontFamily: "Poppins",
-    fontSize: 16,
-    fontWeight: 800,
-  },
-
-  headerBottom: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 20,
-  },
-
-  freeBadge: {
-    backgroundColor: COLORS.gold,
-    borderRadius: 20,
-    paddingHorizontal: 13,
-    paddingVertical: 6,
-  },
-
-  freeBadgeText: {
-    color: COLORS.purpleDeep,
-    fontFamily: "Poppins",
-    fontSize: 8,
-    fontWeight: 700,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
-
-  secureBadge: {
-    marginLeft: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#765A91",
-    paddingHorizontal: 13,
-    paddingVertical: 6,
-  },
-
-  secureBadgeText: {
-    color: "#E8E0EF",
-    fontFamily: "Poppins",
-    fontSize: 8,
-    fontWeight: 600,
-  },
-
-  content: {
-    padding: 26,
-  },
-
-  columns: {
-    flexDirection: "row",
-    gap: 22,
-  },
-
-  leftColumn: {
-    width: "64%",
-  },
-
-  rightColumn: {
-    width: "36%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  sectionLabel: {
-    color: COLORS.goldDark,
-    fontFamily: "Poppins",
-    fontSize: 8,
-    fontWeight: 700,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-  },
-
-  participantName: {
-    marginTop: 7,
-    color: COLORS.text,
-    fontFamily: "Poppins",
-    fontSize: 18,
-    fontWeight: 700,
-  },
-
-  participantEmail: {
-    marginTop: 4,
-    color: COLORS.muted,
-    fontFamily: "Poppins",
-    fontSize: 9,
-    fontWeight: 400,
-  },
-
-  participantPhone: {
-    marginTop: 3,
-    color: COLORS.muted,
-    fontFamily: "Poppins",
-    fontSize: 9,
-    fontWeight: 400,
-  },
-
-  separator: {
-    height: 1,
-    backgroundColor: COLORS.light,
-    marginVertical: 20,
-  },
-
-  infoGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-
-  infoItem: {
-    width: "50%",
-    paddingRight: 12,
-    marginBottom: 18,
-  },
-
-  infoValue: {
-    marginTop: 5,
-    color: COLORS.text,
-    fontFamily: "Poppins",
-    fontSize: 10,
-    fontWeight: 600,
-    lineHeight: 1.35,
-  },
-
-  infoValueMono: {
-    marginTop: 5,
-    color: COLORS.purple,
-    fontFamily: "Poppins",
-    fontSize: 8,
-    fontWeight: 700,
-    lineHeight: 1.35,
-  },
-
-  accessBox: {
-    marginTop: 3,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: COLORS.softGold,
-    borderWidth: 1,
-    borderColor: "#EBD9A9",
-  },
-
-  accessRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  accessIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "#F4E8C8",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-
-  accessIconCheck: {
-    width: 12,
-    height: 12,
-  },
-
-  accessTitle: {
-    color: COLORS.text,
-    fontFamily: "Poppins",
-    fontSize: 9,
-    fontWeight: 700,
-  },
-
-  accessText: {
-    marginTop: 3,
-    color: COLORS.muted,
-    fontFamily: "Poppins",
-    fontSize: 7.5,
-    fontWeight: 400,
-    lineHeight: 1.4,
-  },
-
-  qrPanel: {
-    width: 150,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.light,
-    alignItems: "center",
-  },
-
-  qrImage: {
-    width: 124,
-    height: 124,
-  },
-
-  qrFallback: {
-    width: 124,
-    height: 124,
-    backgroundColor: COLORS.softPurple,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 12,
-  },
-
-  qrFallbackText: {
-    color: COLORS.purple,
-    fontFamily: "Poppins",
-    fontSize: 8,
-    fontWeight: 700,
-    textAlign: "center",
-    lineHeight: 1.4,
-  },
-
-  qrTitle: {
-    marginTop: 10,
-    color: COLORS.purpleDark,
-    fontFamily: "Poppins",
-    fontSize: 8,
-    fontWeight: 700,
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-
-  qrSubtitle: {
-    marginTop: 4,
-    color: COLORS.muted,
-    fontFamily: "Poppins",
-    fontSize: 7,
-    fontWeight: 400,
-    textAlign: "center",
-    lineHeight: 1.35,
-  },
-
-  ticketNumberBox: {
-    marginTop: 15,
-    width: 150,
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    backgroundColor: COLORS.softPurple,
-  },
-
-  ticketNumberLabel: {
-    color: COLORS.muted,
-    fontFamily: "Poppins",
-    fontSize: 6.5,
-    fontWeight: 700,
-    textAlign: "center",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
-
-  ticketNumber: {
-    marginTop: 4,
-    color: COLORS.purple,
-    fontFamily: "Poppins",
-    fontSize: 8,
-    fontWeight: 700,
-    textAlign: "center",
-  },
-
-  verificationText: {
-    marginTop: 10,
-    color: COLORS.muted,
-    fontFamily: "Poppins",
-    fontSize: 6.5,
-    fontWeight: 400,
-    textAlign: "center",
-    lineHeight: 1.4,
-  },
-
-  footer: {
-    marginTop: 4,
-    paddingHorizontal: 26,
-    paddingVertical: 17,
-    backgroundColor: COLORS.purpleDeep,
-  },
-
-  footerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  footerBrand: {
-    color: COLORS.gold,
-    fontFamily: "Poppins",
-    fontSize: 8,
-    fontWeight: 700,
-    letterSpacing: 1.8,
-  },
-
-  footerText: {
-    color: "#CFC4DA",
-    fontFamily: "Poppins",
-    fontSize: 7,
-    fontWeight: 400,
-  },
-
-  footerStatus: {
-    color: COLORS.white,
-    fontFamily: "Poppins",
-    fontSize: 7,
-    fontWeight: 700,
-  },
-
-  bottomLine: {
-    marginTop: 10,
-    height: 1,
-    backgroundColor: "#4A315D",
-  },
-
-  footerSmall: {
-    marginTop: 8,
-    color: "#9F91AA",
-    fontFamily: "Poppins",
-    fontSize: 6.5,
-    fontWeight: 400,
-  },
-});
 
 Font.register({
   family: "Poppins",
@@ -482,412 +40,979 @@ Font.register({
   ],
 });
 
-function safeText(value: unknown, fallback = "—"): string {
-  if (value === null || value === undefined) {
-    return fallback;
+export type TicketData = Ticket;
+
+export type TicketPDFProps = {
+  ticket: TicketData;
+  verificationUrl?: string;
+  qrCodeDataUrl?: string;
+};
+
+const COLORS = {
+  purple: "#24104F",
+  purpleDark: "#190B38",
+  purpleMedium: "#6D3ED1",
+  purpleLight: "#A78BFA",
+  purpleSoft: "#F8F6FF",
+  purpleBorder: "#E7DFFF",
+
+  gold: "#C8A45D",
+  goldLight: "#E7CF9A",
+
+  green: "#047857",
+  greenSoft: "#ECFDF5",
+  greenBorder: "#A7F3D0",
+
+  white: "#FFFFFF",
+
+  text: "#171329",
+  textSoft: "#4B5563",
+  gray: "#6B7280",
+  grayLight: "#9CA3AF",
+
+  border: "#E5E7EB",
+  background: "#F7F7FA",
+};
+
+const CalendarIcon = () => (
+  <Svg width={12} height={12} viewBox="0 0 24 24">
+    <Rect
+      x="3"
+      y="5"
+      width="18"
+      height="16"
+      rx="2"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+    />
+    <Path
+      d="M8 3v4M16 3v4"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <Path
+      d="M3 10h18"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+    />
+  </Svg>
+);
+
+const ClockIcon = () => (
+  <Svg width={12} height={12} viewBox="0 0 24 24">
+    <Circle
+      cx="12"
+      cy="12"
+      r="9"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+    />
+    <Path
+      d="M12 7v5l3 2"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const LocationIcon = () => (
+  <Svg width={12} height={12} viewBox="0 0 24 24">
+    <Path
+      d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle
+      cx="12"
+      cy="10"
+      r="2.5"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+    />
+  </Svg>
+);
+
+const TimerIcon = () => (
+  <Svg width={12} height={12} viewBox="0 0 24 24">
+    <Path
+      d="M9 3h6M12 3v3"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <Circle
+      cx="12"
+      cy="14"
+      r="7"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+    />
+    <Path
+      d="M12 10v4l2.5 1.5"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const ParticipantIcon = () => (
+  <Svg width={13} height={13} viewBox="0 0 24 24">
+    <Circle
+      cx="12"
+      cy="8"
+      r="3.2"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+    />
+    <Path
+      d="M5 21c.8-4.1 3.2-6 7-6s6.2 1.9 7 6"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+const CheckIcon = () => (
+  <Svg width={11} height={11} viewBox="0 0 24 24">
+    <Circle
+      cx="12"
+      cy="12"
+      r="9"
+      fill={COLORS.green}
+    />
+    <Path
+      d="M8 12.5l2.5 2.5L16.5 9"
+      fill="none"
+      stroke={COLORS.white}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const styles = StyleSheet.create({
+  page: {
+    width: "100%",
+    height: "100%",
+    padding: 24,
+    backgroundColor: COLORS.background,
+    fontFamily: "Poppins",
+  },
+
+  ticket: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: "hidden",
+  },
+
+  header: {
+    height: 128,
+    paddingHorizontal: 28,
+    paddingVertical: 22,
+    backgroundColor: COLORS.purple,
+  },
+
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+
+  brand: {
+    fontSize: 27,
+    fontWeight: 700,
+    color: COLORS.white,
+    letterSpacing: 3,
+  },
+
+  brandSub: {
+    marginTop: 4,
+    fontSize: 6.5,
+    fontWeight: 500,
+    color: COLORS.purpleLight,
+    letterSpacing: 1.8,
+  },
+
+  eTicketBadge: {
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 15,
+    backgroundColor: COLORS.gold,
+  },
+
+  eTicketBadgeText: {
+    fontSize: 6.5,
+    fontWeight: 700,
+    color: COLORS.white,
+    letterSpacing: 1,
+  },
+
+  headerBottom: {
+    marginTop: 18,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+
+  headerLabel: {
+    fontSize: 5.5,
+    fontWeight: 600,
+    color: COLORS.purpleLight,
+    letterSpacing: 1.4,
+  },
+
+  headerNumber: {
+    marginTop: 3,
+    fontSize: 11,
+    fontWeight: 700,
+    color: COLORS.white,
+    letterSpacing: 1.4,
+  },
+
+  freeHeader: {
+    fontSize: 6.5,
+    fontWeight: 700,
+    color: "#5EEAD4",
+    letterSpacing: 1,
+  },
+
+  intro: {
+    paddingHorizontal: 28,
+    paddingTop: 19,
+    paddingBottom: 15,
+  },
+
+  eyebrow: {
+    fontSize: 6,
+    fontWeight: 700,
+    color: COLORS.purpleMedium,
+    letterSpacing: 1.7,
+  },
+
+  title: {
+    marginTop: 5,
+    fontSize: 22,
+    lineHeight: 1.1,
+    fontWeight: 700,
+    color: COLORS.text,
+  },
+
+  introText: {
+    marginTop: 5,
+    fontSize: 7,
+    color: COLORS.gray,
+  },
+
+  details: {
+    marginHorizontal: 28,
+    padding: 13,
+    backgroundColor: "#FAFAFC",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+  },
+
+  detailsRow: {
+    flexDirection: "row",
+  },
+
+  detail: {
+    flex: 1,
+    paddingHorizontal: 9,
+  },
+
+  detailFirst: {
+    flex: 1,
+    paddingLeft: 0,
+    paddingRight: 9,
+  },
+
+  detailLast: {
+    flex: 1,
+    paddingLeft: 9,
+    paddingRight: 0,
+  },
+
+  divider: {
+    width: 1,
+    backgroundColor: COLORS.border,
+  },
+
+  detailLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  detailLabel: {
+    marginLeft: 4,
+    fontSize: 5.3,
+    fontWeight: 700,
+    color: COLORS.purpleMedium,
+    letterSpacing: 1,
+  },
+
+  detailValue: {
+    marginTop: 5,
+    fontSize: 7.5,
+    fontWeight: 600,
+    color: COLORS.text,
+  },
+
+  detailSub: {
+    marginTop: 2,
+    fontSize: 6,
+    color: COLORS.gray,
+  },
+
+  main: {
+    flex: 1,
+    marginHorizontal: 28,
+    marginTop: 16,
+    flexDirection: "row",
+  },
+
+  leftColumn: {
+    flex: 1,
+    paddingRight: 20,
+  },
+
+  rightColumn: {
+    width: 180,
+    paddingLeft: 20,
+    borderLeftWidth: 1,
+    borderLeftColor: COLORS.border,
+    alignItems: "center",
+  },
+
+  participantHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  participantLabel: {
+    marginLeft: 5,
+    fontSize: 6,
+    fontWeight: 700,
+    color: COLORS.purpleMedium,
+    letterSpacing: 1.4,
+  },
+
+  participantName: {
+    marginTop: 6,
+    fontSize: 17,
+    fontWeight: 600,
+    color: COLORS.text,
+  },
+
+  participantEmail: {
+    marginTop: 3,
+    fontSize: 7,
+    color: COLORS.gray,
+  },
+
+  participantPhone: {
+    marginTop: 2,
+    fontSize: 6.5,
+    color: COLORS.grayLight,
+  },
+
+  participation: {
+    marginTop: 16,
+    padding: 13,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.purpleBorder,
+    backgroundColor: COLORS.purpleSoft,
+  },
+
+  participationTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  participationTitle: {
+    fontSize: 9.5,
+    fontWeight: 600,
+    color: COLORS.text,
+  },
+
+  freeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: COLORS.greenSoft,
+    borderWidth: 1,
+    borderColor: COLORS.greenBorder,
+  },
+
+  freeBadgeText: {
+    fontSize: 5.5,
+    fontWeight: 700,
+    color: COLORS.green,
+    letterSpacing: 0.7,
+  },
+
+  participationText: {
+    marginTop: 6,
+    fontSize: 6.8,
+    lineHeight: 1.4,
+    color: COLORS.gray,
+  },
+
+  benefits: {
+    marginTop: 14,
+  },
+
+  benefitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 7,
+  },
+
+  benefitIcon: {
+    marginRight: 6,
+  },
+
+  benefitText: {
+    fontSize: 6.8,
+    color: COLORS.textSoft,
+  },
+
+  accessBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 9,
+    backgroundColor: COLORS.purple,
+  },
+
+  accessLabel: {
+    fontSize: 5,
+    fontWeight: 700,
+    color: COLORS.purpleLight,
+    letterSpacing: 1.3,
+  },
+
+  accessNumber: {
+    marginTop: 4,
+    fontSize: 9,
+    fontWeight: 700,
+    color: COLORS.white,
+    letterSpacing: 1.1,
+  },
+
+  qrTitle: {
+    fontSize: 8,
+    fontWeight: 700,
+    color: COLORS.text,
+    letterSpacing: 0.9,
+    textAlign: "center",
+  },
+
+  qrSubtitle: {
+    marginTop: 3,
+    maxWidth: 140,
+    fontSize: 6,
+    lineHeight: 1.3,
+    color: COLORS.grayLight,
+    textAlign: "center",
+  },
+
+  qrBox: {
+    marginTop: 11,
+    width: 142,
+    height: 142,
+    padding: 8,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: COLORS.purpleLight,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  qr: {
+    width: 124,
+    height: 124,
+  },
+
+  qrNumber: {
+    marginTop: 6,
+    fontSize: 6,
+    fontWeight: 500,
+    color: COLORS.gray,
+    letterSpacing: 1,
+    textAlign: "center",
+  },
+
+  valid: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 15,
+    backgroundColor: COLORS.greenSoft,
+    borderWidth: 1,
+    borderColor: COLORS.greenBorder,
+  },
+
+  validIcon: {
+    marginRight: 4,
+  },
+
+  validText: {
+    fontSize: 5.5,
+    fontWeight: 700,
+    color: COLORS.green,
+    letterSpacing: 0.6,
+  },
+
+  bottom: {
+    marginHorizontal: 28,
+    marginTop: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    flexDirection: "row",
+  },
+
+  bottomItem: {
+    flex: 1,
+  },
+
+  bottomLabel: {
+    fontSize: 5.2,
+    fontWeight: 700,
+    color: COLORS.purpleMedium,
+    letterSpacing: 0.8,
+  },
+
+  bottomValue: {
+    marginTop: 3,
+    fontSize: 6.5,
+    fontWeight: 600,
+    color: COLORS.text,
+  },
+
+  footer: {
+    height: 38,
+    paddingHorizontal: 28,
+    backgroundColor: COLORS.purple,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  footerText: {
+    fontSize: 5.5,
+    color: COLORS.purpleLight,
+  },
+
+  footerStrong: {
+    color: COLORS.white,
+    fontWeight: 700,
+  },
+
+  accentBar: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 5,
+    height: "100%",
+    backgroundColor: COLORS.gold,
+  },
+});
+
+function safeText(value?: string | number | null): string {
+  if (value === null || value === undefined || value === "") {
+    return "—";
   }
 
-  const text = String(value).trim();
-
-  return text || fallback;
+  return String(value);
 }
 
-function formatStatus(status: Ticket["status"]): string {
-  switch (status) {
-    case "VALID":
-      return "Billet valide";
-
-    case "USED":
-      return "Billet utilisé";
-
-    case "CANCELLED":
-      return "Billet annulé";
-
-    default:
-      return "Statut inconnu";
+function formatCreatedAt(value?: string | Date | null): string {
+  if (!value) {
+    return "—";
   }
-}
 
-function formatDate(value: string | Date): string {
   try {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return safeText(value);
-    }
-
     return new Intl.DateTimeFormat("fr-FR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }).format(date);
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
   } catch {
-    return safeText(value);
+    return String(value);
   }
 }
 
-function CheckIcon() {
-  return (
-    <Svg width="12" height="12" viewBox="0 0 24 24">
-      <Path
-        d="M5 12.5l4 4L19 7"
-        stroke={COLORS.goldDark}
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+export default function TicketPDF({
+  ticket,
+  qrCodeDataUrl,
+}: TicketPDFProps) {
+  const ticketNumber = safeText(ticket.ticketNumber);
+  const participantName = safeText(ticket.participantName);
+  const eventTitle = safeText(ticket.eventTitle);
+  const dateLabel = safeText(ticket.dateLabel);
+  const time = safeText(ticket.time);
+  const venue = safeText(ticket.venue);
+  const city = safeText(ticket.city);
+  const duration = safeText(ticket.duration);
+  const reservationId = safeText(ticket.reservationId);
+  const quantity = ticket.quantity ?? 1;
 
-function CalendarIcon() {
-  return (
-    <Svg width="14" height="14" viewBox="0 0 24 24">
-      <Path
-        d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.8"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function LocationIcon() {
-  return (
-    <Svg width="14" height="14" viewBox="0 0 24 24">
-      <Path
-        d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.8"
-        fill="none"
-      />
-      <Path
-        d="M12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.8"
-        fill="none"
-      />
-    </Svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <Svg width="14" height="14" viewBox="0 0 24 24">
-      <Path
-        d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.8"
-        fill="none"
-      />
-      <Path
-        d="M12 7v5l3 2"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.8"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function DurationIcon() {
-  return (
-    <Svg width="14" height="14" viewBox="0 0 24 24">
-      <Path
-        d="M8 3h8M8 21h8M9 3v4c0 2 3 3 3 5s-3 3-3 5v4M15 3v4c0 2-3 3-3 5s3 3 3 5v4"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.8"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function TicketIcon() {
-  return (
-    <Svg width="14" height="14" viewBox="0 0 24 24">
-      <Path
-        d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 1 0 0 4v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3a2 2 0 1 0 0-4V7Z"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.7"
-        fill="none"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M9 8v8M15 8v8"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.5"
-        strokeDasharray="1 2"
-      />
-    </Svg>
-  );
-}
-
-function ReservationIcon() {
-  return (
-    <Svg width="14" height="14" viewBox="0 0 24 24">
-      <Path
-        d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.8"
-        fill="none"
-      />
-      <Path
-        d="M8 8h8M8 12h5M8 16h3"
-        stroke={COLORS.goldDark}
-        strokeWidth="1.8"
-        fill="none"
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
-function TicketPDF({ ticket, verificationUrl, qrCodeDataUrl }: TicketPDFProps) {
   return (
     <Document
-      title={`E-billet ${ticket.ticketNumber}`}
+      title={`SiloCamp - ${ticketNumber}`}
       author="SiloCamp"
-      subject="E-billet Camp International Silo 2026"
+      subject={`E-billet — ${eventTitle}`}
       creator="SiloCamp"
     >
-      <Page size="A4" style={styles.page} wrap={false}>
-        <View style={styles.outer}>
-          <View style={styles.ticket}>
-            <View style={styles.header}>
-              <View style={styles.headerTop}>
-                <View style={styles.brandBlock}>
-                  <Text style={styles.brand}>SILO CAMP</Text>
+      <Page size="A4" style={styles.page}>
+        <View style={styles.ticket}>
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.brand}>SILOCAMP</Text>
 
-                  <Text style={styles.eventTitle}>
-                    {safeText(
-                      ticket.eventTitle,
-                      "Camp International Silo 2026",
-                    )}
-                  </Text>
-
-                  <Text style={styles.eventSubtitle}>
-                    Votre e-billet officiel · Accès événement
-                  </Text>
-                </View>
-
-                <View style={styles.headerBadge}>
-                  <Text style={styles.headerBadgeText}>E-BILLET</Text>
-
-                  <Text style={styles.headerBadgeMain}>01</Text>
-                </View>
-              </View>
-
-              <View style={styles.headerBottom}>
-                <View style={styles.freeBadge}>
-                  <Text style={styles.freeBadgeText}>
-                    Participation gratuite
-                  </Text>
-                </View>
-
-                <View style={styles.secureBadge}>
-                  <Text style={styles.secureBadgeText}>QR Code sécurisé</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.content}>
-              <View style={styles.columns}>
-                <View style={styles.leftColumn}>
-                  <Text style={styles.sectionLabel}>Participant</Text>
-
-                  <Text style={styles.participantName}>
-                    {safeText(ticket.participantName)}
-                  </Text>
-
-                  <Text style={styles.participantEmail}>
-                    {safeText(ticket.email)}
-                  </Text>
-
-                  {ticket.phone && (
-                    <Text style={styles.participantPhone}>
-                      {safeText(ticket.phone)}
-                    </Text>
-                  )}
-
-                  <View style={styles.separator} />
-
-                  <View style={styles.infoGrid}>
-                    <View style={styles.infoItem}>
-                      <View style={styles.infoHeader}>
-                        <View style={styles.infoIcon}>
-                          <CalendarIcon />
-                        </View>
-
-                        <Text style={styles.sectionLabel}>DATE</Text>
-                      </View>
-
-                      <Text style={styles.infoValue}>
-                        Samedi 12 Décembre 2026
-                      </Text>
-                    </View>
-
-                    <View style={styles.infoItem}>
-                      <View style={styles.infoHeader}>
-                        <View style={styles.infoIcon}>
-                          <ClockIcon />
-                        </View>
-
-                        <Text style={styles.sectionLabel}>HEURE</Text>
-                      </View>
-
-                      <Text style={styles.infoValue}>09h00</Text>
-                    </View>
-
-                    <View style={styles.infoItem}>
-                      <View style={styles.infoHeader}>
-                        <View style={styles.infoIcon}>
-                          <LocationIcon />
-                        </View>
-
-                        <Text style={styles.sectionLabel}>LIEU</Text>
-                      </View>
-
-                      <Text style={styles.infoValue}>
-                        Le Carré d'Or Casablanca
-                      </Text>
-                    </View>
-
-                    <View style={styles.infoItem}>
-                      <View style={styles.infoHeader}>
-                        <View style={styles.infoIcon}>
-                          <DurationIcon />
-                        </View>
-
-                        <Text style={styles.sectionLabel}>DURÉE</Text>
-                      </View>
-
-                      <Text style={styles.infoValue}>9 heures</Text>
-                    </View>
-
-                    <View style={styles.infoItem}>
-                      <View style={styles.infoHeader}>
-                        <View style={styles.infoIcon}>
-                          <ReservationIcon />
-                        </View>
-
-                        <Text style={styles.sectionLabel}>RÉSERVATION</Text>
-                      </View>
-
-                      <Text style={styles.infoValueMono}>CIS-FSG97-2026</Text>
-                    </View>
-
-                    <View style={styles.infoItem}>
-                      <View style={styles.infoHeader}>
-                        <View style={styles.infoIcon}>
-                          <TicketIcon />
-                        </View>
-
-                        <Text style={styles.sectionLabel}>BILLET</Text>
-                      </View>
-
-                      <Text style={styles.infoValueMono}>
-                        SILO-2026-CD853D6
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.accessBox}>
-                    <View style={styles.accessRow}>
-                      <View style={styles.accessIcon}>
-                        <CheckIcon />
-                      </View>
-                      <View>
-                        <Text style={styles.accessTitle}>Accès confirmé</Text>
-
-                        <Text style={styles.accessText}>
-                          Présentez ce billet et son QR Code à l'entrée du Camp.
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.rightColumn}>
-                  <View style={styles.qrPanel}>
-                    {qrCodeDataUrl ? (
-                      <Image src={qrCodeDataUrl} style={styles.qrImage} />
-                    ) : (
-                      <View style={styles.qrFallback}>
-                        <Text style={styles.qrFallbackText}>
-                          QR Code indisponible
-                        </Text>
-                      </View>
-                    )}
-
-                    <Text style={styles.qrTitle}>Scanner à l'entrée</Text>
-
-                    <Text style={styles.qrSubtitle}>
-                      Ce QR Code permet de vérifier l'authenticité de votre
-                      billet.
-                    </Text>
-                  </View>
-
-                  <View style={styles.ticketNumberBox}>
-                    <Text style={styles.ticketNumberLabel}>
-                      Numéro du billet
-                    </Text>
-
-                    <Text style={styles.ticketNumber}>
-                      {safeText(ticket.ticketNumber)}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.verificationText}>
-                    Statut : {formatStatus(ticket.status)}
-                  </Text>
-
-                  {verificationUrl && (
-                    <Text
-                      style={{
-                        marginTop: 4,
-                        color: COLORS.muted,
-                        fontSize: 5.5,
-                        textAlign: "center",
-                        maxWidth: 145,
-                      }}
-                    >
-                      Vérification sécurisée SiloCamp
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.footer}>
-              <View style={styles.footerRow}>
-                <Text style={styles.footerBrand}>SILO CAMP</Text>
-
-                <Text style={styles.footerStatus}>
-                  {formatStatus(ticket.status)}
+                <Text style={styles.brandSub}>
+                  CAMP INTERNATIONAL SILO · 3e ÉDITION · 2026
                 </Text>
               </View>
 
-              <View style={styles.bottomLine} />
+              <View style={styles.eTicketBadge}>
+                <Text style={styles.eTicketBadgeText}>
+                  E-BILLET
+                </Text>
+              </View>
+            </View>
 
-              <Text style={styles.footerSmall}>
-                Billet généré le {formatDate(ticket.createdAt)} · Participation
-                gratuite · Conservez ce document pour votre accès.
+            <View style={styles.headerBottom}>
+              <View>
+                <Text style={styles.headerLabel}>
+                  NUMÉRO DE BILLET
+                </Text>
+
+                <Text style={styles.headerNumber}>
+                  {ticketNumber}
+                </Text>
+              </View>
+
+              <Text style={styles.freeHeader}>
+                PARTICIPATION GRATUITE
               </Text>
             </View>
           </View>
+
+          <View style={styles.intro}>
+            <Text style={styles.eyebrow}>
+              VOTRE ACCÈS
+            </Text>
+
+            <Text style={styles.title}>
+              {eventTitle}
+            </Text>
+
+            <Text style={styles.introText}>
+              Votre billet officiel pour le Camp International Silo.
+            </Text>
+          </View>
+
+          <View style={styles.details}>
+            <View style={styles.detailsRow}>
+              <View style={styles.detailFirst}>
+                <View style={styles.detailLabelRow}>
+                  <CalendarIcon />
+
+                  <Text style={styles.detailLabel}>
+                    DATE
+                  </Text>
+                </View>
+
+                <Text style={styles.detailValue}>
+                  {dateLabel}
+                </Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detail}>
+                <View style={styles.detailLabelRow}>
+                  <ClockIcon />
+
+                  <Text style={styles.detailLabel}>
+                    HEURE
+                  </Text>
+                </View>
+
+                <Text style={styles.detailValue}>
+                  {time}
+                </Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detail}>
+                <View style={styles.detailLabelRow}>
+                  <LocationIcon />
+
+                  <Text style={styles.detailLabel}>
+                    LIEU
+                  </Text>
+                </View>
+
+                <Text style={styles.detailValue}>
+                  {venue}
+                </Text>
+
+                <Text style={styles.detailSub}>
+                  {city}
+                </Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detailLast}>
+                <View style={styles.detailLabelRow}>
+                  <TimerIcon />
+
+                  <Text style={styles.detailLabel}>
+                    DURÉE
+                  </Text>
+                </View>
+
+                <Text style={styles.detailValue}>
+                  {duration}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.main}>
+            <View style={styles.leftColumn}>
+              <View style={styles.participantHeader}>
+                <ParticipantIcon />
+
+                <Text style={styles.participantLabel}>
+                  PARTICIPANT
+                </Text>
+              </View>
+
+              <Text style={styles.participantName}>
+                {participantName}
+              </Text>
+
+              {ticket.email && (
+                <Text style={styles.participantEmail}>
+                  {ticket.email}
+                </Text>
+              )}
+
+              {ticket.phone && (
+                <Text style={styles.participantPhone}>
+                  {ticket.phone}
+                </Text>
+              )}
+
+              <View style={styles.participation}>
+                <View style={styles.participationTop}>
+                  <Text style={styles.participationTitle}>
+                    Participation
+                  </Text>
+
+                  <View style={styles.freeBadge}>
+                    <Text style={styles.freeBadgeText}>
+                      GRATUIT
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.participationText}>
+                  Votre inscription est confirmée. Présentez votre QR Code à l'entrée pour accéder à l'événement.
+                </Text>
+              </View>
+
+              <View style={styles.benefits}>
+                <View style={styles.benefitRow}>
+                  <View style={styles.benefitIcon}>
+                    <CheckIcon />
+                  </View>
+
+                  <Text style={styles.benefitText}>
+                    E-billet électronique
+                  </Text>
+                </View>
+
+                <View style={styles.benefitRow}>
+                  <View style={styles.benefitIcon}>
+                    <CheckIcon />
+                  </View>
+
+                  <Text style={styles.benefitText}>
+                    QR Code unique et sécurisé
+                  </Text>
+                </View>
+
+                <View style={styles.benefitRow}>
+                  <View style={styles.benefitIcon}>
+                    <CheckIcon />
+                  </View>
+
+                  <Text style={styles.benefitText}>
+                    Accès gratuit à l'événement
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.accessBox}>
+                <Text style={styles.accessLabel}>
+                  RÉFÉRENCE D'ACCÈS
+                </Text>
+
+                <Text style={styles.accessNumber}>
+                  {ticketNumber}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.rightColumn}>
+              <Text style={styles.qrTitle}>
+                SCANNEZ À L'ENTRÉE
+              </Text>
+
+              <Text style={styles.qrSubtitle}>
+                Présentez ce QR Code à l'équipe d'accueil.
+              </Text>
+
+              {qrCodeDataUrl ? (
+                <View style={styles.qrBox}>
+                  <Image
+                    src={qrCodeDataUrl}
+                    style={styles.qr}
+                  />
+                </View>
+              ) : (
+                <View style={styles.qrBox}>
+                  <Text style={styles.qrNumber}>
+                    QR CODE
+                  </Text>
+                </View>
+              )}
+
+              <Text style={styles.qrNumber}>
+                {ticketNumber}
+              </Text>
+
+              <View style={styles.valid}>
+                <View style={styles.validIcon}>
+                  <CheckIcon />
+                </View>
+
+                <Text style={styles.validText}>
+                  BILLET VALIDE
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.bottom}>
+            <View style={styles.bottomItem}>
+              <Text style={styles.bottomLabel}>
+                PLACES
+              </Text>
+
+              <Text style={styles.bottomValue}>
+                {quantity} {quantity > 1 ? "places" : "place"}
+              </Text>
+            </View>
+
+            <View style={styles.bottomItem}>
+              <Text style={styles.bottomLabel}>
+                TARIF
+              </Text>
+
+              <Text style={styles.bottomValue}>
+                Gratuit
+              </Text>
+            </View>
+
+            <View style={styles.bottomItem}>
+              <Text style={styles.bottomLabel}>
+                STATUT
+              </Text>
+
+              <Text style={styles.bottomValue}>
+                {ticket.status === "CANCELLED"
+                  ? "ANNULÉ"
+                  : ticket.status === "USED"
+                    ? "UTILISÉ"
+                    : "CONFIRMÉ"}
+              </Text>
+            </View>
+
+            <View style={styles.bottomItem}>
+              <Text style={styles.bottomLabel}>
+                ACCÈS
+              </Text>
+
+              <Text style={styles.bottomValue}>
+                QR CODE
+              </Text>
+            </View>
+
+            <View style={styles.bottomItem}>
+              <Text style={styles.bottomLabel}>
+                RÉSERVATION
+              </Text>
+
+              <Text style={styles.bottomValue}>
+                {reservationId}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              <Text style={styles.footerStrong}>
+                SILOCAMP
+              </Text>
+              {"  "}Camp International Silo 2026
+            </Text>
+
+            <Text style={styles.footerText}>
+              {formatCreatedAt(ticket.createdAt)}
+            </Text>
+          </View>
+
+          <View style={styles.accentBar} />
         </View>
       </Page>
     </Document>
   );
 }
-
-export default TicketPDF;
