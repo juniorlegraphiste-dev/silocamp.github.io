@@ -4,6 +4,35 @@ function normalizeTicketNumber(value: unknown): string {
   return String(value ?? "").trim().toUpperCase();
 }
 
+function sanitizeTicket(ticket: any) {
+  if (!ticket) {
+    return ticket;
+  }
+
+  return {
+    id: ticket.id,
+    ticketNumber: ticket.ticketNumber,
+    firstName: ticket.firstName,
+    lastName: ticket.lastName,
+    participantName: ticket.participantName,
+    email: ticket.email,
+    phone: ticket.phone,
+    reservationId: ticket.reservationId,
+    eventId: ticket.eventId,
+    eventTitle: ticket.eventTitle,
+    dateLabel: ticket.dateLabel,
+    time: ticket.time,
+    duration: ticket.duration,
+    venue: ticket.venue,
+    city: ticket.city,
+    quantity: ticket.quantity,
+    status: ticket.status,
+    createdAt: ticket.createdAt,
+    usedAt: ticket.usedAt,
+    cancelledAt: ticket.cancelledAt,
+  };
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -46,7 +75,6 @@ export default async function handler(req: any, res: any) {
       RETURNING
         id,
         "ticketNumber",
-        "verificationToken",
         "firstName",
         "lastName",
         "participantName",
@@ -70,8 +98,10 @@ export default async function handler(req: any, res: any) {
     if (result.length > 0) {
       return res.status(200).json({
         ok: true,
+        valid: false,
+        reason: "TICKET_CANCELLED",
         message: "Billet annulé avec succès.",
-        ticket: result[0],
+        ticket: sanitizeTicket(result[0]),
       });
     }
 
@@ -79,7 +109,6 @@ export default async function handler(req: any, res: any) {
       SELECT
         id,
         "ticketNumber",
-        "verificationToken",
         "firstName",
         "lastName",
         "participantName",
@@ -106,7 +135,9 @@ export default async function handler(req: any, res: any) {
     if (existing.length === 0) {
       return res.status(404).json({
         ok: false,
-        error: "Billet introuvable.",
+        valid: false,
+        reason: "TICKET_NOT_FOUND",
+        message: "Billet introuvable.",
       });
     }
 
@@ -115,30 +146,38 @@ export default async function handler(req: any, res: any) {
     if (ticket.status === "USED") {
       return res.status(409).json({
         ok: false,
-        error:
+        valid: false,
+        reason: "TICKET_ALREADY_USED",
+        message:
           "Un billet déjà utilisé ne peut pas être annulé.",
-        ticket,
+        ticket: sanitizeTicket(ticket),
       });
     }
 
     if (ticket.status === "CANCELLED") {
       return res.status(409).json({
         ok: false,
-        error: "Ce billet est déjà annulé.",
-        ticket,
+        valid: false,
+        reason: "TICKET_ALREADY_CANCELLED",
+        message: "Ce billet est déjà annulé.",
+        ticket: sanitizeTicket(ticket),
       });
     }
 
     return res.status(409).json({
       ok: false,
-      error: "Ce billet ne peut pas être annulé.",
-      ticket,
+      valid: false,
+      reason: "TICKET_NOT_CANCELLABLE",
+      message: "Ce billet ne peut pas être annulé.",
+      ticket: sanitizeTicket(ticket),
     });
   } catch (error: any) {
     console.error("CANCEL TICKET ERROR:", error);
 
     return res.status(500).json({
       ok: false,
+      valid: false,
+      reason: "SERVER_ERROR",
       error:
         error?.message ||
         "Erreur lors de l'annulation du billet.",
