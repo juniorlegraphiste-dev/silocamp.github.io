@@ -1,7 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createScanSession, getScanCookieName } from "./_session";
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(
+  req: VercelRequest,
+  res: VercelResponse,
+) {
   if (req.method !== "POST") {
     return res.status(405).json({
       ok: false,
@@ -18,14 +21,22 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     const expectedPassword = process.env.SCANNER_PASSWORD;
 
     if (!expectedLogin || !expectedPassword) {
+      console.error(
+        "[SiloCamp Auth] SCANNER_USERNAME ou SCANNER_PASSWORD manquant.",
+      );
+
       return res.status(500).json({
         ok: false,
         authenticated: false,
-        message: "Configuration du serveur d'authentification incomplète.",
+        message:
+          "Configuration du serveur d'authentification incomplète.",
       });
     }
 
-    if (login !== expectedLogin || password !== expectedPassword) {
+    if (
+      login !== expectedLogin ||
+      password !== expectedPassword
+    ) {
       return res.status(401).json({
         ok: false,
         authenticated: false,
@@ -35,7 +46,8 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
     const session = createScanSession(login);
 
-    const isProduction = process.env.VERCEL_ENV === "production";
+    const isProduction =
+      process.env.VERCEL_ENV === "production";
 
     const cookie = [
       `${getScanCookieName()}=${encodeURIComponent(session)}`,
