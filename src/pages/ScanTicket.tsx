@@ -287,7 +287,7 @@ export default function ScanTicket() {
      ========================================================= */
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 pb-8 pt-24 sm:px-6 sm:pt-28">
+    <main className="min-h-screen bg-slate-950 px-4 pb-8 pt-[200px] sm:px-6 sm:pt-28">
       <div className="mx-auto w-full max-w-lg">
         {/* HEADER */}
         <div className="mb-6 text-center text-white">
@@ -301,8 +301,8 @@ export default function ScanTicket() {
         </div>
 
         {/* =====================================================
-        SCANNER
-    ===================================================== */}
+          SCANNER
+      ===================================================== */}
         {(state === "idle" || state === "scanning") && (
           <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
             <div className="p-6">
@@ -340,9 +340,7 @@ export default function ScanTicket() {
           </div>
         )}
 
-        {/* =====================================================
-        VERIFYING
-    ===================================================== */}
+        {/* VERIFYING */}
         {state === "verifying" && (
           <StatusCard
             icon={<Loader2 className="h-10 w-10 animate-spin text-blue-600" />}
@@ -352,9 +350,7 @@ export default function ScanTicket() {
           />
         )}
 
-        {/* =====================================================
-        VALID
-    ===================================================== */}
+        {/* VALID */}
         {state === "valid" && ticket && (
           <TicketResult
             ticket={ticket}
@@ -366,9 +362,7 @@ export default function ScanTicket() {
           />
         )}
 
-        {/* =====================================================
-        CONFIRMED
-    ===================================================== */}
+        {/* CONFIRMED */}
         {state === "confirmed" && ticket && (
           <TicketResult
             ticket={ticket}
@@ -379,9 +373,7 @@ export default function ScanTicket() {
           />
         )}
 
-        {/* =====================================================
-        USED
-    ===================================================== */}
+        {/* USED */}
         {state === "used" && ticket && (
           <TicketResult
             ticket={ticket}
@@ -392,9 +384,7 @@ export default function ScanTicket() {
           />
         )}
 
-        {/* =====================================================
-        CANCELLED
-    ===================================================== */}
+        {/* CANCELLED */}
         {state === "cancelled" && ticket && (
           <TicketResult
             ticket={ticket}
@@ -405,9 +395,7 @@ export default function ScanTicket() {
           />
         )}
 
-        {/* =====================================================
-        NOT FOUND / ERROR
-    ===================================================== */}
+        {/* NOT FOUND / ERROR */}
         {(state === "not-found" || state === "error") && (
           <StatusCard
             icon={
