@@ -4,6 +4,35 @@ function normalizeTicketNumber(value: unknown): string {
   return String(value ?? "").trim().toUpperCase();
 }
 
+function sanitizeTicket(ticket: any) {
+  if (!ticket) {
+    return ticket;
+  }
+
+  return {
+    id: ticket.id,
+    ticketNumber: ticket.ticketNumber,
+    firstName: ticket.firstName,
+    lastName: ticket.lastName,
+    participantName: ticket.participantName,
+    email: ticket.email,
+    phone: ticket.phone,
+    reservationId: ticket.reservationId,
+    eventId: ticket.eventId,
+    eventTitle: ticket.eventTitle,
+    dateLabel: ticket.dateLabel,
+    time: ticket.time,
+    duration: ticket.duration,
+    venue: ticket.venue,
+    city: ticket.city,
+    quantity: ticket.quantity,
+    status: ticket.status,
+    createdAt: ticket.createdAt,
+    usedAt: ticket.usedAt,
+    cancelledAt: ticket.cancelledAt,
+  };
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -31,7 +60,9 @@ export default async function handler(req: any, res: any) {
     if (!ticketNumber) {
       return res.status(400).json({
         ok: false,
-        error: "Numéro de billet manquant.",
+        valid: false,
+        reason: "TICKET_NUMBER_REQUIRED",
+        message: "Numéro de billet manquant.",
       });
     }
 
@@ -46,7 +77,6 @@ export default async function handler(req: any, res: any) {
       RETURNING
         id,
         "ticketNumber",
-        "verificationToken",
         "firstName",
         "lastName",
         "participantName",
@@ -71,8 +101,9 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({
         ok: true,
         valid: true,
+        reason: null,
         message: "Entrée validée avec succès.",
-        ticket: result[0],
+        ticket: sanitizeTicket(result[0]),
       });
     }
 
@@ -80,7 +111,6 @@ export default async function handler(req: any, res: any) {
       SELECT
         id,
         "ticketNumber",
-        "verificationToken",
         "firstName",
         "lastName",
         "participantName",
@@ -121,7 +151,7 @@ export default async function handler(req: any, res: any) {
         valid: false,
         reason: "TICKET_ALREADY_USED",
         message: "Ce billet a déjà été utilisé.",
-        ticket,
+        ticket: sanitizeTicket(ticket),
       });
     }
 
@@ -131,7 +161,7 @@ export default async function handler(req: any, res: any) {
         valid: false,
         reason: "TICKET_CANCELLED",
         message: "Ce billet a été annulé.",
-        ticket,
+        ticket: sanitizeTicket(ticket),
       });
     }
 
@@ -140,13 +170,15 @@ export default async function handler(req: any, res: any) {
       valid: false,
       reason: "TICKET_NOT_VALID",
       message: "Ce billet ne peut pas être validé.",
-      ticket,
+      ticket: sanitizeTicket(ticket),
     });
   } catch (error: any) {
     console.error("VALIDATE TICKET ERROR:", error);
 
     return res.status(500).json({
       ok: false,
+      valid: false,
+      reason: "SERVER_ERROR",
       error:
         error?.message ||
         "Erreur lors de la validation du billet.",
