@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { isScanAuthenticated } from "../auth/_session";
 
 function normalizeTicketNumber(value: unknown): string {
   return String(value ?? "").trim().toUpperCase();
@@ -38,6 +39,15 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({
       ok: false,
       error: "Méthode non autorisée.",
+    });
+  }
+
+  if (!isScanAuthenticated(req)) {
+    return res.status(401).json({
+      ok: false,
+      valid: false,
+      reason: "SCAN_UNAUTHORIZED",
+      message: "Authentification requise.",
     });
   }
 

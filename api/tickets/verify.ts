@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { isScanAuthenticated } from "../auth/_session";
 
 function normalizeToken(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
@@ -42,6 +43,15 @@ export default async function handler(req: any, res: any) {
     });
   }
 
+  if (!isScanAuthenticated(req)) {
+    return res.status(401).json({
+      ok: false,
+      valid: false,
+      reason: "SCAN_UNAUTHORIZED",
+      message: "Authentification requise.",
+    });
+  }
+
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
@@ -54,9 +64,7 @@ export default async function handler(req: any, res: any) {
   try {
     const sql = neon(databaseUrl);
 
-    const token = normalizeToken(
-      req.body?.token,
-    );
+    const token = normalizeToken(req.body?.token);
 
     if (!token) {
       return res.status(400).json({
@@ -109,8 +117,7 @@ export default async function handler(req: any, res: any) {
         ok: false,
         valid: false,
         reason: "TICKET_NOT_FOUND",
-        message:
-          "Billet introuvable ou QR Code invalide.",
+        message: "Billet introuvable ou QR Code invalide.",
       });
     }
 
