@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -53,6 +54,9 @@ type ScanState =
 export default function ScanTicket() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const processingRef = useRef(false);
+  const mountedRef = useRef(true);
+  const logoutRef = useRef(false);
+  const authRequestRef = useRef(0);
 
   const [authenticated, setAuthenticated] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
@@ -67,160 +71,19 @@ export default function ScanTicket() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function checkAuthentication() {
-    setAuthChecking(true);
-    setAuthError("");
-
-    try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (
-        response.ok &&
-        data?.authenticated === true
-      ) {
-        setAuthenticated(true);
-        setUsername(data.username || "");
-      } else {
-        setAuthenticated(false);
-        setUsername("");
-      }
-    } catch (error) {
-      console.error(
-        "[SiloCamp Auth Check]",
-        error,
-      );
-
-      setAuthenticated(false);
-      setUsername("");
-
-      setAuthError(
-        "Impossible de vérifier la session. Vérifie ta connexion puis réessaie.",
-      );
-    } finally {
-      setAuthChecking(false);
-    }
-  }
-
-  async function handleLogin(
-    event: FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
-
-    if (authBusy) {
-      return;
-    }
-
-    setAuthBusy(true);
-    setAuthError("");
-
-    try {
-      const response = await fetch(
-        "/api/auth/login",
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            login: login.trim(),
-            password,
-          }),
-        },
-      );
-
-      const data = await response
-        .json()
-        .catch(() => null);
-
-      if (
-        response.ok &&
-        data?.authenticated === true
-      ) {
-        setAuthenticated(true);
-        setUsername(login.trim());
-        setPassword("");
-        setAuthError("");
-        setState("idle");
-        setTicket(null);
-        setMessage("");
-
-        return;
-      }
-
-      setAuthenticated(false);
-
-      setAuthError(
-        data?.message ||
-          "Identifiant ou mot de passe incorrect.",
-      );
-    } catch (error) {
-      console.error(
-        "[SiloCamp Auth Login]",
-        error,
-      );
-
-      setAuthenticated(false);
-
-      setAuthError(
-        "Impossible de contacter le serveur d'authentification.",
-      );
-    } finally {
-      setAuthBusy(false);
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await stopScanner();
-
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-        cache: "no-store",
-      });
-    } catch (error) {
-      console.error(
-        "[SiloCamp Auth Logout]",
-        error,
-      );
-    } finally {
-      processingRef.current = false;
-
-      setAuthenticated(false);
-      setUsername("");
-      setLogin("");
-      setPassword("");
-      setAuthError("");
-
-      setTicket(null);
-      setMessage("");
-      setBusy(false);
-      setState("idle");
-    }
-  }
-
-  async function stopScanner() {
+  const stopScanner = useCallback(async () => {
     const scanner = scannerRef.current;
 
     if (!scanner) {
       return;
     }
 
-    try {
-      const scannerState =
-        scanner.getState();
+    scannerRef.current = null;
 
-      if (
-        scannerState === 2 ||
-        scannerState === 3
-      ) {
+    try {
+      const scannerState = scanner.getState();
+
+      if (scannerState === 2 || scannerState === 3) {
         await scanner.stop();
       }
     } catch (error) {
@@ -238,128 +101,217 @@ export default function ScanTicket() {
         error,
       );
     }
+  }, []);
 
-    scannerRef.current = null;
-  }
+  const checkAuthentication = useCallback(async () => {
+    const requestId = ++authRequestRef.current;
 
-  async function handleQRCode(
-    decodedText: string,
-  ) {
-    if (
-      processingRef.current ||
-      !authenticated
-    ) {
-      return;
-    }
-
-    processingRef.current = true;
-
-    await stopScanner();
-
-    setState("verifying");
-    setMessage("");
-    setTicket(null);
+    setAuthChecking(true);
+    setAuthError("");
 
     try {
-      const token =
-        extractVerificationToken(
-          decodedText,
-        );
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
 
-      if (!token) {
-        setState("error");
+      const data = await response.json().catch(() => null);
 
-        setMessage(
-          "QR Code SiloCamp invalide : token de vérification introuvable.",
-        );
-
+      if (
+        !mountedRef.current ||
+        logoutRef.current ||
+        requestId !== authRequestRef.current
+      ) {
         return;
       }
 
-      const result =
-        await verifyTicket(token);
-
-      if (result.ticket) {
-        setTicket(result.ticket);
-      }
-
-      if (result.valid) {
-        setState("valid");
-
-        setMessage(
-          result.message ||
-            "Billet valide.",
+      if (
+        response.ok &&
+        data?.authenticated === true
+      ) {
+        setAuthenticated(true);
+        setUsername(
+          typeof data.username === "string"
+            ? data.username
+            : "",
         );
-
-        return;
-      }
-
-      switch (result.reason) {
-        case "TICKET_ALREADY_USED":
-        case "USED":
-          setState("used");
-
-          setMessage(
-            result.message ||
-              "Ce billet a déjà été utilisé.",
-          );
-
-          break;
-
-        case "TICKET_CANCELLED":
-        case "CANCELLED":
-          setState("cancelled");
-
-          setMessage(
-            result.message ||
-              "Ce billet a été annulé.",
-          );
-
-          break;
-
-        case "TICKET_NOT_FOUND":
-        case "NOT_FOUND":
-          setState("not-found");
-
-          setMessage(
-            result.message ||
-              "Billet introuvable.",
-          );
-
-          break;
-
-        case "SCAN_UNAUTHORIZED":
-          await handleSessionExpired();
-          break;
-
-        default:
-          setState("error");
-
-          setMessage(
-            result.message ||
-              "Impossible de vérifier ce billet.",
-          );
+      } else {
+        setAuthenticated(false);
+        setUsername("");
       }
     } catch (error) {
       console.error(
-        "[SiloCamp Scanner]",
+        "[SiloCamp Auth Check]",
         error,
       );
 
-      setState("error");
+      if (
+        !mountedRef.current ||
+        logoutRef.current ||
+        requestId !== authRequestRef.current
+      ) {
+        return;
+      }
 
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Impossible de contacter le serveur SiloCamp.",
+      setAuthenticated(false);
+      setUsername("");
+
+      setAuthError(
+        "Impossible de vérifier la session. Vérifie ta connexion puis réessaie.",
       );
     } finally {
-      processingRef.current = false;
+      if (
+        mountedRef.current &&
+        !logoutRef.current &&
+        requestId === authRequestRef.current
+      ) {
+        setAuthChecking(false);
+      }
     }
-  }
+  }, []);
 
-  async function handleSessionExpired() {
+  const handleLogin = useCallback(
+    async (
+      event: FormEvent<HTMLFormElement>,
+    ) => {
+      event.preventDefault();
+
+      if (authBusy) {
+        return;
+      }
+
+      const normalizedLogin = login.trim();
+
+      if (!normalizedLogin || !password) {
+        setAuthError(
+          "Veuillez renseigner votre identifiant et votre mot de passe.",
+        );
+        return;
+      }
+
+      setAuthBusy(true);
+      setAuthError("");
+      logoutRef.current = false;
+
+      try {
+        const response = await fetch(
+          "/api/auth/login",
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              login: normalizedLogin,
+              password,
+            }),
+          },
+        );
+
+        const data = await response
+          .json()
+          .catch(() => null);
+
+        if (
+          response.ok &&
+          data?.authenticated === true
+        ) {
+          authRequestRef.current++;
+
+          setAuthenticated(true);
+          setUsername(normalizedLogin);
+          setPassword("");
+          setAuthError("");
+
+          processingRef.current = false;
+
+          setTicket(null);
+          setMessage("");
+          setBusy(false);
+          setState("idle");
+
+          return;
+        }
+
+        setAuthenticated(false);
+
+        setAuthError(
+          data?.message ||
+            "Identifiant ou mot de passe incorrect.",
+        );
+      } catch (error) {
+        console.error(
+          "[SiloCamp Auth Login]",
+          error,
+        );
+
+        setAuthenticated(false);
+
+        setAuthError(
+          "Impossible de contacter le serveur d'authentification.",
+        );
+      } finally {
+        if (mountedRef.current) {
+          setAuthBusy(false);
+        }
+      }
+    },
+    [authBusy, login, password],
+  );
+
+  const handleLogout = useCallback(() => {
+    if (authBusy) {
+      return;
+    }
+
+    logoutRef.current = true;
+    authRequestRef.current++;
+
+    processingRef.current = true;
+
+    setAuthenticated(false);
+    setUsername("");
+    setLogin("");
+    setPassword("");
+    setAuthError("");
+
+    setTicket(null);
+    setMessage("");
+    setBusy(false);
+    setState("idle");
+
+    void stopScanner().finally(() => {
+      processingRef.current = false;
+    });
+
+    void fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+      },
+    }).catch((error) => {
+      console.error(
+        "[SiloCamp Auth Logout]",
+        error,
+      );
+    });
+  }, [authBusy, stopScanner]);
+
+  const handleSessionExpired = useCallback(async () => {
+    logoutRef.current = true;
+    authRequestRef.current++;
+
     await stopScanner();
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    processingRef.current = false;
 
     setAuthenticated(false);
     setUsername("");
@@ -371,12 +323,157 @@ export default function ScanTicket() {
     setAuthError(
       "Votre session de contrôle a expiré. Veuillez vous reconnecter.",
     );
-  }
+  }, [stopScanner]);
 
-  async function startScanner() {
+  const handleQRCode = useCallback(
+    async (decodedText: string) => {
+      if (
+        processingRef.current ||
+        !authenticated ||
+        logoutRef.current
+      ) {
+        return;
+      }
+
+      processingRef.current = true;
+
+      await stopScanner();
+
+      if (
+        !mountedRef.current ||
+        logoutRef.current
+      ) {
+        processingRef.current = false;
+        return;
+      }
+
+      setState("verifying");
+      setMessage("");
+      setTicket(null);
+
+      try {
+        const token =
+          extractVerificationToken(
+            decodedText,
+          );
+
+        if (!token) {
+          setState("error");
+
+          setMessage(
+            "QR Code SiloCamp invalide : token de vérification introuvable.",
+          );
+
+          return;
+        }
+
+        const result =
+          await verifyTicket(token);
+
+        if (
+          !mountedRef.current ||
+          logoutRef.current
+        ) {
+          return;
+        }
+
+        if (result.ticket) {
+          setTicket(result.ticket);
+        }
+
+        if (result.valid) {
+          setState("valid");
+
+          setMessage(
+            result.message ||
+              "Billet valide.",
+          );
+
+          return;
+        }
+
+        switch (result.reason) {
+          case "TICKET_ALREADY_USED":
+          case "USED":
+            setState("used");
+
+            setMessage(
+              result.message ||
+                "Ce billet a déjà été utilisé.",
+            );
+
+            break;
+
+          case "TICKET_CANCELLED":
+          case "CANCELLED":
+            setState("cancelled");
+
+            setMessage(
+              result.message ||
+                "Ce billet a été annulé.",
+            );
+
+            break;
+
+          case "TICKET_NOT_FOUND":
+          case "NOT_FOUND":
+            setState("not-found");
+
+            setMessage(
+              result.message ||
+                "Billet introuvable.",
+            );
+
+            break;
+
+          case "SCAN_UNAUTHORIZED":
+            await handleSessionExpired();
+            break;
+
+          default:
+            setState("error");
+
+            setMessage(
+              result.message ||
+                "Impossible de vérifier ce billet.",
+            );
+        }
+      } catch (error) {
+        console.error(
+          "[SiloCamp Scanner]",
+          error,
+        );
+
+        if (
+          !mountedRef.current ||
+          logoutRef.current
+        ) {
+          return;
+        }
+
+        setState("error");
+
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Impossible de contacter le serveur SiloCamp.",
+        );
+      } finally {
+        processingRef.current = false;
+      }
+    },
+    [
+      authenticated,
+      handleSessionExpired,
+      stopScanner,
+    ],
+  );
+
+  const startScanner = useCallback(async () => {
     if (
       processingRef.current ||
-      !authenticated
+      !authenticated ||
+      logoutRef.current
     ) {
       return;
     }
@@ -387,6 +484,14 @@ export default function ScanTicket() {
 
     try {
       await stopScanner();
+
+      if (
+        !mountedRef.current ||
+        !authenticated ||
+        logoutRef.current
+      ) {
+        return;
+      }
 
       const scanner =
         new Html5Qrcode(
@@ -415,9 +520,7 @@ export default function ScanTicket() {
           },
           aspectRatio: 1,
         },
-        async (
-          decodedText,
-        ) => {
+        async (decodedText) => {
           await handleQRCode(
             decodedText,
           );
@@ -432,22 +535,32 @@ export default function ScanTicket() {
 
       await stopScanner();
 
+      if (
+        !mountedRef.current ||
+        logoutRef.current
+      ) {
+        return;
+      }
+
       setState("error");
 
       setMessage(
         "Impossible d'accéder à la caméra. Vérifie les autorisations du navigateur.",
       );
     }
-  }
+  }, [
+    authenticated,
+    handleQRCode,
+    stopScanner,
+  ]);
 
-  async function confirmEntry() {
-    if (!ticket) {
-      return;
-    }
-
+  const confirmEntry = useCallback(async () => {
     if (
+      !ticket ||
       ticket.status !== "VALID" ||
-      busy
+      busy ||
+      !authenticated ||
+      logoutRef.current
     ) {
       return;
     }
@@ -461,8 +574,14 @@ export default function ScanTicket() {
           ticket.ticketNumber,
         );
 
-      setTicket(updatedTicket);
+      if (
+        !mountedRef.current ||
+        logoutRef.current
+      ) {
+        return;
+      }
 
+      setTicket(updatedTicket);
       setState("confirmed");
 
       setMessage(
@@ -473,6 +592,13 @@ export default function ScanTicket() {
         "[SiloCamp Validate Ticket]",
         error,
       );
+
+      if (
+        !mountedRef.current ||
+        logoutRef.current
+      ) {
+        return;
+      }
 
       const errorMessage =
         error instanceof Error
@@ -489,34 +615,56 @@ export default function ScanTicket() {
         setState("used");
       }
     } finally {
-      setBusy(false);
+      if (mountedRef.current) {
+        setBusy(false);
+      }
     }
-  }
+  }, [
+    authenticated,
+    busy,
+    ticket,
+  ]);
 
-  async function resetScanner() {
+  const resetScanner = useCallback(async () => {
     await stopScanner();
 
     processingRef.current = false;
+
+    if (
+      !mountedRef.current ||
+      logoutRef.current
+    ) {
+      return;
+    }
 
     setTicket(null);
     setMessage("");
     setBusy(false);
     setState("idle");
-  }
+  }, [stopScanner]);
 
   useEffect(() => {
+    mountedRef.current = true;
+    logoutRef.current = false;
+
     void checkAuthentication();
 
     return () => {
+      mountedRef.current = false;
+      logoutRef.current = true;
+      authRequestRef.current++;
       void stopScanner();
     };
-  }, []);
+  }, [
+    checkAuthentication,
+    stopScanner,
+  ]);
 
   if (authChecking) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-        <div className="text-center text-white">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12">
+        <div className="w-full max-w-md text-center text-white">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 shadow-2xl ring-1 ring-white/10">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
 
@@ -547,16 +695,16 @@ export default function ScanTicket() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6">
+    <main className="min-h-screen bg-slate-950 px-4 pb-12 pt-20 sm:px-6 sm:pt-24 lg:pt-28">
       <div className="mx-auto w-full max-w-xl">
         <header className="mb-7">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 text-white">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3 text-white">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
                 <ShieldCheck className="h-6 w-6" />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-xl font-black tracking-tight">
                   SiloCamp
                 </h1>
@@ -570,19 +718,31 @@ export default function ScanTicket() {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/15"
+              disabled={authBusy}
+              aria-label="Déconnexion"
+              className="relative z-20 flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white ring-1 ring-white/10 transition hover:bg-white/15 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
             >
-              <LogOut className="h-4 w-4" />
-              Déconnexion
+              <LogOut className="h-4 w-4 shrink-0" />
+
+              <span className="hidden sm:inline">
+                Déconnexion
+              </span>
+
+              <span className="sm:hidden">
+                Quitter
+              </span>
             </button>
           </div>
 
           {username && (
-            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/60">
-              <User className="h-4 w-4" />
-              Connecté en tant que
-              <span className="font-black text-white">
-                {username}
+            <div className="mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-center text-xs font-medium text-white/60">
+              <User className="h-4 w-4 shrink-0" />
+
+              <span>
+                Connecté en tant que{" "}
+                <span className="font-black text-white">
+                  {username}
+                </span>
               </span>
             </div>
           )}
@@ -609,7 +769,7 @@ export default function ScanTicket() {
               <div className="overflow-hidden rounded-[26px] bg-slate-950">
                 <div
                   id="silocamp-qr-reader"
-                  className="min-h-[320px]"
+                  className="min-h-[320px] w-full"
                 />
               </div>
 
@@ -617,13 +777,14 @@ export default function ScanTicket() {
                 <button
                   type="button"
                   onClick={startScanner}
-                  className="mt-5 flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white transition hover:bg-slate-800 active:scale-[0.99]"
+                  disabled={processingRef.current}
+                  className="mt-5 flex min-h-14 w-full touch-manipulation items-center justify-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white shadow-lg transition hover:bg-slate-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Camera className="h-5 w-5" />
                   Ouvrir la caméra
                 </button>
               ) : (
-                <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-slate-100 px-5 py-4 text-sm font-bold text-slate-600">
+                <div className="mt-5 flex min-h-14 items-center justify-center gap-3 rounded-2xl bg-slate-100 px-5 py-4 text-sm font-bold text-slate-600">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Recherche du QR Code...
                 </div>
@@ -717,7 +878,7 @@ export default function ScanTicket() {
               <button
                 type="button"
                 onClick={resetScanner}
-                className="mt-7 flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white transition hover:bg-slate-800"
+                className="mt-7 flex min-h-14 w-full touch-manipulation items-center justify-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white transition hover:bg-slate-800 active:scale-[0.99]"
               >
                 <RotateCcw className="h-5 w-5" />
                 Scanner un autre billet
@@ -750,10 +911,10 @@ function LoginScreen({
   ) => void;
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-8">
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12 sm:px-6">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center text-white">
-          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] bg-white/10 ring-1 ring-white/10 shadow-2xl">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] bg-white/10 shadow-2xl ring-1 ring-white/10">
             <ShieldCheck className="h-10 w-10" />
           </div>
 
@@ -808,6 +969,9 @@ function LoginScreen({
                     )
                   }
                   autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder="Votre identifiant"
                   disabled={busy}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-900/5 disabled:cursor-not-allowed disabled:opacity-60"
@@ -855,7 +1019,7 @@ function LoginScreen({
                   !login.trim() ||
                   !password
                 }
-                className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex min-h-14 w-full touch-manipulation items-center justify-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? (
                   <>
@@ -965,35 +1129,26 @@ function TicketResult({
   onReset: () => void;
   busy: boolean;
 }) {
-  const isValid =
-    status === "valid";
+  const isValid = status === "valid";
+  const isConfirmed = status === "confirmed";
+  const isUsed = status === "used";
+  const isCancelled = status === "cancelled";
 
-  const isConfirmed =
-    status === "confirmed";
+  const statusTitle = isConfirmed
+    ? "ENTRÉE VALIDÉE"
+    : isValid
+      ? "BILLET VALIDE"
+      : isUsed
+        ? "BILLET DÉJÀ UTILISÉ"
+        : "BILLET ANNULÉ";
 
-  const isUsed =
-    status === "used";
-
-  const isCancelled =
-    status === "cancelled";
-
-  const statusTitle =
-    isConfirmed
-      ? "ENTRÉE VALIDÉE"
-      : isValid
-        ? "BILLET VALIDE"
-        : isUsed
-          ? "BILLET DÉJÀ UTILISÉ"
-          : "BILLET ANNULÉ";
-
-  const statusDescription =
-    isConfirmed
-      ? "Le participant est autorisé à entrer."
-      : isValid
-        ? "Ce billet est authentique et peut être validé."
-        : isUsed
-          ? "Ce billet a déjà été présenté à l'entrée."
-          : "Ce billet n'est plus valable.";
+  const statusDescription = isConfirmed
+    ? "Le participant est autorisé à entrer."
+    : isValid
+      ? "Ce billet est authentique et peut être validé."
+      : isUsed
+        ? "Ce billet a déjà été présenté à l'entrée."
+        : "Ce billet n'est plus valable.";
 
   const statusBackground =
     isConfirmed || isValid
@@ -1064,9 +1219,7 @@ function TicketResult({
               <Mail className="h-4 w-4" />
             }
             label="E-mail"
-            value={
-              ticket.email || "—"
-            }
+            value={ticket.email || "—"}
           />
 
           <InfoRow
@@ -1074,9 +1227,7 @@ function TicketResult({
               <Phone className="h-4 w-4" />
             }
             label="Téléphone"
-            value={
-              ticket.phone || "—"
-            }
+            value={ticket.phone || "—"}
           />
 
           <InfoRow
@@ -1104,9 +1255,7 @@ function TicketResult({
               <Clock3 className="h-4 w-4" />
             }
             label="Heure"
-            value={
-              ticket.time || "—"
-            }
+            value={ticket.time || "—"}
           />
 
           <InfoRow
@@ -1114,12 +1263,14 @@ function TicketResult({
               <MapPin className="h-4 w-4" />
             }
             label="Lieu"
-            value={[
-              ticket.venue,
-              ticket.city,
-            ]
-              .filter(Boolean)
-              .join(" — ") || "—"}
+            value={
+              [
+                ticket.venue,
+                ticket.city,
+              ]
+                .filter(Boolean)
+                .join(" — ") || "—"
+            }
           />
 
           {ticket.reservationId && (
@@ -1161,7 +1312,7 @@ function TicketResult({
               type="button"
               onClick={onConfirm}
               disabled={busy}
-              className="mt-6 flex min-h-16 w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-5 py-4 text-base font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-6 flex min-h-16 w-full touch-manipulation items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-5 py-4 text-base font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy ? (
                 <>
@@ -1197,7 +1348,7 @@ function TicketResult({
           type="button"
           onClick={onReset}
           disabled={busy}
-          className="mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-5 py-4 text-sm font-black text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-3 flex min-h-14 w-full touch-manipulation items-center justify-center gap-2 rounded-2xl bg-slate-100 px-5 py-4 text-sm font-black text-slate-700 transition hover:bg-slate-200 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RotateCcw className="h-5 w-5" />
           Scanner un autre billet
