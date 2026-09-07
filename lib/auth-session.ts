@@ -1,11 +1,8 @@
-import {
-  createHmac,
-  timingSafeEqual,
-} from "node:crypto";
-
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { VercelRequest } from "@vercel/node";
 
 const COOKIE_NAME = "silocamp_scan_session";
+const SESSION_DURATION = 8 * 60 * 60 * 1000;
 
 type SessionPayload = {
   username: string;
@@ -15,13 +12,13 @@ type SessionPayload = {
 function getSecret(): string {
   const secret = process.env.SCANNER_SESSION_SECRET;
 
-  if (!secret || !secret.trim()) {
+  if (!secret) {
     throw new Error(
-      "SCANNER_SESSION_SECRET est introuvable.",
+      "SCANNER_SESSION_SECRET est introuvable dans les variables d'environnement.",
     );
   }
 
-  return secret.trim();
+  return secret;
 }
 
 function base64UrlEncode(value: string): string {
@@ -33,15 +30,10 @@ function base64UrlEncode(value: string): string {
 }
 
 function base64UrlDecode(value: string): string {
-  let base64 = value
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
-
-  while (base64.length % 4 !== 0) {
-    base64 += "=";
-  }
-
-  return Buffer.from(base64, "base64").toString("utf8");
+  return Buffer.from(
+    value.replace(/-/g, "+").replace(/_/g, "/"),
+    "base64",
+  ).toString("utf8");
 }
 
 function sign(value: string): string {
@@ -54,8 +46,8 @@ function sign(value: string): string {
 }
 
 function safeEqual(a: string, b: string): boolean {
-  const bufferA = Buffer.from(a, "utf8");
-  const bufferB = Buffer.from(b, "utf8");
+  const bufferA = Buffer.from(a);
+  const bufferB = Buffer.from(b);
 
   if (bufferA.length !== bufferB.length) {
     return false;
@@ -64,43 +56,40 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(bufferA, bufferB);
 }
 
-function parseCookies(
-  req: VercelRequest,
-): Record<string, string> {
+function parseCookies(req: VercelRequest): Record<string, string> {
   const header = req.headers.cookie;
 
   if (!header) {
     return {};
   }
 
-  const cookies: Record<string, string> = {};
+  return header.split(";").reduce<Record<string, string>>(
+    (cookies, part) => {
+      const separatorIndex = part.indexOf("=");
 
-  for (const part of header.split(";")) {
-    const index = part.indexOf("=");
+      if (separatorIndex === -1) {
+        return cookies;
+      }
 
-    if (index === -1) {
-      continue;
-    }
+      const key = part.slice(0, separatorIndex).trim();
+      const value = part.slice(separatorIndex + 1).trim();
 
-    const key = part.slice(0, index).trim();
-    const value = part.slice(index + 1).trim();
+      try {
+        cookies[key] = decodeURIComponent(value);
+      } catch {
+        cookies[key] = value;
+      }
 
-    try {
-      cookies[key] = decodeURIComponent(value);
-    } catch {
-      cookies[key] = value;
-    }
-  }
-
-  return cookies;
+      return cookies;
+    },
+    {},
+  );
 }
 
-export function createScanSession(
-  username: string,
-): string {
+export function createScanSession(username: string): string {
   const payload: SessionPayload = {
     username,
-    exp: Date.now() + 8 * 60 * 60 * 1000,
+    exp: Date.now() + SESSION_DURATION,
   };
 
   const encodedPayload = base64UrlEncode(
@@ -117,7 +106,6 @@ export function getScanSession(
 ): SessionPayload | null {
   try {
     const cookies = parseCookies(req);
-
     const session = cookies[COOKIE_NAME];
 
     if (!session) {
@@ -142,9 +130,9 @@ export function getScanSession(
       return null;
     }
 
-    const decoded = base64UrlDecode(payload);
-
-    const data = JSON.parse(decoded) as SessionPayload;
+    const data = JSON.parse(
+      base64UrlDecode(payload),
+    ) as SessionPayload;
 
     if (
       !data ||
@@ -160,11 +148,7 @@ export function getScanSession(
 
     return data;
   } catch (error) {
-    console.error(
-      "[SiloCamp Session Error]",
-      error,
-    );
-
+    console.error("[SiloCamp Session]", error);
     return null;
   }
 }

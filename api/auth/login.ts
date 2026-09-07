@@ -1,12 +1,9 @@
-import type {
-  VercelRequest,
-  VercelResponse,
-} from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import {
   createScanSession,
   getScanCookieName,
-} from "./_session";
+} from "../../lib/auth-session";
 
 export default function handler(
   req: VercelRequest,
@@ -24,56 +21,22 @@ export default function handler(
     const login = String(req.body?.login ?? "").trim();
     const password = String(req.body?.password ?? "");
 
-    const expectedLogin =
-      process.env.SCANNER_USERNAME?.trim();
+    const expectedLogin = process.env.SCANNER_USERNAME;
+    const expectedPassword = process.env.SCANNER_PASSWORD;
 
-    const expectedPassword =
-      process.env.SCANNER_PASSWORD;
-
-    const sessionSecret =
-      process.env.SCANNER_SESSION_SECRET;
-
-    // Vérification complète de la configuration
-    if (!expectedLogin) {
+    if (!expectedLogin || !expectedPassword) {
       console.error(
-        "[SiloCamp Auth] SCANNER_USERNAME manquant.",
+        "[SiloCamp Auth] SCANNER_USERNAME ou SCANNER_PASSWORD manquant.",
       );
 
       return res.status(500).json({
         ok: false,
         authenticated: false,
         message:
-          "Configuration serveur : SCANNER_USERNAME manquant.",
+          "Configuration du serveur d'authentification incomplète.",
       });
     }
 
-    if (!expectedPassword) {
-      console.error(
-        "[SiloCamp Auth] SCANNER_PASSWORD manquant.",
-      );
-
-      return res.status(500).json({
-        ok: false,
-        authenticated: false,
-        message:
-          "Configuration serveur : SCANNER_PASSWORD manquant.",
-      });
-    }
-
-    if (!sessionSecret) {
-      console.error(
-        "[SiloCamp Auth] SCANNER_SESSION_SECRET manquant.",
-      );
-
-      return res.status(500).json({
-        ok: false,
-        authenticated: false,
-        message:
-          "Configuration serveur : SCANNER_SESSION_SECRET manquant.",
-      });
-    }
-
-    // Vérification des identifiants
     if (
       login !== expectedLogin ||
       password !== expectedPassword
@@ -81,33 +44,27 @@ export default function handler(
       return res.status(401).json({
         ok: false,
         authenticated: false,
-        message:
-          "Identifiant ou mot de passe incorrect.",
+        message: "Identifiant ou mot de passe incorrect.",
       });
     }
 
-    // Création de la session sécurisée
     const session = createScanSession(login);
 
     const isProduction =
       process.env.VERCEL_ENV === "production";
 
-    const cookieParts = [
+    const cookie = [
       `${getScanCookieName()}=${encodeURIComponent(session)}`,
       "Path=/",
       "HttpOnly",
       "SameSite=Lax",
       "Max-Age=28800",
-    ];
+      isProduction ? "Secure" : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
 
-    if (isProduction) {
-      cookieParts.push("Secure");
-    }
-
-    res.setHeader(
-      "Set-Cookie",
-      cookieParts.join("; "),
-    );
+    res.setHeader("Set-Cookie", cookie);
 
     return res.status(200).json({
       ok: true,
@@ -115,20 +72,12 @@ export default function handler(
       message: "Authentification réussie.",
     });
   } catch (error) {
-    console.error(
-      "[SiloCamp Auth Login] ERREUR COMPLÈTE:",
-      error,
-    );
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Erreur inconnue du serveur.";
+    console.error("[SiloCamp Auth Login]", error);
 
     return res.status(500).json({
       ok: false,
       authenticated: false,
-      message: `Erreur serveur : ${message}`,
+      message: "Erreur du serveur d'authentification.",
     });
   }
 }

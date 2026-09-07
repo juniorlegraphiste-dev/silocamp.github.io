@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getScanCookieName } from "./_session";
+
+import { getScanCookieName } from "../../lib/auth-session";
 
 export default function handler(
   req: VercelRequest,
