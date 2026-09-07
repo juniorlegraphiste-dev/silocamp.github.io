@@ -1,4 +1,8 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type {
+  VercelRequest,
+  VercelResponse,
+} from "@vercel/node";
+
 import { getScanSession } from "./_session";
 
 export default function handler(
@@ -30,7 +34,7 @@ export default function handler(
     });
   } catch (error) {
     console.error(
-      "[SiloCamp Auth Me]",
+      "[SiloCamp Auth Me Error]",
       error,
     );
 
