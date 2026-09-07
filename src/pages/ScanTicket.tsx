@@ -4,6 +4,8 @@ import {
   useEffect,
   useRef,
   useState,
+  type FormEvent,
+  type ReactNode,
 } from "react";
 
 import {
@@ -13,6 +15,9 @@ import {
   CheckCircle2,
   Clock3,
   Loader2,
+  LockKeyhole,
+  LogIn,
+  LogOut,
   Mail,
   MapPin,
   Phone,
@@ -46,23 +51,160 @@ type ScanState =
   | "confirmed";
 
 export default function ScanTicket() {
-  const scannerRef =
-    useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const processingRef = useRef(false);
 
-  const processingRef =
-    useRef(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [username, setUsername] = useState("");
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
 
-  const [state, setState] =
-    useState<ScanState>("idle");
+  const [state, setState] = useState<ScanState>("idle");
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const [ticket, setTicket] =
-    useState<Ticket | null>(null);
+  async function checkAuthentication() {
+    setAuthChecking(true);
+    setAuthError("");
 
-  const [message, setMessage] =
-    useState("");
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
 
-  const [busy, setBusy] =
-    useState(false);
+      const data = await response.json().catch(() => null);
+
+      if (
+        response.ok &&
+        data?.authenticated === true
+      ) {
+        setAuthenticated(true);
+        setUsername(data.username || "");
+      } else {
+        setAuthenticated(false);
+        setUsername("");
+      }
+    } catch (error) {
+      console.error(
+        "[SiloCamp Auth Check]",
+        error,
+      );
+
+      setAuthenticated(false);
+      setUsername("");
+
+      setAuthError(
+        "Impossible de vérifier la session. Vérifie ta connexion puis réessaie.",
+      );
+    } finally {
+      setAuthChecking(false);
+    }
+  }
+
+  async function handleLogin(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (authBusy) {
+      return;
+    }
+
+    setAuthBusy(true);
+    setAuthError("");
+
+    try {
+      const response = await fetch(
+        "/api/auth/login",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            login: login.trim(),
+            password,
+          }),
+        },
+      );
+
+      const data = await response
+        .json()
+        .catch(() => null);
+
+      if (
+        response.ok &&
+        data?.authenticated === true
+      ) {
+        setAuthenticated(true);
+        setUsername(login.trim());
+        setPassword("");
+        setAuthError("");
+        setState("idle");
+        setTicket(null);
+        setMessage("");
+
+        return;
+      }
+
+      setAuthenticated(false);
+
+      setAuthError(
+        data?.message ||
+          "Identifiant ou mot de passe incorrect.",
+      );
+    } catch (error) {
+      console.error(
+        "[SiloCamp Auth Login]",
+        error,
+      );
+
+      setAuthenticated(false);
+
+      setAuthError(
+        "Impossible de contacter le serveur d'authentification.",
+      );
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await stopScanner();
+
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      });
+    } catch (error) {
+      console.error(
+        "[SiloCamp Auth Logout]",
+        error,
+      );
+    } finally {
+      processingRef.current = false;
+
+      setAuthenticated(false);
+      setUsername("");
+      setLogin("");
+      setPassword("");
+      setAuthError("");
+
+      setTicket(null);
+      setMessage("");
+      setBusy(false);
+      setState("idle");
+    }
+  }
 
   async function stopScanner() {
     const scanner = scannerRef.current;
@@ -103,7 +245,10 @@ export default function ScanTicket() {
   async function handleQRCode(
     decodedText: string,
   ) {
-    if (processingRef.current) {
+    if (
+      processingRef.current ||
+      !authenticated
+    ) {
       return;
     }
 
@@ -184,12 +329,7 @@ export default function ScanTicket() {
           break;
 
         case "SCAN_UNAUTHORIZED":
-          setState("error");
-
-          setMessage(
-            "Votre session de contrôle a expiré. Veuillez vous reconnecter.",
-          );
-
+          await handleSessionExpired();
           break;
 
         default:
@@ -218,8 +358,26 @@ export default function ScanTicket() {
     }
   }
 
+  async function handleSessionExpired() {
+    await stopScanner();
+
+    setAuthenticated(false);
+    setUsername("");
+    setTicket(null);
+    setBusy(false);
+    setState("idle");
+    setMessage("");
+
+    setAuthError(
+      "Votre session de contrôle a expiré. Veuillez vous reconnecter.",
+    );
+  }
+
   async function startScanner() {
-    if (processingRef.current) {
+    if (
+      processingRef.current ||
+      !authenticated
+    ) {
       return;
     }
 
@@ -347,26 +505,87 @@ export default function ScanTicket() {
   }
 
   useEffect(() => {
+    void checkAuthentication();
+
     return () => {
       void stopScanner();
     };
   }, []);
 
-  return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6">
-      <div className="mx-auto w-full max-w-xl">
-        <header className="mb-7 text-center text-white">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
-            <ShieldCheck className="h-8 w-8" />
+  if (authChecking) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+        <div className="text-center text-white">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+            <Loader2 className="h-8 w-8 animate-spin" />
           </div>
 
-          <h1 className="text-3xl font-black tracking-tight">
+          <h1 className="mt-5 text-xl font-black">
             SiloCamp
           </h1>
 
-          <p className="mt-1 text-sm font-medium text-white/55">
-            Contrôle des billets
+          <p className="mt-2 text-sm text-white/50">
+            Vérification de votre session...
           </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <LoginScreen
+        login={login}
+        password={password}
+        error={authError}
+        busy={authBusy}
+        onLoginChange={setLogin}
+        onPasswordChange={setPassword}
+        onSubmit={handleLogin}
+      />
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-xl">
+        <header className="mb-7">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-white">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+
+              <div>
+                <h1 className="text-xl font-black tracking-tight">
+                  SiloCamp
+                </h1>
+
+                <p className="text-xs font-medium text-white/50">
+                  Contrôle des billets
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/15"
+            >
+              <LogOut className="h-4 w-4" />
+              Déconnexion
+            </button>
+          </div>
+
+          {username && (
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/60">
+              <User className="h-4 w-4" />
+              Connecté en tant que
+              <span className="font-black text-white">
+                {username}
+              </span>
+            </div>
+          )}
         </header>
 
         {(state === "idle" ||
@@ -511,6 +730,158 @@ export default function ScanTicket() {
   );
 }
 
+function LoginScreen({
+  login,
+  password,
+  error,
+  busy,
+  onLoginChange,
+  onPasswordChange,
+  onSubmit,
+}: {
+  login: string;
+  password: string;
+  error: string;
+  busy: boolean;
+  onLoginChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onSubmit: (
+    event: FormEvent<HTMLFormElement>,
+  ) => void;
+}) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-8">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center text-white">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] bg-white/10 ring-1 ring-white/10 shadow-2xl">
+            <ShieldCheck className="h-10 w-10" />
+          </div>
+
+          <h1 className="text-3xl font-black tracking-tight">
+            SiloCamp
+          </h1>
+
+          <p className="mt-2 text-sm font-medium text-white/50">
+            Contrôle sécurisé des billets
+          </p>
+        </div>
+
+        <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
+          <div className="p-6 sm:p-8">
+            <div className="mb-7">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100">
+                  <LockKeyhole className="h-5 w-5 text-slate-700" />
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">
+                    Connexion
+                  </h2>
+
+                  <p className="text-xs text-slate-500">
+                    Accès réservé au contrôle des entrées
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form
+              onSubmit={onSubmit}
+              className="space-y-5"
+            >
+              <div>
+                <label
+                  htmlFor="scanner-login"
+                  className="mb-2 block text-sm font-bold text-slate-700"
+                >
+                  Identifiant
+                </label>
+
+                <input
+                  id="scanner-login"
+                  type="text"
+                  value={login}
+                  onChange={(event) =>
+                    onLoginChange(
+                      event.target.value,
+                    )
+                  }
+                  autoComplete="username"
+                  placeholder="Votre identifiant"
+                  disabled={busy}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-900/5 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="scanner-password"
+                  className="mb-2 block text-sm font-bold text-slate-700"
+                >
+                  Mot de passe
+                </label>
+
+                <input
+                  id="scanner-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) =>
+                    onPasswordChange(
+                      event.target.value,
+                    )
+                  }
+                  autoComplete="current-password"
+                  placeholder="Votre mot de passe"
+                  disabled={busy}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-900/5 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </div>
+
+              {error && (
+                <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+
+                  <p className="text-sm font-semibold leading-5 text-red-700">
+                    {error}
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={
+                  busy ||
+                  !login.trim() ||
+                  !password
+                }
+                className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Connexion en cours...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="h-5 w-5" />
+                    Se connecter
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 flex items-center justify-center gap-2 text-center text-xs text-slate-400">
+              <ShieldCheck className="h-4 w-4" />
+              Accès sécurisé SiloCamp
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 function extractVerificationToken(
   value: string,
 ): string | null {
@@ -546,11 +917,11 @@ function StatusCard({
   background,
   action,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   message: string;
   background: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
@@ -647,7 +1018,8 @@ function TicketResult({
         </h2>
 
         <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-white/85">
-          {message || statusDescription}
+          {message ||
+            statusDescription}
         </p>
 
         {isValid && (
@@ -692,7 +1064,9 @@ function TicketResult({
               <Mail className="h-4 w-4" />
             }
             label="E-mail"
-            value={ticket.email || "—"}
+            value={
+              ticket.email || "—"
+            }
           />
 
           <InfoRow
@@ -700,7 +1074,9 @@ function TicketResult({
               <Phone className="h-4 w-4" />
             }
             label="Téléphone"
-            value={ticket.phone || "—"}
+            value={
+              ticket.phone || "—"
+            }
           />
 
           <InfoRow
@@ -728,7 +1104,9 @@ function TicketResult({
               <Clock3 className="h-4 w-4" />
             }
             label="Heure"
-            value={ticket.time || "—"}
+            value={
+              ticket.time || "—"
+            }
           />
 
           <InfoRow
@@ -834,7 +1212,7 @@ function InfoRow({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
