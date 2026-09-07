@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-import { getScanCookieName } from "../../lib/auth-session";
+const COOKIE_NAME = "silocamp_scan_session";
 
 export default function handler(
   req: VercelRequest,
@@ -9,25 +9,15 @@ export default function handler(
   if (req.method !== "POST") {
     return res.status(405).json({
       ok: false,
+      authenticated: false,
       message: "Méthode non autorisée.",
     });
   }
 
-  const isProduction =
-    process.env.VERCEL_ENV === "production";
-
-  const cookie = [
-    `${getScanCookieName()}=`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    "Max-Age=0",
-    isProduction ? "Secure" : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
-
-  res.setHeader("Set-Cookie", cookie);
+  res.setHeader(
+    "Set-Cookie",
+    `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure`,
+  );
 
   return res.status(200).json({
     ok: true,
