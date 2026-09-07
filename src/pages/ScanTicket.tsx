@@ -695,7 +695,7 @@ export default function ScanTicket() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 pb-12 pt-20 sm:px-6 sm:pt-24 lg:pt-28">
+    <main className="min-h-screen bg-slate-950 px-4 pb-12 pt-[120px] sm:px-6 sm:pt-[112px]">
       <div className="mx-auto w-full max-w-xl">
         <header className="mb-7">
           <div className="flex items-center justify-between gap-3">
