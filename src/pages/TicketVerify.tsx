@@ -729,17 +729,17 @@ function TicketInfo({
   value: string;
 }) {
   return (
-    <div className="flex min-w-0 items-start gap-3 rounded-2xl border border-slate-100 bg-white p-4">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f4efe6] text-[#8d6c2d]">
+    <div className="flex min-w-0 items-start gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#d6b36a]/10 text-[#e7ca83]">
         {icon}
       </div>
 
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
+        <p className="text-[10px] font-black uppercase tracking-[0.15em] text-violet-300">
           {label}
         </p>
 
-        <p className="mt-1 break-words text-sm font-bold text-slate-800">
+        <p className="mt-1 break-words text-sm font-bold text-white">
           {value || "—"}
         </p>
       </div>
