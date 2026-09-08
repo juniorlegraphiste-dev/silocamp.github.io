@@ -46,8 +46,11 @@ export default async function handler(
   res: VercelResponse,
 ) {
   if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+
     return res.status(405).json({
       ok: false,
+      code: "METHOD_NOT_ALLOWED",
       message: "Méthode non autorisée.",
     });
   }
@@ -68,6 +71,18 @@ export default async function handler(
     )
       .trim()
       .replace(/^data:application\/pdf;base64,/i, "");
+
+    console.log("[SiloCamp Email] Nouvelle demande :", {
+      ticketNumber,
+      email,
+      pdfLength: pdfBase64.length,
+    });
+
+    /*
+    ============================================================
+    VALIDATION
+    ============================================================
+    */
 
     if (!ticketNumber) {
       return res.status(400).json({
@@ -93,39 +108,76 @@ export default async function handler(
       });
     }
 
-    if (pdfBase64.length > 5_500_000) {
+    /*
+    IMPORTANT :
+
+    La limite est volontairement assez basse afin
+    d'éviter les problèmes de taille des requêtes Vercel.
+    */
+
+    if (pdfBase64.length > 4_500_000) {
       return res.status(413).json({
         ok: false,
         code: "PDF_TOO_LARGE",
-        message: "Le billet PDF est trop volumineux.",
+        message:
+          "Le billet PDF est trop volumineux pour être envoyé.",
       });
     }
+
+    /*
+    ============================================================
+    ENVIRONMENT VARIABLES
+    ============================================================
+    */
 
     const databaseUrl = process.env.DATABASE_URL;
     const resendApiKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.RESEND_FROM_EMAIL;
 
     if (!databaseUrl) {
-      console.error("[SiloCamp Email] DATABASE_URL manquante.");
-
-      return res.status(500).json({
-        ok: false,
-        code: "DATABASE_CONFIGURATION_ERROR",
-        message: "Configuration de la base de données incomplète.",
-      });
-    }
-
-    if (!resendApiKey || !fromEmail) {
       console.error(
-        "[SiloCamp Email] Configuration Resend manquante.",
+        "[SiloCamp Email] DATABASE_URL manquante.",
       );
 
       return res.status(500).json({
         ok: false,
-        code: "EMAIL_CONFIGURATION_ERROR",
-        message: "Configuration de l'envoi d'e-mail incomplète.",
+        code: "DATABASE_CONFIGURATION_ERROR",
+        message:
+          "La base de données SiloCamp n'est pas configurée.",
       });
     }
+
+    if (!resendApiKey) {
+      console.error(
+        "[SiloCamp Email] RESEND_API_KEY manquante.",
+      );
+
+      return res.status(500).json({
+        ok: false,
+        code: "RESEND_API_KEY_MISSING",
+        message:
+          "Le service d'envoi d'e-mail n'est pas configuré.",
+      });
+    }
+
+    if (!fromEmail) {
+      console.error(
+        "[SiloCamp Email] RESEND_FROM_EMAIL manquante.",
+      );
+
+      return res.status(500).json({
+        ok: false,
+        code: "RESEND_FROM_EMAIL_MISSING",
+        message:
+          "L'adresse d'expédition n'est pas configurée.",
+      });
+    }
+
+    /*
+    ============================================================
+    NEON DATABASE
+    ============================================================
+    */
 
     const sql = neon(databaseUrl);
 
@@ -158,11 +210,25 @@ export default async function handler(
 
     const ticket = rows[0] as TicketRow;
 
+    /*
+    ============================================================
+    SECURITY CHECK
+    ============================================================
+    */
+
     const ticketEmail = normalizeEmail(
       String(ticket.email ?? ""),
     );
 
     if (ticketEmail !== email) {
+      console.warn(
+        "[SiloCamp Email] EMAIL_MISMATCH",
+        {
+          ticketNumber,
+          requestedEmail: email,
+        },
+      );
+
       return res.status(403).json({
         ok: false,
         code: "EMAIL_MISMATCH",
@@ -180,16 +246,29 @@ export default async function handler(
       });
     }
 
+    /*
+    ============================================================
+    VERIFICATION URL
+    ============================================================
+    */
+
     const verificationUrl =
       `${SITE_URL}/ticket/verify?token=` +
       encodeURIComponent(ticket.verificationToken);
+
+    /*
+    ============================================================
+    EMAIL CONTENT
+    ============================================================
+    */
 
     const participantName = escapeHtml(
       ticket.participantName || "Participant",
     );
 
     const eventTitle = escapeHtml(
-      ticket.eventTitle || "Camp International Silo 2026",
+      ticket.eventTitle ||
+        "Camp International Silo 2026",
     );
 
     const dateLabel = escapeHtml(
@@ -209,7 +288,12 @@ export default async function handler(
     );
 
     const reservationId = escapeHtml(
-      ticket.reservationId || "Confirmation enregistrée",
+      ticket.reservationId ||
+        "Confirmation enregistrée",
+    );
+
+    const safeTicketNumber = escapeHtml(
+      ticket.ticketNumber,
     );
 
     const emailHtml = `
@@ -230,6 +314,7 @@ export default async function handler(
     color:#171321;
   "
 >
+
   <table
     width="100%"
     cellpadding="0"
@@ -261,6 +346,7 @@ export default async function handler(
                 text-align:center;
               "
             >
+
               <div
                 style="
                   font-size:13px;
@@ -284,6 +370,7 @@ export default async function handler(
               >
                 Votre participation est confirmée
               </div>
+
             </td>
           </tr>
 
@@ -311,8 +398,7 @@ export default async function handler(
                 Votre inscription au
                 <strong>${eventTitle}</strong>
                 a bien été enregistrée.
-                Vous trouverez votre e-billet PDF en pièce jointe
-                de cet e-mail.
+                Votre billet PDF est joint à cet e-mail.
               </p>
 
               <table
@@ -323,106 +409,107 @@ export default async function handler(
                 style="
                   background:#f8f6fb;
                   border-radius:14px;
-                  margin-bottom:25px;
                 "
               >
                 <tr>
                   <td style="padding:20px;">
 
-                    <div
+                    <p
                       style="
+                        margin:0;
                         font-size:11px;
                         text-transform:uppercase;
-                        letter-spacing:1.5px;
                         color:#8b8495;
                       "
                     >
-                      Billet
-                    </div>
+                      Numéro du billet
+                    </p>
 
-                    <div
+                    <p
                       style="
-                        margin-top:6px;
+                        margin:7px 0 20px;
                         font-size:18px;
                         font-weight:bold;
                         color:#241b40;
                       "
                     >
-                      ${escapeHtml(ticket.ticketNumber)}
-                    </div>
+                      ${safeTicketNumber}
+                    </p>
 
-                    <div
+                    <p
                       style="
-                        margin-top:18px;
+                        margin:0;
                         font-size:11px;
                         text-transform:uppercase;
-                        letter-spacing:1.5px;
                         color:#8b8495;
                       "
                     >
                       Réservation
-                    </div>
+                    </p>
 
-                    <div
+                    <p
                       style="
-                        margin-top:6px;
+                        margin:7px 0 20px;
                         font-size:14px;
                         font-weight:bold;
                         color:#241b40;
                       "
                     >
                       ${reservationId}
-                    </div>
+                    </p>
 
-                    <div
+                    <p
                       style="
-                        margin-top:18px;
+                        margin:0;
                         font-size:11px;
                         text-transform:uppercase;
-                        letter-spacing:1.5px;
                         color:#8b8495;
                       "
                     >
                       Date
-                    </div>
+                    </p>
 
-                    <div
+                    <p
                       style="
-                        margin-top:6px;
+                        margin:7px 0 20px;
                         font-size:14px;
                         color:#241b40;
                       "
                     >
                       ${dateLabel} · ${time}
-                    </div>
+                    </p>
 
-                    <div
+                    <p
                       style="
-                        margin-top:18px;
+                        margin:0;
                         font-size:11px;
                         text-transform:uppercase;
-                        letter-spacing:1.5px;
                         color:#8b8495;
                       "
                     >
                       Lieu
-                    </div>
+                    </p>
 
-                    <div
+                    <p
                       style="
-                        margin-top:6px;
+                        margin:7px 0 0;
                         font-size:14px;
                         color:#241b40;
                       "
                     >
                       ${venue}, ${city}
-                    </div>
+                    </p>
 
                   </td>
                 </tr>
               </table>
 
-              <div style="text-align:center;margin:30px 0;">
+              <div
+                style="
+                  text-align:center;
+                  margin:30px 0;
+                "
+              >
 
                 <a
                   href="${verificationUrl}"
@@ -466,15 +553,16 @@ export default async function handler(
                 text-align:center;
               "
             >
+
               <div
                 style="
                   font-size:12px;
                   color:#aaa3b6;
-                  line-height:1.6;
                 "
               >
                 SiloCamp · Camp International Silo 2026
               </div>
+
             </td>
           </tr>
 
@@ -483,28 +571,47 @@ export default async function handler(
       </td>
     </tr>
   </table>
+
 </body>
 </html>
 `;
+
+    /*
+    ============================================================
+    RESEND
+    ============================================================
+    */
+
+    console.log(
+      "[SiloCamp Email] Envoi vers Resend...",
+    );
 
     const resendResponse = await fetch(
       "https://api.resend.com/emails",
       {
         method: "POST",
+
         headers: {
           Authorization: `Bearer ${resendApiKey}`,
           "Content-Type": "application/json",
         },
+
         body: JSON.stringify({
           from: fromEmail,
+
           to: [email],
-          subject: "Votre billet SiloCamp 2026",
+
+          subject: "🎟️ Votre billet SiloCamp 2026",
+
           html: emailHtml,
+
           attachments: [
             {
               filename:
                 `${ticket.ticketNumber}-SiloCamp-2026.pdf`,
+
               content: pdfBase64,
+
               content_type: "application/pdf",
             },
           ],
@@ -512,45 +619,76 @@ export default async function handler(
       },
     );
 
-    let resendData: unknown = null;
+    const resendText =
+      await resendResponse.text();
+
+    let resendData: unknown = resendText;
 
     try {
-      resendData = await resendResponse.json();
+      resendData = JSON.parse(resendText);
     } catch {
-      resendData = null;
+      // La réponse n'est pas du JSON.
     }
 
     if (!resendResponse.ok) {
       console.error(
-        "[SiloCamp Email] Resend error:",
-        resendData,
+        "[SiloCamp Email] Resend ERROR:",
+        {
+          status: resendResponse.status,
+          data: resendData,
+        },
       );
 
       return res.status(502).json({
         ok: false,
         code: "EMAIL_SEND_FAILED",
         message:
-          "Le billet n'a pas pu être envoyé par e-mail.",
+          "Le service d'e-mail a refusé l'envoi du billet.",
+
+        debug:
+          process.env.NODE_ENV === "development"
+            ? resendData
+            : undefined,
       });
     }
 
+    console.log(
+      "[SiloCamp Email] Billet envoyé avec succès :",
+      ticket.ticketNumber,
+    );
+
     return res.status(200).json({
       ok: true,
-      message: "Billet envoyé avec succès.",
+
+      message:
+        "Votre billet a été envoyé avec succès par e-mail.",
+
       ticketNumber: ticket.ticketNumber,
+
       email,
     });
   } catch (error) {
     console.error(
-      "[SiloCamp Email] Erreur serveur:",
+      "[SiloCamp Email] ERREUR SERVEUR :",
       error,
     );
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : String(error);
 
     return res.status(500).json({
       ok: false,
       code: "EMAIL_SERVER_ERROR",
+
       message:
         "Une erreur est survenue lors de l'envoi du billet.",
+
+      error:
+        process.env.NODE_ENV === "development"
+          ? errorMessage
+          : undefined,
     });
   }
 }
