@@ -13,10 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-import {
-  verifyTicket,
-  type Ticket,
-} from "@/services/ticketService";
+import { verifyTicket, type Ticket } from "@/services/ticketService";
 
 type VerificationState =
   | "loading"
@@ -29,26 +26,21 @@ type VerificationState =
 
 export default function TicketVerify() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [state, setState] =
-    useState<VerificationState>("loading");
+  const [state, setState] = useState<VerificationState>("loading");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     async function verify() {
-      const params = new URLSearchParams(
-        window.location.search,
-      );
+      const params = new URLSearchParams(window.location.search);
 
       const token = params.get("token")?.trim();
 
       if (!token) {
         if (!cancelled) {
           setState("missing-token");
-          setMessage(
-            "Aucun lien de vérification valide n'a été fourni.",
-          );
+          setMessage("Aucun lien de vérification valide n'a été fourni.");
         }
 
         return;
@@ -67,9 +59,7 @@ export default function TicketVerify() {
 
         if (result.valid) {
           setState("valid");
-          setMessage(
-            result.message || "Votre billet est valide.",
-          );
+          setMessage(result.message || "Votre billet est valide.");
           return;
         }
 
@@ -77,46 +67,31 @@ export default function TicketVerify() {
           case "TICKET_ALREADY_USED":
           case "USED":
             setState("used");
-            setMessage(
-              result.message ||
-                "Ce billet a déjà été utilisé.",
-            );
+            setMessage(result.message || "Ce billet a déjà été utilisé.");
             break;
 
           case "TICKET_CANCELLED":
           case "CANCELLED":
             setState("cancelled");
-            setMessage(
-              result.message ||
-                "Ce billet a été annulé.",
-            );
+            setMessage(result.message || "Ce billet a été annulé.");
             break;
 
           case "TICKET_NOT_FOUND":
           case "NOT_FOUND":
             setState("not-found");
-            setMessage(
-              result.message ||
-                "Billet introuvable.",
-            );
+            setMessage(result.message || "Billet introuvable.");
             break;
 
           default:
             setState("error");
-            setMessage(
-              result.message ||
-                "Impossible de vérifier ce billet.",
-            );
+            setMessage(result.message || "Impossible de vérifier ce billet.");
         }
       } catch (error) {
         if (cancelled) {
           return;
         }
 
-        console.error(
-          "[SiloCamp TicketVerify]",
-          error,
-        );
+        console.error("[SiloCamp TicketVerify]", error);
 
         setState("error");
 
@@ -139,10 +114,7 @@ export default function TicketVerify() {
     return <LoadingScreen />;
   }
 
-  if (
-    state === "error" ||
-    state === "missing-token"
-  ) {
+  if (state === "error" || state === "missing-token") {
     return (
       <StatusPage
         type="error"
@@ -177,17 +149,12 @@ export default function TicketVerify() {
 
   const participantName =
     ticket.participantName ||
-    [ticket.firstName, ticket.lastName]
-      .filter(Boolean)
-      .join(" ") ||
+    [ticket.firstName, ticket.lastName].filter(Boolean).join(" ") ||
     "Participant";
 
   if (state === "valid") {
     return (
-      <ValidTicketPage
-        ticket={ticket}
-        participantName={participantName}
-      />
+      <ValidTicketPage ticket={ticket} participantName={participantName} />
     );
   }
 
@@ -223,8 +190,7 @@ function LoadingScreen() {
         </h1>
 
         <p className="mt-3 text-sm leading-6 text-white/55">
-          Nous vérifions votre billet auprès du système
-          officiel SiloCamp...
+          Nous vérifions votre billet auprès du système officiel SiloCamp...
         </p>
       </div>
     </main>
@@ -252,18 +218,13 @@ function ValidTicketPage({
           </div>
 
           <h1 className="mt-6 font-display text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            Votre billet est{" "}
-            <span className="text-[#d6b36a]">
-              valide
-            </span>
+            Votre billet est <span className="text-[#d6b36a]">valide</span>
           </h1>
 
           <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-white/60 sm:text-base">
             Bonjour{" "}
-            <span className="font-semibold text-white">
-              {participantName}
-            </span>
-            . Votre billet a été vérifié avec succès.
+            <span className="font-semibold text-white">{participantName}</span>.
+            Votre billet a été vérifié avec succès.
           </p>
         </div>
 
@@ -299,8 +260,8 @@ function ValidTicketPage({
                   </p>
 
                   <p className="mt-1 text-xs leading-5 text-emerald-700">
-                    Ce billet est actuellement valide et
-                    peut être présenté à l'entrée du Camp.
+                    Ce billet est actuellement valide et peut être présenté à
+                    l'entrée du Camp.
                   </p>
                 </div>
               </div>
@@ -375,8 +336,7 @@ function ValidTicketPage({
         </Link>
 
         <p className="mt-5 text-center text-[11px] leading-5 text-white/30">
-          Présentez votre billet et son QR Code lors de
-          votre arrivée au Camp.
+          Présentez votre billet et son QR Code lors de votre arrivée au Camp.
         </p>
       </div>
     </main>
@@ -404,9 +364,7 @@ function UsedTicketPage({
             Billet déjà utilisé
           </h1>
 
-          <p className="mt-4 text-sm leading-6 text-white/60">
-            {message}
-          </p>
+          <p className="mt-4 text-sm leading-6 text-white/60">{message}</p>
         </div>
 
         <StatusTicketCard
@@ -442,9 +400,7 @@ function CancelledTicketPage({
             Billet annulé
           </h1>
 
-          <p className="mt-4 text-sm leading-6 text-white/60">
-            {message}
-          </p>
+          <p className="mt-4 text-sm leading-6 text-white/60">{message}</p>
         </div>
 
         <StatusTicketCard
@@ -472,13 +428,7 @@ function StatusTicketCard({
 
   return (
     <div className="mt-9 overflow-hidden rounded-[30px] bg-white shadow-2xl">
-      <div
-        className={`px-6 py-6 ${
-          isUsed
-            ? "bg-amber-500"
-            : "bg-red-500"
-        }`}
-      >
+      <div className={`px-6 py-6 ${isUsed ? "bg-amber-500" : "bg-red-500"}`}>
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
@@ -544,37 +494,150 @@ function StatusPage({
 
   return (
     <main className="min-h-screen bg-[#10081f] px-4 py-10 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-md flex-col justify-center text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-red-400/20 bg-red-400/10">
-          {isError ? (
-            <AlertTriangle className="h-10 w-10 text-red-400" />
-          ) : (
-            <XCircle className="h-10 w-10 text-red-400" />
-          )}
-        </div>
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-lg flex-col justify-center">
+        {/* Logo / marque */}
+        <div className="text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#d6b36a]/20 bg-[#d6b36a]/10 shadow-[0_0_50px_rgba(214,179,106,0.08)]">
+            <TicketIcon className="h-9 w-9 text-[#d6b36a]" />
+          </div>
 
-        <div className="mt-7 inline-flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.25em] text-[#d6b36a]">
-          <ShieldCheck className="h-4 w-4" />
-          SiloCamp
-        </div>
+          <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-[#d6b36a]/20 bg-[#d6b36a]/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em] text-[#d6b36a]">
+            <ShieldCheck className="h-4 w-4" />
+            SiloCamp
+          </div>
 
-        <h1 className="mt-5 font-display text-4xl font-semibold text-white">
-          {title}
-        </h1>
+          <h1 className="mt-6 font-display text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+            {isError ? "Vérification du billet" : "Billet introuvable"}
+          </h1>
 
-        <p className="mt-4 text-sm leading-7 text-white/55">
-          {message}
-        </p>
-
-        <div className="mt-8 rounded-2xl border border-red-400/10 bg-red-400/5 px-5 py-4">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-red-300">
+          <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-white/60 sm:text-base">
             {isError
-              ? "Vérification impossible"
-              : "Billet non valide"}
+              ? "Nous n'avons pas pu effectuer la vérification de votre billet pour le moment."
+              : "Ce lien ne correspond à aucun billet enregistré dans le système SiloCamp."}
           </p>
         </div>
 
-        <HomeButton />
+        {/* Carte principale */}
+        <div className="mt-9 overflow-hidden rounded-[30px] border border-white/10 bg-white shadow-2xl shadow-black/30">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-[#24123e] to-[#160b29] px-6 py-7 text-center sm:px-8">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#d6b36a]/20 bg-[#d6b36a]/10">
+              {isError ? (
+                <AlertTriangle className="h-7 w-7 text-[#d6b36a]" />
+              ) : (
+                <XCircle className="h-7 w-7 text-red-400" />
+              )}
+            </div>
+
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.25em] text-[#d6b36a]">
+              Billetterie officielle
+            </p>
+
+            <h2 className="mt-2 text-xl font-black text-white">
+              {isError
+                ? "Vérification temporairement indisponible"
+                : "Aucun billet trouvé"}
+            </h2>
+          </div>
+
+          {/* Contenu */}
+          <div className="p-6 sm:p-8">
+            <div
+              className={`rounded-2xl border p-5 ${
+                isError
+                  ? "border-amber-200 bg-amber-50"
+                  : "border-red-200 bg-red-50"
+              }`}
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                    isError ? "bg-amber-100" : "bg-red-100"
+                  }`}
+                >
+                  {isError ? (
+                    <ShieldCheck className="h-5 w-5 text-amber-600" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-600" />
+                  )}
+                </div>
+
+                <div>
+                  <p
+                    className={`text-sm font-black ${
+                      isError ? "text-amber-800" : "text-red-800"
+                    }`}
+                  >
+                    {isError
+                      ? "Votre billet n'est pas déclaré invalide"
+                      : "Billet introuvable"}
+                  </p>
+
+                  <p
+                    className={`mt-2 text-xs leading-6 ${
+                      isError ? "text-amber-700" : "text-red-700"
+                    }`}
+                  >
+                    {isError
+                      ? "Le système de vérification rencontre actuellement un problème technique. Veuillez réessayer dans quelques instants."
+                      : "Vérifiez que vous utilisez bien le lien reçu dans votre e-mail de confirmation."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Message technique masqué visuellement */}
+            {message && !message.toLowerCase().includes("authentification") && (
+              <div className="mt-6 rounded-2xl bg-slate-50 p-4">
+                <p className="text-xs leading-6 text-slate-500">{message}</p>
+              </div>
+            )}
+
+            {/* Information */}
+            <div className="mt-7">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f4efe6]">
+                  <TicketIcon className="h-4 w-4 text-[#8d6c2d]" />
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                    À savoir
+                  </p>
+
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Conservez votre billet et son QR Code. Ils pourront être
+                    demandés à votre arrivée au Camp.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-slate-100 bg-slate-50 px-6 py-5 text-center">
+            <p className="text-xs font-medium text-slate-400">
+              SiloCamp • Billetterie officielle
+            </p>
+
+            <p className="mt-1 text-[11px] text-slate-300">
+              Votre billet reste associé à votre réservation
+            </p>
+          </div>
+        </div>
+
+        {/* Retour */}
+        <Link
+          to="/"
+          className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#d6b36a] px-6 py-4 text-sm font-black text-[#160b29] shadow-lg shadow-[#d6b36a]/10 transition hover:-translate-y-0.5 hover:bg-[#e2c47e]"
+        >
+          <Home className="h-5 w-5" />
+          Retour à l'accueil
+        </Link>
+
+        <p className="mt-5 text-center text-[11px] leading-5 text-white/30">
+          SiloCamp • Camp International Silo 2026
+        </p>
       </div>
     </main>
   );
