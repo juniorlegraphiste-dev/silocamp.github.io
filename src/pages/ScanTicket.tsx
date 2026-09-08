@@ -361,7 +361,7 @@ export default function ScanTicket() {
           setState("error");
 
           setMessage(
-            "QR Code SiloCamp invalide : token de vérification introuvable.",
+            "QR Code invalide.",
           );
 
           return;
