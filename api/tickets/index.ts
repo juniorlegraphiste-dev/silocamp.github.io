@@ -4,7 +4,9 @@ import crypto from "node:crypto";
 const MAX_TICKETS = 1200;
 
 function normalizeEmail(value: unknown): string {
-  return String(value ?? "").trim().toLowerCase();
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 function normalizePhone(value: unknown): string {
@@ -34,6 +36,8 @@ function sanitizeTicket(ticket: any) {
     verificationToken: ticket.verificationToken
       ? String(ticket.verificationToken)
       : "",
+    childrenUnder12: Number(ticket.childrenUnder12 ?? 0),
+    children12Plus: Number(ticket.children12Plus ?? 0),
   };
 }
 
@@ -48,6 +52,12 @@ export default async function handler(req: any, res: any) {
   }
 
   const sql = neon(databaseUrl);
+
+  /*
+   * =========================================================
+   * GET — RÉCUPÉRER LES TICKETS
+   * =========================================================
+   */
 
   if (req.method === "GET") {
     try {
@@ -69,6 +79,8 @@ export default async function handler(req: any, res: any) {
           venue,
           city,
           quantity,
+          "childrenUnder12",
+          "children12Plus",
           status,
           "createdAt",
           "usedAt",
@@ -86,12 +98,16 @@ export default async function handler(req: any, res: any) {
 
       return res.status(500).json({
         ok: false,
-        error:
-          error?.message ||
-          "Erreur lors de la récupération des tickets.",
+        error: error?.message || "Erreur lors de la récupération des tickets.",
       });
     }
   }
+
+  /*
+   * =========================================================
+   * MÉTHODE AUTORISÉE
+   * =========================================================
+   */
 
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -99,6 +115,12 @@ export default async function handler(req: any, res: any) {
       error: "Méthode non autorisée.",
     });
   }
+
+  /*
+   * =========================================================
+   * POST — CRÉATION D'UN TICKET
+   * =========================================================
+   */
 
   try {
     const {
@@ -116,46 +138,55 @@ export default async function handler(req: any, res: any) {
       venue,
       city,
       quantity,
+      childrenUnder12,
+      children12Plus,
     } = req.body ?? {};
 
-    const normalizedFirstName =
-      String(firstName ?? "").trim() || null;
+    /*
+     * =======================================================
+     * NORMALISATION
+     * =======================================================
+     */
 
-    const normalizedLastName =
-      String(lastName ?? "").trim() || null;
+    const normalizedFirstName = String(firstName ?? "").trim() || null;
+
+    const normalizedLastName = String(lastName ?? "").trim() || null;
 
     const normalizedParticipantName =
       String(participantName ?? "").trim() ||
       `${normalizedFirstName ?? ""} ${normalizedLastName ?? ""}`.trim();
 
     const normalizedEmail = normalizeEmail(email);
+
     const normalizedPhone = normalizePhone(phone);
 
-    const normalizedReservationId =
-      String(reservationId ?? "").trim();
+    const normalizedReservationId = String(reservationId ?? "").trim();
 
-    const normalizedEventId =
-      String(eventId ?? "").trim();
+    const normalizedEventId = String(eventId ?? "").trim();
 
-    const normalizedEventTitle =
-      String(eventTitle ?? "").trim();
+    const normalizedEventTitle = String(eventTitle ?? "").trim();
 
-    const normalizedDateLabel =
-      String(dateLabel ?? "").trim();
+    const normalizedDateLabel = String(dateLabel ?? "").trim();
 
-    const normalizedTime =
-      String(time ?? "").trim();
+    const normalizedTime = String(time ?? "").trim();
 
-    const normalizedDuration =
-      String(duration ?? "").trim();
+    const normalizedDuration = String(duration ?? "").trim();
 
-    const normalizedVenue =
-      String(venue ?? "").trim();
+    const normalizedVenue = String(venue ?? "").trim();
 
-    const normalizedCity =
-      String(city ?? "").trim();
+    const normalizedCity = String(city ?? "").trim();
 
     const normalizedQuantity = Number(quantity ?? 1);
+
+    const normalizedChildrenUnder12 = Math.max(0, Number(childrenUnder12 ?? 0));
+
+    const normalizedChildren12Plus = Math.max(0, Number(children12Plus ?? 0));
+
+    /*
+     * =======================================================
+     * VALIDATION PARTICIPANT
+     * =======================================================
+     */
 
     if (!normalizedParticipantName) {
       return res.status(400).json({
@@ -163,6 +194,12 @@ export default async function handler(req: any, res: any) {
         error: "Le nom du participant est obligatoire.",
       });
     }
+
+    /*
+     * =======================================================
+     * VALIDATION EMAIL
+     * =======================================================
+     */
 
     if (!normalizedEmail) {
       return res.status(400).json({
@@ -178,6 +215,12 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    /*
+     * =======================================================
+     * VALIDATION ÉVÉNEMENT
+     * =======================================================
+     */
+
     if (
       !normalizedEventTitle ||
       !normalizedDateLabel ||
@@ -191,13 +234,47 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    /*
+     * =======================================================
+     * 1 RÉSERVATION = 1 PLACE
+     * =======================================================
+     */
+
     if (normalizedQuantity !== 1) {
       return res.status(400).json({
         ok: false,
-        error:
-          "Une réservation correspond à une seule place.",
+        error: "Une réservation correspond à une seule place.",
       });
     }
+
+    /*
+     * =======================================================
+     * VALIDATION ENFANTS
+     * =======================================================
+     */
+
+    if (
+      !Number.isInteger(normalizedChildrenUnder12) ||
+      !Number.isInteger(normalizedChildren12Plus)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Le nombre d'enfants doit être un nombre entier.",
+      });
+    }
+
+    if (normalizedChildrenUnder12 < 0 || normalizedChildren12Plus < 0) {
+      return res.status(400).json({
+        ok: false,
+        error: "Le nombre d'enfants ne peut pas être négatif.",
+      });
+    }
+
+    /*
+     * =======================================================
+     * DOUBLON EMAIL
+     * =======================================================
+     */
 
     const duplicateEmail = await sql`
       SELECT
@@ -212,11 +289,16 @@ export default async function handler(req: any, res: any) {
     if (duplicateEmail.length > 0) {
       return res.status(409).json({
         ok: false,
-        error:
-          "Cette adresse email possède déjà une réservation.",
+        error: "Cette adresse email possède déjà une réservation.",
         ticket: duplicateEmail[0],
       });
     }
+
+    /*
+     * =======================================================
+     * DOUBLON TÉLÉPHONE
+     * =======================================================
+     */
 
     if (normalizedPhone) {
       const duplicatePhone = await sql`
@@ -237,12 +319,17 @@ export default async function handler(req: any, res: any) {
       if (duplicatePhone.length > 0) {
         return res.status(409).json({
           ok: false,
-          error:
-            "Ce numéro de téléphone possède déjà une réservation.",
+          error: "Ce numéro de téléphone possède déjà une réservation.",
           ticket: duplicatePhone[0],
         });
       }
     }
+
+    /*
+     * =======================================================
+     * DOUBLON RÉSERVATION
+     * =======================================================
+     */
 
     if (normalizedReservationId) {
       const duplicateReservation = await sql`
@@ -258,12 +345,17 @@ export default async function handler(req: any, res: any) {
       if (duplicateReservation.length > 0) {
         return res.status(409).json({
           ok: false,
-          error:
-            "Cette réservation existe déjà.",
+          error: "Cette réservation existe déjà.",
           ticket: duplicateReservation[0],
         });
       }
     }
+
+    /*
+     * =======================================================
+     * VÉRIFICATION CAPACITÉ
+     * =======================================================
+     */
 
     const capacityResult = await sql`
       SELECT
@@ -272,20 +364,30 @@ export default async function handler(req: any, res: any) {
       WHERE status IN ('VALID', 'USED')
     `;
 
-    const reserved = Number(
-      capacityResult[0]?.reserved ?? 0,
-    );
+    const reserved = Number(capacityResult[0]?.reserved ?? 0);
 
     if (reserved >= MAX_TICKETS) {
       return res.status(409).json({
         ok: false,
-        error:
-          "Les 1200 places disponibles ont déjà été réservées.",
+        error: "Les 1200 places disponibles ont déjà été réservées.",
       });
     }
 
+    /*
+     * =======================================================
+     * GÉNÉRATION DU TICKET
+     * =======================================================
+     */
+
     const ticketNumber = generateTicketNumber();
+
     const verificationToken = generateVerificationToken();
+
+    /*
+     * =======================================================
+     * INSERTION
+     * =======================================================
+     */
 
     const result = await sql`
       INSERT INTO "Ticket" (
@@ -306,6 +408,8 @@ export default async function handler(req: any, res: any) {
         venue,
         city,
         quantity,
+        "childrenUnder12",
+        "children12Plus",
         status
       )
       VALUES (
@@ -326,6 +430,8 @@ export default async function handler(req: any, res: any) {
         ${normalizedVenue},
         ${normalizedCity},
         1,
+        ${normalizedChildrenUnder12},
+        ${normalizedChildren12Plus},
         'VALID'
       )
       RETURNING
@@ -346,11 +452,19 @@ export default async function handler(req: any, res: any) {
         venue,
         city,
         quantity,
+        "childrenUnder12",
+        "children12Plus",
         status,
         "createdAt",
         "usedAt",
         "cancelledAt"
     `;
+
+    /*
+     * =======================================================
+     * RÉPONSE
+     * =======================================================
+     */
 
     return res.status(201).json({
       ok: true,
@@ -359,22 +473,25 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     console.error("CREATE TICKET ERROR:", error);
 
+    /*
+     * =======================================================
+     * ERREUR UNIQUE POSTGRESQL
+     * =======================================================
+     */
+
     if (
       error?.code === "23505" ||
       String(error?.message ?? "").includes("unique")
     ) {
       return res.status(409).json({
         ok: false,
-        error:
-          "Une réservation identique existe déjà.",
+        error: "Une réservation identique existe déjà.",
       });
     }
 
     return res.status(500).json({
       ok: false,
-      error:
-        error?.message ||
-        "Erreur lors de la création du ticket.",
+      error: error?.message || "Erreur lors de la création du ticket.",
     });
   }
 }
