@@ -685,8 +685,8 @@ export default function ScanTicket() {
       <LoginScreen
         login={login}
         password={password}
-        error={authError}
-        busy={authBusy}
+        authError={authError}
+        authBusy={authBusy}
         onLoginChange={setLogin}
         onPasswordChange={setPassword}
         onSubmit={handleLogin}
@@ -894,152 +894,111 @@ export default function ScanTicket() {
 function LoginScreen({
   login,
   password,
-  error,
-  busy,
+  authBusy,
+  authError,
   onLoginChange,
   onPasswordChange,
   onSubmit,
 }: {
   login: string;
   password: string;
-  error: string;
-  busy: boolean;
+  authBusy: boolean;
+  authError: string;
   onLoginChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
-  onSubmit: (
-    event: FormEvent<HTMLFormElement>,
-  ) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12 sm:px-6">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center text-white">
-          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] bg-white/10 shadow-2xl ring-1 ring-white/10">
-            <ShieldCheck className="h-10 w-10" />
+    <main className="min-h-screen bg-slate-950 px-4 pb-16 pt-28 sm:px-6 sm:pt-32">
+      <div className="mx-auto flex w-full max-w-md flex-col justify-center">
+        <div className="mb-8 text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
+              <ShieldCheck className="h-8 w-8 text-white" />
+            </div>
           </div>
 
-          <h1 className="text-3xl font-black tracking-tight">
+          <h1 className="text-2xl font-black tracking-tight text-white">
             SiloCamp
           </h1>
 
-          <p className="mt-2 text-sm font-medium text-white/50">
+          <p className="mt-2 text-sm font-semibold text-white/60">
             Contrôle sécurisé des billets
           </p>
         </div>
 
-        <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
-          <div className="p-6 sm:p-8">
-            <div className="mb-7">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100">
-                  <LockKeyhole className="h-5 w-5 text-slate-700" />
-                </div>
+        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+          <div className="mb-6">
+            <h2 className="text-xl font-black text-white">
+              Connexion
+            </h2>
 
-                <div>
-                  <h2 className="text-xl font-black text-slate-900">
-                    Connexion
-                  </h2>
-
-                  <p className="text-xs text-slate-500">
-                    Accès réservé au contrôle des entrées
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <form
-              onSubmit={onSubmit}
-              className="space-y-5"
-            >
-              <div>
-                <label
-                  htmlFor="scanner-login"
-                  className="mb-2 block text-sm font-bold text-slate-700"
-                >
-                  Identifiant
-                </label>
-
-                <input
-                  id="scanner-login"
-                  type="text"
-                  value={login}
-                  onChange={(event) =>
-                    onLoginChange(
-                      event.target.value,
-                    )
-                  }
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="Votre identifiant"
-                  disabled={busy}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-900/5 disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="scanner-password"
-                  className="mb-2 block text-sm font-bold text-slate-700"
-                >
-                  Mot de passe
-                </label>
-
-                <input
-                  id="scanner-password"
-                  type="password"
-                  value={password}
-                  onChange={(event) =>
-                    onPasswordChange(
-                      event.target.value,
-                    )
-                  }
-                  autoComplete="current-password"
-                  placeholder="Votre mot de passe"
-                  disabled={busy}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-900/5 disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </div>
-
-              {error && (
-                <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
-
-                  <p className="text-sm font-semibold leading-5 text-red-700">
-                    {error}
-                  </p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={
-                  busy ||
-                  !login.trim() ||
-                  !password
-                }
-                className="flex min-h-14 w-full touch-manipulation items-center justify-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {busy ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Connexion en cours...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="h-5 w-5" />
-                    Se connecter
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-6 flex items-center justify-center gap-2 text-center text-xs text-slate-400">
-              <ShieldCheck className="h-4 w-4" />
-              Accès sécurisé SiloCamp
-            </div>
+            <p className="mt-1 text-sm text-white/50">
+              Accès réservé au contrôle des entrées
+            </p>
           </div>
+
+          <form onSubmit={onSubmit} className="space-y-5">
+            <div>
+              <label
+                htmlFor="scanner-login"
+                className="mb-2 block text-sm font-bold text-white"
+              >
+                Identifiant
+              </label>
+
+              <input
+                id="scanner-login"
+                type="text"
+                value={login}
+                onChange={(event) => onLoginChange(event.target.value)}
+                placeholder="Votre identifiant"
+                autoComplete="username"
+                disabled={authBusy}
+                className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-white/30 focus:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="scanner-password"
+                className="mb-2 block text-sm font-bold text-white"
+              >
+                Mot de passe
+              </label>
+
+              <input
+                id="scanner-password"
+                type="password"
+                value={password}
+                onChange={(event) => onPasswordChange(event.target.value)}
+                placeholder="Votre mot de passe"
+                autoComplete="current-password"
+                disabled={authBusy}
+                className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-white/30 focus:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+
+            {authError && (
+              <div className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-300">
+                {authError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={authBusy}
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {authBusy ? "Connexion..." : "Se connecter"}
+            </button>
+          </form>
+        </div>
+
+        <div className="mt-6 text-center">
+          <p className="text-xs font-semibold text-white/35">
+            Accès sécurisé SiloCamp
+          </p>
         </div>
       </div>
     </main>
