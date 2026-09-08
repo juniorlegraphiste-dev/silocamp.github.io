@@ -266,9 +266,9 @@ function ValidTicketPage({
     childrenUnder12 + children12Plus;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#10081f] via-[#24123e] to-[#160b29] px-4 py-8 sm:px-6 sm:py-12">
+   <main className="min-h-screen bg-gradient-to-br from-[#160525] via-[#2b0d4d] to-[#12031f] px-4 pb-12 pt-24 sm:px-6 sm:pb-16 sm:pt-28 lg:pt-32">
 
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-5xl">
 
         {/* BADGE */}
         <div className="mb-6 flex justify-center">
