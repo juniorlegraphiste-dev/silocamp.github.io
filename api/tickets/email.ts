@@ -41,10 +41,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#039;");
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse,
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
 
@@ -58,17 +55,11 @@ export default async function handler(
   try {
     const body = (req.body ?? {}) as EmailRequestBody;
 
-    const ticketNumber = String(
-      body.ticketNumber ?? "",
-    ).trim();
+    const ticketNumber = String(body.ticketNumber ?? "").trim();
 
-    const email = normalizeEmail(
-      String(body.email ?? ""),
-    );
+    const email = normalizeEmail(String(body.email ?? ""));
 
-    const pdfBase64 = String(
-      body.pdfBase64 ?? "",
-    )
+    const pdfBase64 = String(body.pdfBase64 ?? "")
       .trim()
       .replace(/^data:application\/pdf;base64,/i, "");
 
@@ -119,8 +110,7 @@ export default async function handler(
       return res.status(413).json({
         ok: false,
         code: "PDF_TOO_LARGE",
-        message:
-          "Le billet PDF est trop volumineux pour être envoyé.",
+        message: "Le billet PDF est trop volumineux pour être envoyé.",
       });
     }
 
@@ -135,41 +125,32 @@ export default async function handler(
     const fromEmail = process.env.RESEND_FROM_EMAIL;
 
     if (!databaseUrl) {
-      console.error(
-        "[SiloCamp Email] DATABASE_URL manquante.",
-      );
+      console.error("[SiloCamp Email] DATABASE_URL manquante.");
 
       return res.status(500).json({
         ok: false,
         code: "DATABASE_CONFIGURATION_ERROR",
-        message:
-          "La base de données SiloCamp n'est pas configurée.",
+        message: "La base de données SiloCamp n'est pas configurée.",
       });
     }
 
     if (!resendApiKey) {
-      console.error(
-        "[SiloCamp Email] RESEND_API_KEY manquante.",
-      );
+      console.error("[SiloCamp Email] RESEND_API_KEY manquante.");
 
       return res.status(500).json({
         ok: false,
         code: "RESEND_API_KEY_MISSING",
-        message:
-          "Le service d'envoi d'e-mail n'est pas configuré.",
+        message: "Le service d'envoi d'e-mail n'est pas configuré.",
       });
     }
 
     if (!fromEmail) {
-      console.error(
-        "[SiloCamp Email] RESEND_FROM_EMAIL manquante.",
-      );
+      console.error("[SiloCamp Email] RESEND_FROM_EMAIL manquante.");
 
       return res.status(500).json({
         ok: false,
         code: "RESEND_FROM_EMAIL_MISSING",
-        message:
-          "L'adresse d'expédition n'est pas configurée.",
+        message: "L'adresse d'expédition n'est pas configurée.",
       });
     }
 
@@ -216,24 +197,18 @@ export default async function handler(
     ============================================================
     */
 
-    const ticketEmail = normalizeEmail(
-      String(ticket.email ?? ""),
-    );
+    const ticketEmail = normalizeEmail(String(ticket.email ?? ""));
 
     if (ticketEmail !== email) {
-      console.warn(
-        "[SiloCamp Email] EMAIL_MISMATCH",
-        {
-          ticketNumber,
-          requestedEmail: email,
-        },
-      );
+      console.warn("[SiloCamp Email] EMAIL_MISMATCH", {
+        ticketNumber,
+        requestedEmail: email,
+      });
 
       return res.status(403).json({
         ok: false,
         code: "EMAIL_MISMATCH",
-        message:
-          "Cette adresse e-mail ne correspond pas au billet.",
+        message: "Cette adresse e-mail ne correspond pas au billet.",
       });
     }
 
@@ -241,8 +216,7 @@ export default async function handler(
       return res.status(500).json({
         ok: false,
         code: "VERIFICATION_TOKEN_MISSING",
-        message:
-          "Le token de vérification du billet est indisponible.",
+        message: "Le token de vérification du billet est indisponible.",
       });
     }
 
@@ -262,39 +236,25 @@ export default async function handler(
     ============================================================
     */
 
-    const participantName = escapeHtml(
-      ticket.participantName || "Participant",
-    );
+    const participantName = escapeHtml(ticket.participantName || "Participant");
 
     const eventTitle = escapeHtml(
-      ticket.eventTitle ||
-        "Camp International Silo 2026",
+      ticket.eventTitle || "Camp International Silo 2026",
     );
 
-    const dateLabel = escapeHtml(
-      ticket.dateLabel || "",
-    );
+    const dateLabel = escapeHtml(ticket.dateLabel || "");
 
-    const time = escapeHtml(
-      ticket.time || "",
-    );
+    const time = escapeHtml(ticket.time || "");
 
-    const venue = escapeHtml(
-      ticket.venue || "",
-    );
+    const venue = escapeHtml(ticket.venue || "");
 
-    const city = escapeHtml(
-      ticket.city || "",
-    );
+    const city = escapeHtml(ticket.city || "");
 
     const reservationId = escapeHtml(
-      ticket.reservationId ||
-        "Confirmation enregistrée",
+      ticket.reservationId || "Confirmation enregistrée",
     );
 
-    const safeTicketNumber = escapeHtml(
-      ticket.ticketNumber,
-    );
+    const safeTicketNumber = escapeHtml(ticket.ticketNumber);
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -582,45 +542,38 @@ export default async function handler(
     ============================================================
     */
 
-    console.log(
-      "[SiloCamp Email] Envoi vers Resend...",
-    );
+    console.log("[SiloCamp Email] Envoi vers Resend...");
 
-    const resendResponse = await fetch(
-      "https://api.resend.com/emails",
-      {
-        method: "POST",
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
 
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          from: fromEmail,
-
-          to: [email],
-
-          subject: "🎟️ Votre billet SiloCamp 2026",
-
-          html: emailHtml,
-
-          attachments: [
-            {
-              filename:
-                `${ticket.ticketNumber}-SiloCamp-2026.pdf`,
-
-              content: pdfBase64,
-
-              content_type: "application/pdf",
-            },
-          ],
-        }),
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
       },
-    );
 
-    const resendText =
-      await resendResponse.text();
+      body: JSON.stringify({
+        from: fromEmail,
+
+        to: [email],
+
+        subject: "🎟️ Votre billet SiloCamp 2026",
+
+        html: emailHtml,
+
+        attachments: [
+          {
+            filename: `${ticket.ticketNumber}-SiloCamp-2026.pdf`,
+
+            content: pdfBase64,
+
+            content_type: "application/pdf",
+          },
+        ],
+      }),
+    });
+
+    const resendText = await resendResponse.text();
 
     let resendData: unknown = resendText;
 
@@ -632,23 +585,23 @@ export default async function handler(
 
     if (!resendResponse.ok) {
       console.error(
-        "[SiloCamp Email] Resend ERROR:",
-        {
-          status: resendResponse.status,
-          data: resendData,
-        },
+        "[SiloCamp Email] Resend error:",
+        JSON.stringify(resendData, null, 2),
       );
+
+      const resendError =
+        resendData &&
+        typeof resendData === "object" &&
+        "message" in resendData &&
+        typeof (resendData as { message?: unknown }).message === "string"
+          ? (resendData as { message: string }).message
+          : null;
 
       return res.status(502).json({
         ok: false,
         code: "EMAIL_SEND_FAILED",
         message:
-          "Le service d'e-mail a refusé l'envoi du billet.",
-
-        debug:
-          process.env.NODE_ENV === "development"
-            ? resendData
-            : undefined,
+          resendError || "Le service d'e-mail a refusé l'envoi du billet.",
       });
     }
 
@@ -660,35 +613,24 @@ export default async function handler(
     return res.status(200).json({
       ok: true,
 
-      message:
-        "Votre billet a été envoyé avec succès par e-mail.",
+      message: "Votre billet a été envoyé avec succès par e-mail.",
 
       ticketNumber: ticket.ticketNumber,
 
       email,
     });
   } catch (error) {
-    console.error(
-      "[SiloCamp Email] ERREUR SERVEUR :",
-      error,
-    );
+    console.error("[SiloCamp Email] ERREUR SERVEUR :", error);
 
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
 
     return res.status(500).json({
       ok: false,
       code: "EMAIL_SERVER_ERROR",
 
-      message:
-        "Une erreur est survenue lors de l'envoi du billet.",
+      message: "Une erreur est survenue lors de l'envoi du billet.",
 
-      error:
-        process.env.NODE_ENV === "development"
-          ? errorMessage
-          : undefined,
+      error: process.env.NODE_ENV === "development" ? errorMessage : undefined,
     });
   }
 }
