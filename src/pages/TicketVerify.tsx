@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import {
   AlertTriangle,
+  BadgeCheck,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -182,76 +183,104 @@ type ValidTicketPageProps = {
 };
 
 function ValidTicketPage({ ticket }: ValidTicketPageProps) {
-  const childrenUnder12 = Math.max(0, Number(ticket.childrenUnder12 ?? 0));
-
-  const children12Plus = Math.max(0, Number(ticket.children12Plus ?? 0));
-
-  const totalChildren = childrenUnder12 + children12Plus;
+  const totalChildren =
+    (ticket.childrenUnder12 ?? 0) + (ticket.children12Plus ?? 0);
 
   const participantName =
     ticket.participantName ||
-    [ticket.firstName, ticket.lastName].filter(Boolean).join(" ") ||
+    `${ticket.firstName ?? ""} ${ticket.lastName ?? ""}`.trim() ||
     "Participant";
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6">
+    <main className="min-h-screen bg-gradient-to-br from-[#160525] via-[#2b0d4d] to-[#12031f] px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto w-full max-w-3xl">
         {/* Badge */}
         <div className="mb-6 flex justify-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300 backdrop-blur">
             <CheckCircle2 className="h-5 w-5" />
             Billet authentifié
           </div>
         </div>
 
-        {/* Card */}
-        <div className="overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-200">
+        {/* Carte principale */}
+        <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[#2a1044] shadow-2xl shadow-black/40">
           {/* Header */}
-          <div className="bg-gradient-to-br from-violet-950 via-violet-900 to-indigo-900 px-6 py-10 text-center text-white sm:px-10">
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500 shadow-lg">
-              <CheckCircle2 className="h-11 w-11 text-white" />
+          <div className="relative overflow-hidden bg-gradient-to-br from-[#4c1678] via-[#321052] to-[#1b082d] px-6 py-10 text-center sm:px-10">
+            {/* Effet décoratif */}
+            <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-[#d6b36a]/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-violet-400/10 blur-3xl" />
+
+            <div className="relative">
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/30">
+                <CheckCircle2 className="h-11 w-11 text-white" />
+              </div>
+
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#d6b36a]/30 bg-[#d6b36a]/10 px-4 py-2">
+                <ShieldCheck className="h-4 w-4 text-[#e7ca83]" />
+
+                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[#e7ca83]">
+                  Vérification officielle
+                </span>
+              </div>
+
+              <h1 className="text-3xl font-black text-white sm:text-4xl">
+                Votre accès est confirmé
+              </h1>
+
+              <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-violet-100 sm:text-base">
+                Votre billet a été authentifié avec succès. Vous êtes
+                officiellement enregistré pour participer au Camp International
+                Silo 2026.
+              </p>
             </div>
-
-            <p className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-violet-200">
-              Vérification officielle
-            </p>
-
-            <h1 className="text-3xl font-black sm:text-4xl">
-              Votre accès est confirmé
-            </h1>
-
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-violet-100 sm:text-base">
-              Votre billet a été authentifié avec succès. Vous êtes bien
-              enregistré pour participer au Camp International Silo 2026.
-            </p>
           </div>
 
-          {/* Content */}
-          <div className="space-y-6 p-6 sm:p-10">
+          {/* Contenu */}
+          <div className="space-y-6 p-5 sm:p-8">
             {/* Participant */}
-            <section className="rounded-2xl bg-slate-50 p-5">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Participant
-              </p>
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#d6b36a]/15">
+                  <BadgeCheck className="h-6 w-6 text-[#e7ca83]" />
+                </div>
 
-              <p className="mt-2 text-xl font-extrabold text-slate-900">
-                {participantName}
-              </p>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-300">
+                    Participant enregistré
+                  </p>
 
-              {ticket.email && (
-                <p className="mt-1 text-sm text-slate-500">{ticket.email}</p>
-              )}
+                  <p className="mt-2 break-words text-xl font-black text-white">
+                    {participantName}
+                  </p>
 
-              {ticket.phone && (
-                <p className="mt-1 text-sm text-slate-500">{ticket.phone}</p>
-              )}
+                  {ticket.email && (
+                    <p className="mt-2 break-all text-sm text-white/60">
+                      {ticket.email}
+                    </p>
+                  )}
+
+                  {ticket.phone && (
+                    <p className="mt-1 text-sm text-white/60">{ticket.phone}</p>
+                  )}
+                </div>
+              </div>
             </section>
 
             {/* Informations */}
             <section>
-              <h2 className="mb-4 text-lg font-extrabold text-slate-900">
-                Informations du billet
-              </h2>
+              <div className="mb-4 flex items-center gap-3">
+                <div className="h-8 w-1 rounded-full bg-[#d6b36a]" />
+
+                <div>
+                  <p className="text-lg font-black text-white">
+                    Informations du billet
+                  </p>
+
+                  <p className="text-xs text-white/45">
+                    Détails de votre participation
+                  </p>
+                </div>
+              </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <TicketInfo
@@ -269,14 +298,12 @@ function ValidTicketPage({ ticket }: ValidTicketPageProps) {
                 <TicketInfo
                   icon={<MapPin className="h-5 w-5" />}
                   label="Lieu"
-                  value={`${ticket.venue}${
-                    ticket.city ? `, ${ticket.city}` : ""
-                  }`}
+                  value={`${ticket.venue}, ${ticket.city}`}
                 />
 
                 <TicketInfo
                   icon={<TicketIcon className="h-5 w-5" />}
-                  label="Billet"
+                  label="Numéro du billet"
                   value={ticket.ticketNumber}
                 />
               </div>
@@ -284,60 +311,68 @@ function ValidTicketPage({ ticket }: ValidTicketPageProps) {
 
             {/* Réservation */}
             {ticket.reservationId && (
-              <section className="rounded-2xl border border-violet-100 bg-violet-50 p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-violet-600">
+              <section className="rounded-3xl border border-[#d6b36a]/20 bg-[#d6b36a]/5 p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#e7ca83]">
                   Numéro de réservation
                 </p>
 
-                <p className="mt-2 break-all font-mono text-lg font-bold text-violet-950">
+                <p className="mt-3 break-all font-mono text-sm font-bold text-white">
                   {ticket.reservationId}
                 </p>
               </section>
             )}
 
-            {/* Accompagnants */}
+            {/* Enfants */}
             {totalChildren > 0 && (
-              <section className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
+              <section className="rounded-3xl border border-amber-400/20 bg-amber-400/5 p-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300">
                       Accompagnants
                     </p>
 
-                    <div className="mt-2 space-y-1 font-semibold text-slate-900">
-                      {childrenUnder12 > 0 && (
+                    <div className="mt-2 text-sm font-semibold text-white">
+                      {ticket.childrenUnder12 > 0 && (
                         <p>
-                          {childrenUnder12} enfant
-                          {childrenUnder12 > 1 ? "s" : ""} de moins de 12 ans
+                          {ticket.childrenUnder12} enfant
+                          {ticket.childrenUnder12 > 1 ? "s" : ""} de moins de 12
+                          ans
                         </p>
                       )}
 
-                      {children12Plus > 0 && (
+                      {ticket.children12Plus > 0 && (
                         <p>
-                          {children12Plus} enfant
-                          {children12Plus > 1 ? "s" : ""} de 12 ans ou plus
+                          {ticket.children12Plus} enfant
+                          {ticket.children12Plus > 1 ? "s" : ""} de 12 ans ou
+                          plus
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-lg font-black text-amber-800">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-400/15 text-xl font-black text-amber-300">
                     {totalChildren}
                   </div>
                 </div>
               </section>
             )}
 
-            {/* Statut */}
-            <div className="flex items-center justify-center gap-3 rounded-2xl bg-emerald-50 px-5 py-4 text-center">
-              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+            {/* Statut final */}
+            <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-r from-emerald-500/15 to-emerald-400/5 p-5">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+                  <CheckCircle2 className="h-7 w-7 text-white" />
+                </div>
 
-              <div>
-                <p className="font-extrabold text-emerald-800">
-                  Accès confirmé
-                </p>
+                <div>
+                  <p className="text-lg font-black text-white">
+                    Accès autorisé
+                  </p>
 
-                <p className="text-sm text-emerald-700">Ce billet est valide</p>
+                  <p className="mt-1 text-sm text-emerald-200">
+                    Ce billet est authentique et valide pour l'entrée au Camp.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -345,9 +380,13 @@ function ValidTicketPage({ ticket }: ValidTicketPageProps) {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-slate-100 px-6 py-5 text-center">
-            <p className="text-xs text-slate-400">
-              SiloCamp • Camp International Silo 2026
+          <div className="border-t border-white/10 bg-black/10 px-6 py-5 text-center">
+            <p className="text-xs font-semibold text-white/40">
+              SILOCAMP • CAMP INTERNATIONAL SILO 2026
+            </p>
+
+            <p className="mt-1 text-[10px] text-white/25">
+              Billetterie officielle sécurisée
             </p>
           </div>
         </div>
