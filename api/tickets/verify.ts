@@ -1,143 +1,58 @@
 import { neon } from "@neondatabase/serverless";
-import crypto from "crypto";
-
-const COOKIE_NAME = "silocamp_scan_session";
 
 function normalizeToken(value: unknown): string {
-  return String(value ?? "").trim().toLowerCase();
-}
-
-function getSessionFromRequest(
-  req: any,
-): { username: string; exp: number } | null {
-  try {
-    const cookieHeader = req.headers?.cookie || "";
-
-    const cookie = cookieHeader
-      .split(";")
-      .map((item: string) => item.trim())
-      .find((item: string) =>
-        item.startsWith(`${COOKIE_NAME}=`),
-      );
-
-    if (!cookie) {
-      return null;
-    }
-
-    const session = decodeURIComponent(
-      cookie.substring(COOKIE_NAME.length + 1),
-    );
-
-    const parts = session.split(".");
-
-    if (parts.length !== 2) {
-      return null;
-    }
-
-    const [payload, signature] = parts;
-
-    const secret = process.env.SCANNER_SESSION_SECRET;
-
-    if (!secret) {
-      console.error(
-        "[SiloCamp Verify] SCANNER_SESSION_SECRET manquant.",
-      );
-
-      return null;
-    }
-
-    const expectedSignature = crypto
-      .createHmac("sha256", secret)
-      .update(payload)
-      .digest("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/g, "");
-
-    const signatureBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-
-    if (
-      signatureBuffer.length !== expectedBuffer.length ||
-      !crypto.timingSafeEqual(
-        signatureBuffer,
-        expectedBuffer,
-      )
-    ) {
-      return null;
-    }
-
-    const normalizedPayload = payload
-      .replace(/-/g, "+")
-      .replace(/_/g, "/");
-
-    const data = JSON.parse(
-      Buffer.from(normalizedPayload, "base64").toString("utf8"),
-    ) as {
-      username?: string;
-      exp?: number;
-    };
-
-    if (
-      !data ||
-      typeof data.username !== "string" ||
-      typeof data.exp !== "number"
-    ) {
-      return null;
-    }
-
-    if (Date.now() >= data.exp) {
-      return null;
-    }
-
-    return {
-      username: data.username,
-      exp: data.exp,
-    };
-  } catch (error) {
-    console.error(
-      "[SiloCamp Verify Session]",
-      error,
-    );
-
-    return null;
-  }
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 function sanitizeTicket(ticket: any) {
   if (!ticket) {
-    return ticket;
+    return null;
   }
 
   return {
     id: ticket.id,
     ticketNumber: ticket.ticketNumber,
+
+    // IMPORTANT :
+    // On ne renvoie jamais le vrai token secret.
     verificationToken: "",
-    firstName: ticket.firstName,
-    lastName: ticket.lastName,
+
+    firstName: ticket.firstName ?? null,
+    lastName: ticket.lastName ?? null,
     participantName: ticket.participantName,
+
     email: ticket.email,
-    phone: ticket.phone,
-    reservationId: ticket.reservationId,
-    eventId: ticket.eventId,
+    phone: ticket.phone ?? null,
+
+    reservationId: ticket.reservationId ?? null,
+
+    eventId: ticket.eventId ?? null,
     eventTitle: ticket.eventTitle,
+
     dateLabel: ticket.dateLabel,
     time: ticket.time,
-    duration: ticket.duration,
+    duration: ticket.duration ?? null,
+
     venue: ticket.venue,
     city: ticket.city,
-    quantity: ticket.quantity,
+
+    quantity: ticket.quantity ?? 1,
+
+    childrenUnder12: Number(ticket.childrenUnder12 ?? 0),
+
+    children12Plus: Number(ticket.children12Plus ?? 0),
+
     status: ticket.status,
+
     createdAt: ticket.createdAt,
-    usedAt: ticket.usedAt,
-    cancelledAt: ticket.cancelledAt,
+    usedAt: ticket.usedAt ?? null,
+    cancelledAt: ticket.cancelledAt ?? null,
   };
 }
 
-export default async function handler(
-  req: any,
-  res: any,
-) {
+export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({
       ok: false,
@@ -147,36 +62,20 @@ export default async function handler(
     });
   }
 
-  const session = getSessionFromRequest(req);
-
-  if (!session) {
-    return res.status(401).json({
-      ok: false,
-      valid: false,
-      reason: "SCAN_UNAUTHORIZED",
-      message:
-        "Authentification requise pour vérifier les billets.",
-    });
-  }
-
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
-    console.error(
-      "[SiloCamp Verify] DATABASE_URL manquante.",
-    );
+    console.error("[SiloCamp Verify] DATABASE_URL manquante.");
 
     return res.status(500).json({
       ok: false,
       valid: false,
       reason: "DATABASE_ERROR",
-      message: "Configuration de la base de données manquante.",
+      message: "Le service de vérification est temporairement indisponible.",
     });
   }
 
   try {
-    const sql = neon(databaseUrl);
-
     const token = normalizeToken(req.body?.token);
 
     if (!token) {
@@ -184,7 +83,7 @@ export default async function handler(
         ok: false,
         valid: false,
         reason: "TOKEN_REQUIRED",
-        message: "Token de vérification manquant.",
+        message: "Aucun code de vérification n'a été fourni.",
       });
     }
 
@@ -193,15 +92,16 @@ export default async function handler(
         ok: false,
         valid: false,
         reason: "INVALID_TOKEN",
-        message: "QR Code invalide.",
+        message: "Ce lien de vérification n'est pas valide.",
       });
     }
+
+    const sql = neon(databaseUrl);
 
     const result = await sql`
       SELECT
         id,
         "ticketNumber",
-        "verificationToken",
         "firstName",
         "lastName",
         "participantName",
@@ -216,6 +116,8 @@ export default async function handler(
         venue,
         city,
         quantity,
+        "childrenUnder12",
+        "children12Plus",
         status,
         "createdAt",
         "usedAt",
@@ -230,52 +132,87 @@ export default async function handler(
         ok: false,
         valid: false,
         reason: "TICKET_NOT_FOUND",
-        message: "Billet introuvable ou QR Code invalide.",
+        message: "Aucun billet correspondant à ce QR Code n'a été trouvé.",
       });
     }
 
     const ticket = result[0];
+
+    /*
+    =========================================
+    BILLET ANNULÉ
+    =========================================
+    */
 
     if (ticket.status === "CANCELLED") {
       return res.status(410).json({
         ok: false,
         valid: false,
         reason: "TICKET_CANCELLED",
-        message: "Ce billet a été annulé.",
+        message:
+          "Ce billet a été annulé et ne permet plus l'accès à l'événement.",
         ticket: sanitizeTicket(ticket),
       });
     }
+
+    /*
+    =========================================
+    BILLET DÉJÀ UTILISÉ
+    =========================================
+    */
 
     if (ticket.status === "USED") {
       return res.status(409).json({
         ok: false,
         valid: false,
         reason: "TICKET_ALREADY_USED",
-        message: "Ce billet a déjà été utilisé.",
+        message: "Ce billet a déjà été enregistré comme utilisé.",
         ticket: sanitizeTicket(ticket),
       });
     }
 
-    return res.status(200).json({
-      ok: true,
-      valid: true,
-      reason: null,
-      message: "Billet valide.",
+    /*
+    =========================================
+    BILLET VALIDE
+    =========================================
+    */
+
+    if (ticket.status === "VALID") {
+      return res.status(200).json({
+        ok: true,
+        valid: true,
+        reason: null,
+
+        message: "Billet authentique et valide pour cet événement.",
+
+        ticket: sanitizeTicket(ticket),
+      });
+    }
+
+    /*
+    =========================================
+    STATUT INCONNU
+    =========================================
+    */
+
+    return res.status(400).json({
+      ok: false,
+      valid: false,
+      reason: "INVALID_STATUS",
+
+      message: "Le statut de ce billet ne permet pas sa validation.",
+
       ticket: sanitizeTicket(ticket),
     });
   } catch (error: any) {
-    console.error(
-      "[SiloCamp Verify Ticket Error]",
-      error,
-    );
+    console.error("[SiloCamp Verify Ticket Error]", error);
 
     return res.status(500).json({
       ok: false,
       valid: false,
       reason: "SERVER_ERROR",
-      message:
-        error?.message ||
-        "Erreur lors de la vérification du billet.",
+
+      message: "Une erreur est survenue pendant la vérification du billet.",
     });
   }
 }

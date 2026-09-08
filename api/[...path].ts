@@ -4,11 +4,15 @@ import crypto from "node:crypto";
 const MAX_TICKETS = 1200;
 
 function normalizeEmail(value: unknown) {
-  return String(value ?? "").trim().toLowerCase();
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 function normalizePhone(value: unknown) {
-  return String(value ?? "").replace(/\s+/g, "").trim();
+  return String(value ?? "")
+    .replace(/\s+/g, "")
+    .trim();
 }
 
 function generateTicketNumber() {
@@ -23,9 +27,7 @@ function generateVerificationToken() {
 }
 
 export default async function handler(req: any, res: any) {
-  const path = Array.isArray(req.query?.path)
-    ? req.query.path
-    : [];
+  const path = Array.isArray(req.query?.path) ? req.query.path : [];
 
   const route = path.join("/");
 
@@ -35,29 +37,32 @@ export default async function handler(req: any, res: any) {
         const sql = neon(process.env.DATABASE_URL!);
 
         const tickets = await sql`
-          SELECT
-            id,
-            "ticketNumber",
-            "verificationToken",
-            "firstName",
-            "lastName",
-            "participantName",
-            email,
-            phone,
-            "reservationId",
-            "eventId",
-            "eventTitle",
-            "dateLabel",
-            time,
-            duration,
-            venue,
-            city,
-            quantity,
-            status,
-            "createdAt",
-            "usedAt",
-            "cancelledAt"
-          FROM "Ticket"
+         
+        SELECT
+          id,
+          "ticketNumber",
+          "verificationToken",
+          "firstName",
+          "lastName",
+          "participantName",
+          email,
+          phone,
+          "reservationId",
+          "eventId",
+          "eventTitle",
+          "dateLabel",
+          time,
+          duration,
+          venue,
+          city,
+          quantity,
+          "childrenUnder12",
+          "children12Plus",
+          status,
+          "createdAt",
+          "usedAt",
+          "cancelledAt"
+        FROM "Ticket"
           ORDER BY "createdAt" DESC
         `;
 
@@ -107,8 +112,7 @@ export default async function handler(req: any, res: any) {
 
         const normalizedEmail = normalizeEmail(email);
         const normalizedPhone = normalizePhone(phone);
-        const normalizedReservationId =
-          String(reservationId ?? "").trim();
+        const normalizedReservationId = String(reservationId ?? "").trim();
 
         if (!participantName) {
           return res.status(400).json({
@@ -148,8 +152,7 @@ export default async function handler(req: any, res: any) {
         if (duplicateEmail.length > 0) {
           return res.status(409).json({
             ok: false,
-            error:
-              "Cette adresse email possède déjà une réservation.",
+            error: "Cette adresse email possède déjà une réservation.",
           });
         }
 
@@ -169,8 +172,7 @@ export default async function handler(req: any, res: any) {
           if (duplicatePhone.length > 0) {
             return res.status(409).json({
               ok: false,
-              error:
-                "Ce numéro de téléphone possède déjà une réservation.",
+              error: "Ce numéro de téléphone possède déjà une réservation.",
             });
           }
         }
@@ -197,21 +199,17 @@ export default async function handler(req: any, res: any) {
           WHERE status IN ('VALID', 'USED')
         `;
 
-        const reserved = Number(
-          capacityResult[0]?.reserved ?? 0
-        );
+        const reserved = Number(capacityResult[0]?.reserved ?? 0);
 
         if (reserved >= MAX_TICKETS) {
           return res.status(409).json({
             ok: false,
-            error:
-              "Les 1200 places disponibles ont déjà été réservées.",
+            error: "Les 1200 places disponibles ont déjà été réservées.",
           });
         }
 
         const ticketNumber = generateTicketNumber();
-        const verificationToken =
-          generateVerificationToken();
+        const verificationToken = generateVerificationToken();
 
         const result = await sql`
           INSERT INTO "Ticket" (
@@ -287,9 +285,7 @@ export default async function handler(req: any, res: any) {
 
         return res.status(500).json({
           ok: false,
-          error:
-            error?.message ||
-            "Erreur lors de la création du ticket.",
+          error: error?.message || "Erreur lors de la création du ticket.",
         });
       }
     }
