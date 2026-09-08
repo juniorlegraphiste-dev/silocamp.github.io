@@ -19,11 +19,14 @@ export type Ticket = {
   dateLabel: string;
   time: string;
   duration?: string | null;
-
   venue: string;
   city: string;
 
   quantity: number;
+
+  childrenUnder12: number;
+  children12Plus: number;
+
   status: TicketStatus;
 
   createdAt: string | Date;
@@ -46,11 +49,13 @@ export type CreateTicketInput = {
   dateLabel: string;
   time: string;
   duration?: string;
-
   venue: string;
   city: string;
 
   quantity?: number;
+
+  childrenUnder12?: number;
+  children12Plus?: number;
 };
 
 export type TicketStats = {
@@ -81,22 +86,35 @@ function normalizePhone(value: string): string {
 function normalizeTicket(ticket: Ticket): Ticket {
   return {
     ...ticket,
+
+    childrenUnder12: Number(ticket.childrenUnder12 ?? 0),
+    children12Plus: Number(ticket.children12Plus ?? 0),
+
     usedAt: ticket.usedAt ?? null,
     cancelledAt: ticket.cancelledAt ?? null,
   };
 }
 
 async function parseJson(response: Response): Promise<unknown> {
-  const contentType = response.headers.get("content-type") || "";
+  const contentType =
+    response.headers.get("content-type") || "";
+
   const text = await response.text();
 
   if (!text.trim()) {
     return null;
   }
 
-  if (!contentType.toLowerCase().includes("application/json")) {
+  if (
+    !contentType
+      .toLowerCase()
+      .includes("application/json")
+  ) {
     throw new Error(
-      `Réponse serveur non JSON (${response.status}) : ${text.slice(0, 300)}`,
+      `Réponse serveur non JSON (${response.status}) : ${text.slice(
+        0,
+        300,
+      )}`,
     );
   }
 
@@ -109,15 +127,28 @@ async function parseJson(response: Response): Promise<unknown> {
   }
 }
 
-function getApiError(data: unknown, fallback: string): string {
-  if (typeof data === "object" && data !== null) {
-    const value = data as Record<string, unknown>;
+function getApiError(
+  data: unknown,
+  fallback: string,
+): string {
+  if (
+    typeof data === "object" &&
+    data !== null
+  ) {
+    const value =
+      data as Record<string, unknown>;
 
-    if (typeof value.error === "string" && value.error.trim()) {
+    if (
+      typeof value.error === "string" &&
+      value.error.trim()
+    ) {
       return value.error;
     }
 
-    if (typeof value.message === "string" && value.message.trim()) {
+    if (
+      typeof value.message === "string" &&
+      value.message.trim()
+    ) {
       return value.message;
     }
   }
@@ -125,13 +156,19 @@ function getApiError(data: unknown, fallback: string): string {
   return fallback;
 }
 
-function extractTickets(data: unknown): Ticket[] | null {
+function extractTickets(
+  data: unknown,
+): Ticket[] | null {
   if (Array.isArray(data)) {
     return data as Ticket[];
   }
 
-  if (typeof data === "object" && data !== null) {
-    const value = data as Record<string, unknown>;
+  if (
+    typeof data === "object" &&
+    data !== null
+  ) {
+    const value =
+      data as Record<string, unknown>;
 
     if (Array.isArray(value.tickets)) {
       return value.tickets as Ticket[];
@@ -171,7 +208,10 @@ export async function getTickets(): Promise<Ticket[]> {
   const tickets = extractTickets(data);
 
   if (!tickets) {
-    console.error("[SiloCamp] Réponse reçue depuis /api/tickets :", data);
+    console.error(
+      "[SiloCamp] Réponse reçue depuis /api/tickets :",
+      data,
+    );
 
     throw new Error(
       "La réponse du serveur ne contient pas une liste de billets valide.",
@@ -185,7 +225,9 @@ export async function getTickets(): Promise<Ticket[]> {
    BILLET PAR ID
 ========================================================= */
 
-export async function getTicketById(id: string): Promise<Ticket | null> {
+export async function getTicketById(
+  id: string,
+): Promise<Ticket | null> {
   const normalizedId = id.trim();
 
   if (!normalizedId) {
@@ -194,7 +236,11 @@ export async function getTicketById(id: string): Promise<Ticket | null> {
 
   const tickets = await getTickets();
 
-  return tickets.find((ticket) => ticket.id === normalizedId) ?? null;
+  return (
+    tickets.find(
+      (ticket) => ticket.id === normalizedId,
+    ) ?? null
+  );
 }
 
 /* =========================================================
@@ -204,7 +250,8 @@ export async function getTicketById(id: string): Promise<Ticket | null> {
 export async function getTicketByNumber(
   ticketNumber: string,
 ): Promise<Ticket | null> {
-  const normalizedNumber = ticketNumber.trim().toLowerCase();
+  const normalizedNumber =
+    ticketNumber.trim().toLowerCase();
 
   if (!normalizedNumber) {
     return null;
@@ -214,7 +261,10 @@ export async function getTicketByNumber(
 
   return (
     tickets.find(
-      (ticket) => ticket.ticketNumber.trim().toLowerCase() === normalizedNumber,
+      (ticket) =>
+        ticket.ticketNumber
+          .trim()
+          .toLowerCase() === normalizedNumber,
     ) ?? null
   );
 }
@@ -223,8 +273,11 @@ export async function getTicketByNumber(
    BILLET PAR EMAIL
 ========================================================= */
 
-export async function getTicketByEmail(email: string): Promise<Ticket[]> {
-  const normalizedEmail = normalizeEmail(email);
+export async function getTicketByEmail(
+  email: string,
+): Promise<Ticket[]> {
+  const normalizedEmail =
+    normalizeEmail(email);
 
   if (!normalizedEmail) {
     return [];
@@ -233,7 +286,9 @@ export async function getTicketByEmail(email: string): Promise<Ticket[]> {
   const tickets = await getTickets();
 
   return tickets.filter(
-    (ticket) => normalizeEmail(ticket.email) === normalizedEmail,
+    (ticket) =>
+      normalizeEmail(ticket.email) ===
+      normalizedEmail,
   );
 }
 
@@ -241,8 +296,11 @@ export async function getTicketByEmail(email: string): Promise<Ticket[]> {
    BILLET PAR TÉLÉPHONE
 ========================================================= */
 
-export async function getTicketByPhone(phone: string): Promise<Ticket[]> {
-  const normalizedPhone = normalizePhone(phone);
+export async function getTicketByPhone(
+  phone: string,
+): Promise<Ticket[]> {
+  const normalizedPhone =
+    normalizePhone(phone);
 
   if (!normalizedPhone) {
     return [];
@@ -251,7 +309,9 @@ export async function getTicketByPhone(phone: string): Promise<Ticket[]> {
   const tickets = await getTickets();
 
   return tickets.filter(
-    (ticket) => normalizePhone(ticket.phone ?? "") === normalizedPhone,
+    (ticket) =>
+      normalizePhone(ticket.phone ?? "") ===
+      normalizedPhone,
   );
 }
 
@@ -259,19 +319,23 @@ export async function getTicketByPhone(phone: string): Promise<Ticket[]> {
    VÉRIFICATION TOKEN
 ========================================================= */
 
-export async function verifyTicket(verificationToken: string): Promise<{
+export async function verifyTicket(
+  verificationToken: string,
+): Promise<{
   valid: boolean;
   reason?: string | null;
   message: string;
   ticket?: Ticket;
 }> {
-  const token = verificationToken.trim().toLowerCase();
+  const token =
+    verificationToken.trim().toLowerCase();
 
   if (!token) {
     return {
       valid: false,
       reason: "TOKEN_REQUIRED",
-      message: "Token de vérification manquant.",
+      message:
+        "Token de vérification manquant.",
     };
   }
 
@@ -283,19 +347,25 @@ export async function verifyTicket(verificationToken: string): Promise<{
     };
   }
 
-  const response = await fetch(`${API_URL}/verify`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
+  const response = await fetch(
+    `${API_URL}/verify`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ token }),
     },
-    body: JSON.stringify({ token }),
-  });
+  );
 
   const data = await parseJson(response);
 
-  if (typeof data !== "object" || data === null) {
+  if (
+    typeof data !== "object" ||
+    data === null
+  ) {
     return {
       valid: false,
       reason: "SERVER_ERROR",
@@ -313,34 +383,72 @@ export async function verifyTicket(verificationToken: string): Promise<{
 
   return {
     valid: result.valid === true,
+
     reason: result.reason ?? null,
+
     message:
       result.message ||
-      (response.ok ? "Billet valide." : "Impossible de vérifier le billet."),
-    ticket: result.ticket ? normalizeTicket(result.ticket) : undefined,
+      (response.ok
+        ? "Billet valide."
+        : "Impossible de vérifier le billet."),
+
+    ticket: result.ticket
+      ? normalizeTicket(result.ticket)
+      : undefined,
   };
 }
+
 /* =========================================================
    CRÉATION BILLET
 ========================================================= */
 
-export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
+export async function createTicket(
+  input: CreateTicketInput,
+): Promise<Ticket> {
+  const childrenUnder12 = Math.max(
+    0,
+    Math.floor(
+      Number(input.childrenUnder12 ?? 0),
+    ),
+  );
+
+  const children12Plus = Math.max(
+    0,
+    Math.floor(
+      Number(input.children12Plus ?? 0),
+    ),
+  );
+
   const payload = {
     ...input,
+
     email: normalizeEmail(input.email),
-    phone: input.phone ? normalizePhone(input.phone) : undefined,
+
+    phone: input.phone
+      ? normalizePhone(input.phone)
+      : undefined,
+
     participantName:
       input.participantName?.trim() ||
-      `${input.firstName ?? ""} ${input.lastName ?? ""}`.trim(),
+      `${input.firstName ?? ""} ${
+        input.lastName ?? ""
+      }`.trim(),
+
     quantity: input.quantity ?? 1,
+
+    childrenUnder12,
+
+    children12Plus,
   };
 
   const response = await fetch(API_URL, {
     method: "POST",
+
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
+
     body: JSON.stringify(payload),
   });
 
@@ -355,13 +463,26 @@ export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
     );
   }
 
-  if (typeof data !== "object" || data === null || !("ticket" in data)) {
-    console.error("[SiloCamp] Réponse création billet :", data);
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("ticket" in data)
+  ) {
+    console.error(
+      "[SiloCamp] Réponse création billet :",
+      data,
+    );
 
-    throw new Error("Le serveur n'a pas retourné le billet créé.");
+    throw new Error(
+      "Le serveur n'a pas retourné le billet créé.",
+    );
   }
 
-  const ticket = (data as { ticket?: Ticket }).ticket;
+  const ticket = (
+    data as {
+      ticket?: Ticket;
+    }
+  ).ticket;
 
   if (
     !ticket ||
@@ -369,9 +490,14 @@ export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
     !ticket.id ||
     !ticket.ticketNumber
   ) {
-    console.error("[SiloCamp] Billet retourné invalide :", ticket);
+    console.error(
+      "[SiloCamp] Billet retourné invalide :",
+      ticket,
+    );
 
-    throw new Error("Le serveur n'a pas retourné un billet valide.");
+    throw new Error(
+      "Le serveur n'a pas retourné un billet valide.",
+    );
   }
 
   return normalizeTicket(ticket);
@@ -382,12 +508,15 @@ export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
 ========================================================= */
 
 export async function getTicketStats(): Promise<TicketStats> {
-  const response = await fetch(`${API_URL}/stats`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
+  const response = await fetch(
+    `${API_URL}/stats`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
     },
-  });
+  );
 
   const data = await parseJson(response);
 
@@ -400,13 +529,17 @@ export async function getTicketStats(): Promise<TicketStats> {
     );
   }
 
-  if (typeof data !== "object" || data === null) {
+  if (
+    typeof data !== "object" ||
+    data === null
+  ) {
     throw new Error(
       "Les statistiques retournées par le serveur sont invalides.",
     );
   }
 
-  const stats = data as Partial<TicketStats>;
+  const stats =
+    data as Partial<TicketStats>;
 
   if (
     typeof stats.capacity !== "number" ||
@@ -425,7 +558,9 @@ export async function getTicketStats(): Promise<TicketStats> {
    DISPONIBILITÉ
 ========================================================= */
 
-export async function checkTicketAvailability(requestedQuantity = 1): Promise<{
+export async function checkTicketAvailability(
+  requestedQuantity = 1,
+): Promise<{
   available: boolean;
   capacity: number;
   reserved: number;
@@ -435,13 +570,18 @@ export async function checkTicketAvailability(requestedQuantity = 1): Promise<{
   const stats = await getTicketStats();
 
   const available =
-    requestedQuantity > 0 && requestedQuantity <= stats.remaining;
+    requestedQuantity > 0 &&
+    requestedQuantity <= stats.remaining;
 
   return {
     available,
+
     capacity: stats.capacity,
+
     reserved: stats.reserved,
+
     remaining: stats.remaining,
+
     message: available
       ? undefined
       : `Il ne reste que ${stats.remaining} place(s) disponible(s).`,
@@ -478,8 +618,12 @@ export function generateReservationId(): string {
    URL VÉRIFICATION
 ========================================================= */
 
-export function getVerificationUrl(ticket: Ticket): string {
-  return `${window.location.origin}/ticket/verify?token=${encodeURIComponent(
+export function getVerificationUrl(
+  ticket: Ticket,
+): string {
+  return `${
+    window.location.origin
+  }/ticket/verify?token=${encodeURIComponent(
     ticket.verificationToken ?? "",
   )}`;
 }
@@ -488,7 +632,9 @@ export function getVerificationUrl(ticket: Ticket): string {
    ALIAS
 ========================================================= */
 
-export async function validateTicketByToken(verificationToken: string) {
+export async function validateTicketByToken(
+  verificationToken: string,
+) {
   return verifyTicket(verificationToken);
 }
 
@@ -496,24 +642,34 @@ export async function validateTicketByToken(verificationToken: string) {
    VALIDATION PHYSIQUE
 ========================================================= */
 
-export async function validateTicket(ticketNumber: string): Promise<Ticket> {
-  const normalizedNumber = ticketNumber.trim().toUpperCase();
+export async function validateTicket(
+  ticketNumber: string,
+): Promise<Ticket> {
+  const normalizedNumber =
+    ticketNumber.trim().toUpperCase();
 
   if (!normalizedNumber) {
-    throw new Error("Numéro de billet manquant.");
+    throw new Error(
+      "Numéro de billet manquant.",
+    );
   }
 
-  const response = await fetch(`${API_URL}/validate`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
+  const response = await fetch(
+    `${API_URL}/validate`,
+    {
+      method: "POST",
+      credentials: "include",
+
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+
+      body: JSON.stringify({
+        ticketNumber: normalizedNumber,
+      }),
     },
-    body: JSON.stringify({
-      ticketNumber: normalizedNumber,
-    }),
-  });
+  );
 
   const data = await parseJson(response);
 
@@ -526,11 +682,21 @@ export async function validateTicket(ticketNumber: string): Promise<Ticket> {
     );
   }
 
-  if (typeof data !== "object" || data === null || !("ticket" in data)) {
-    throw new Error("Le serveur n'a pas retourné le billet validé.");
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("ticket" in data)
+  ) {
+    throw new Error(
+      "Le serveur n'a pas retourné le billet validé.",
+    );
   }
 
-  const ticket = (data as { ticket?: Ticket }).ticket;
+  const ticket = (
+    data as {
+      ticket?: Ticket;
+    }
+  ).ticket;
 
   if (
     !ticket ||
@@ -538,49 +704,91 @@ export async function validateTicket(ticketNumber: string): Promise<Ticket> {
     !ticket.id ||
     !ticket.ticketNumber
   ) {
-    throw new Error("Le serveur a retourné un billet invalide.");
+    throw new Error(
+      "Le serveur a retourné un billet invalide.",
+    );
   }
 
   return normalizeTicket(ticket);
 }
 
-export async function useTicket(ticketNumber: string): Promise<Ticket> {
+/* =========================================================
+   UTILISATION DU BILLET
+========================================================= */
+
+export async function useTicket(
+  ticketNumber: string,
+): Promise<Ticket> {
   return validateTicket(ticketNumber);
 }
 
-export async function markTicketAsUsed(ticketNumber: string): Promise<Ticket> {
+/* =========================================================
+   MARQUER BILLET COMME UTILISÉ
+========================================================= */
+
+export async function markTicketAsUsed(
+  ticketNumber: string,
+): Promise<Ticket> {
   return validateTicket(ticketNumber);
 }
 
-export async function cancelTicket(ticketNumber: string): Promise<Ticket> {
-  const normalizedNumber = ticketNumber.trim().toUpperCase();
+/* =========================================================
+   ANNULATION
+========================================================= */
+
+export async function cancelTicket(
+  ticketNumber: string,
+): Promise<Ticket> {
+  const normalizedNumber =
+    ticketNumber.trim().toUpperCase();
 
   if (!normalizedNumber) {
-    throw new Error("Numéro de billet manquant.");
+    throw new Error(
+      "Numéro de billet manquant.",
+    );
   }
 
-  const response = await fetch(`${API_URL}/cancel`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
+  const response = await fetch(
+    `${API_URL}/cancel`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+
+      body: JSON.stringify({
+        ticketNumber: normalizedNumber,
+      }),
     },
-    body: JSON.stringify({ ticketNumber: normalizedNumber }),
-  });
+  );
 
   const data = await parseJson(response);
 
   if (!response.ok) {
     throw new Error(
-      getApiError(data, `Impossible d'annuler le billet (${response.status}).`),
+      getApiError(
+        data,
+        `Impossible d'annuler le billet (${response.status}).`,
+      ),
     );
   }
 
-  if (typeof data !== "object" || data === null) {
-    throw new Error("La réponse d'annulation du billet est invalide.");
+  if (
+    typeof data !== "object" ||
+    data === null
+  ) {
+    throw new Error(
+      "La réponse d'annulation du billet est invalide.",
+    );
   }
 
-  const ticket = (data as { ticket?: Ticket }).ticket;
+  const ticket = (
+    data as {
+      ticket?: Ticket;
+    }
+  ).ticket;
 
   if (
     !ticket ||
@@ -588,7 +796,9 @@ export async function cancelTicket(ticketNumber: string): Promise<Ticket> {
     !ticket.id ||
     !ticket.ticketNumber
   ) {
-    throw new Error("Le serveur n'a pas retourné le billet annulé.");
+    throw new Error(
+      "Le serveur n'a pas retourné le billet annulé.",
+    );
   }
 
   return normalizeTicket(ticket);

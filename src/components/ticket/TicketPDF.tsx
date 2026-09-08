@@ -192,6 +192,41 @@ const ParticipantIcon = () => (
   </Svg>
 );
 
+const ChildrenIcon = () => (
+  <Svg width={13} height={13} viewBox="0 0 24 24">
+    <Circle
+      cx="9"
+      cy="8"
+      r="2.5"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+    />
+    <Circle
+      cx="16"
+      cy="9"
+      r="2"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+    />
+    <Path
+      d="M4.5 20c.6-3.6 2.1-5.5 4.5-5.5s3.9 1.9 4.5 5.5"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <Path
+      d="M13.5 15.5c.8-.8 1.7-1.2 2.7-1.2 1.8 0 3 1.4 3.3 4.2"
+      fill="none"
+      stroke={COLORS.purpleMedium}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
 const CheckIcon = () => (
   <Svg width={11} height={11} viewBox="0 0 24 24">
     <Circle
@@ -503,6 +538,70 @@ const styles = StyleSheet.create({
     color: COLORS.textSoft,
   },
 
+  childrenSection: {
+    marginTop: 14,
+    padding: 11,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: COLORS.goldLight,
+    backgroundColor: "#FFFDF7",
+  },
+
+  childrenHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 7,
+  },
+
+  childrenHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  childrenTitle: {
+    marginLeft: 5,
+    fontSize: 7,
+    fontWeight: 700,
+    color: COLORS.purpleMedium,
+    letterSpacing: 1.1,
+  },
+
+  childrenTotal: {
+    fontSize: 7,
+    fontWeight: 600,
+    color: COLORS.purpleMedium,
+  },
+
+  childrenLine: {
+    marginTop: 3,
+    fontSize: 6.8,
+    color: COLORS.textSoft,
+  },
+
+  childrenSummary: {
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#EEE7D2",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  childrenSummaryLabel: {
+    fontSize: 5.5,
+    fontWeight: 700,
+    color: COLORS.gray,
+    letterSpacing: 0.8,
+  },
+
+  childrenSummaryValue: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: COLORS.purpleMedium,
+  },
+
   accessBox: {
     marginTop: 12,
     padding: 12,
@@ -685,7 +784,21 @@ export default function TicketPDF({
   const city = safeText(ticket.city);
   const duration = safeText(ticket.duration);
   const reservationId = safeText(ticket.reservationId);
+
   const quantity = ticket.quantity ?? 1;
+
+  const childrenUnder12 = Math.max(
+    0,
+    Math.floor(Number(ticket.childrenUnder12 ?? 0)),
+  );
+
+  const children12Plus = Math.max(
+    0,
+    Math.floor(Number(ticket.children12Plus ?? 0)),
+  );
+
+  const totalChildren =
+    childrenUnder12 + children12Plus;
 
   return (
     <Document
@@ -699,7 +812,9 @@ export default function TicketPDF({
           <View style={styles.header}>
             <View style={styles.headerTop}>
               <View>
-                <Text style={styles.brand}>SILOCAMP</Text>
+                <Text style={styles.brand}>
+                  SILOCAMP
+                </Text>
 
                 <Text style={styles.brandSub}>
                   CAMP INTERNATIONAL SILO · 3e ÉDITION · 2026
@@ -858,6 +973,49 @@ export default function TicketPDF({
                 </Text>
               </View>
 
+              {totalChildren > 0 && (
+                <View style={styles.childrenSection}>
+                  <View style={styles.childrenHeader}>
+                    <View style={styles.childrenHeaderLeft}>
+                      <ChildrenIcon />
+
+                      <Text style={styles.childrenTitle}>
+                        ACCOMPAGNANTS
+                      </Text>
+                    </View>
+
+                    <Text style={styles.childrenTotal}>
+                      {totalChildren} enfant
+                      {totalChildren > 1 ? "s" : ""}
+                    </Text>
+                  </View>
+
+                  {childrenUnder12 > 0 && (
+                    <Text style={styles.childrenLine}>
+                      {childrenUnder12} enfant
+                      {childrenUnder12 > 1 ? "s" : ""} de moins de 12 ans
+                    </Text>
+                  )}
+
+                  {children12Plus > 0 && (
+                    <Text style={styles.childrenLine}>
+                      {children12Plus} enfant
+                      {children12Plus > 1 ? "s" : ""} de 12 ans ou plus
+                    </Text>
+                  )}
+
+                  <View style={styles.childrenSummary}>
+                    <Text style={styles.childrenSummaryLabel}>
+                      TOTAL ENFANTS
+                    </Text>
+
+                    <Text style={styles.childrenSummaryValue}>
+                      {totalChildren}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               <View style={styles.benefits}>
                 <View style={styles.benefitRow}>
                   <View style={styles.benefitIcon}>
@@ -948,7 +1106,8 @@ export default function TicketPDF({
               </Text>
 
               <Text style={styles.bottomValue}>
-                {quantity} {quantity > 1 ? "places" : "place"}
+                {quantity}{" "}
+                {quantity > 1 ? "places" : "place"}
               </Text>
             </View>
 

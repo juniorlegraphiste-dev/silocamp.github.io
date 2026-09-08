@@ -548,6 +548,8 @@ export const TicketScalarFieldEnum = {
   venue: 'venue',
   city: 'city',
   quantity: 'quantity',
+  childrenUnder12: 'childrenUnder12',
+  children12Plus: 'children12Plus',
   status: 'status',
   createdAt: 'createdAt',
   usedAt: 'usedAt',

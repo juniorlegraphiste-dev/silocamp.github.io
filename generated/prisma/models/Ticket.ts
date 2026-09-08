@@ -28,10 +28,14 @@ export type AggregateTicket = {
 
 export type TicketAvgAggregateOutputType = {
   quantity: number | null
+  childrenUnder12: number | null
+  children12Plus: number | null
 }
 
 export type TicketSumAggregateOutputType = {
   quantity: number | null
+  childrenUnder12: number | null
+  children12Plus: number | null
 }
 
 export type TicketMinAggregateOutputType = {
@@ -52,6 +56,8 @@ export type TicketMinAggregateOutputType = {
   venue: string | null
   city: string | null
   quantity: number | null
+  childrenUnder12: number | null
+  children12Plus: number | null
   status: $Enums.TicketStatus | null
   createdAt: Date | null
   usedAt: Date | null
@@ -76,6 +82,8 @@ export type TicketMaxAggregateOutputType = {
   venue: string | null
   city: string | null
   quantity: number | null
+  childrenUnder12: number | null
+  children12Plus: number | null
   status: $Enums.TicketStatus | null
   createdAt: Date | null
   usedAt: Date | null
@@ -100,6 +108,8 @@ export type TicketCountAggregateOutputType = {
   venue: number
   city: number
   quantity: number
+  childrenUnder12: number
+  children12Plus: number
   status: number
   createdAt: number
   usedAt: number
@@ -110,10 +120,14 @@ export type TicketCountAggregateOutputType = {
 
 export type TicketAvgAggregateInputType = {
   quantity?: true
+  childrenUnder12?: true
+  children12Plus?: true
 }
 
 export type TicketSumAggregateInputType = {
   quantity?: true
+  childrenUnder12?: true
+  children12Plus?: true
 }
 
 export type TicketMinAggregateInputType = {
@@ -134,6 +148,8 @@ export type TicketMinAggregateInputType = {
   venue?: true
   city?: true
   quantity?: true
+  childrenUnder12?: true
+  children12Plus?: true
   status?: true
   createdAt?: true
   usedAt?: true
@@ -158,6 +174,8 @@ export type TicketMaxAggregateInputType = {
   venue?: true
   city?: true
   quantity?: true
+  childrenUnder12?: true
+  children12Plus?: true
   status?: true
   createdAt?: true
   usedAt?: true
@@ -182,6 +200,8 @@ export type TicketCountAggregateInputType = {
   venue?: true
   city?: true
   quantity?: true
+  childrenUnder12?: true
+  children12Plus?: true
   status?: true
   createdAt?: true
   usedAt?: true
@@ -293,6 +313,8 @@ export type TicketGroupByOutputType = {
   venue: string
   city: string
   quantity: number
+  childrenUnder12: number
+  children12Plus: number
   status: $Enums.TicketStatus
   createdAt: Date
   usedAt: Date | null
@@ -340,6 +362,8 @@ export type TicketWhereInput = {
   venue?: Prisma.StringFilter<"Ticket"> | string
   city?: Prisma.StringFilter<"Ticket"> | string
   quantity?: Prisma.IntFilter<"Ticket"> | number
+  childrenUnder12?: Prisma.IntFilter<"Ticket"> | number
+  children12Plus?: Prisma.IntFilter<"Ticket"> | number
   status?: Prisma.EnumTicketStatusFilter<"Ticket"> | $Enums.TicketStatus
   createdAt?: Prisma.DateTimeFilter<"Ticket"> | Date | string
   usedAt?: Prisma.DateTimeNullableFilter<"Ticket"> | Date | string | null
@@ -364,6 +388,8 @@ export type TicketOrderByWithRelationInput = {
   venue?: Prisma.SortOrder
   city?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
+  childrenUnder12?: Prisma.SortOrder
+  children12Plus?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   usedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -391,6 +417,8 @@ export type TicketWhereUniqueInput = Prisma.AtLeast<{
   venue?: Prisma.StringFilter<"Ticket"> | string
   city?: Prisma.StringFilter<"Ticket"> | string
   quantity?: Prisma.IntFilter<"Ticket"> | number
+  childrenUnder12?: Prisma.IntFilter<"Ticket"> | number
+  children12Plus?: Prisma.IntFilter<"Ticket"> | number
   status?: Prisma.EnumTicketStatusFilter<"Ticket"> | $Enums.TicketStatus
   createdAt?: Prisma.DateTimeFilter<"Ticket"> | Date | string
   usedAt?: Prisma.DateTimeNullableFilter<"Ticket"> | Date | string | null
@@ -415,6 +443,8 @@ export type TicketOrderByWithAggregationInput = {
   venue?: Prisma.SortOrder
   city?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
+  childrenUnder12?: Prisma.SortOrder
+  children12Plus?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   usedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -447,6 +477,8 @@ export type TicketScalarWhereWithAggregatesInput = {
   venue?: Prisma.StringWithAggregatesFilter<"Ticket"> | string
   city?: Prisma.StringWithAggregatesFilter<"Ticket"> | string
   quantity?: Prisma.IntWithAggregatesFilter<"Ticket"> | number
+  childrenUnder12?: Prisma.IntWithAggregatesFilter<"Ticket"> | number
+  children12Plus?: Prisma.IntWithAggregatesFilter<"Ticket"> | number
   status?: Prisma.EnumTicketStatusWithAggregatesFilter<"Ticket"> | $Enums.TicketStatus
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Ticket"> | Date | string
   usedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Ticket"> | Date | string | null
@@ -471,6 +503,8 @@ export type TicketCreateInput = {
   venue: string
   city: string
   quantity?: number
+  childrenUnder12?: number
+  children12Plus?: number
   status?: $Enums.TicketStatus
   createdAt?: Date | string
   usedAt?: Date | string | null
@@ -495,6 +529,8 @@ export type TicketUncheckedCreateInput = {
   venue: string
   city: string
   quantity?: number
+  childrenUnder12?: number
+  children12Plus?: number
   status?: $Enums.TicketStatus
   createdAt?: Date | string
   usedAt?: Date | string | null
@@ -519,6 +555,8 @@ export type TicketUpdateInput = {
   venue?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  childrenUnder12?: Prisma.IntFieldUpdateOperationsInput | number
+  children12Plus?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumTicketStatusFieldUpdateOperationsInput | $Enums.TicketStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   usedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -543,6 +581,8 @@ export type TicketUncheckedUpdateInput = {
   venue?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  childrenUnder12?: Prisma.IntFieldUpdateOperationsInput | number
+  children12Plus?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumTicketStatusFieldUpdateOperationsInput | $Enums.TicketStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   usedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -567,6 +607,8 @@ export type TicketCreateManyInput = {
   venue: string
   city: string
   quantity?: number
+  childrenUnder12?: number
+  children12Plus?: number
   status?: $Enums.TicketStatus
   createdAt?: Date | string
   usedAt?: Date | string | null
@@ -591,6 +633,8 @@ export type TicketUpdateManyMutationInput = {
   venue?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  childrenUnder12?: Prisma.IntFieldUpdateOperationsInput | number
+  children12Plus?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumTicketStatusFieldUpdateOperationsInput | $Enums.TicketStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   usedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -615,6 +659,8 @@ export type TicketUncheckedUpdateManyInput = {
   venue?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  childrenUnder12?: Prisma.IntFieldUpdateOperationsInput | number
+  children12Plus?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.EnumTicketStatusFieldUpdateOperationsInput | $Enums.TicketStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   usedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -639,6 +685,8 @@ export type TicketCountOrderByAggregateInput = {
   venue?: Prisma.SortOrder
   city?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
+  childrenUnder12?: Prisma.SortOrder
+  children12Plus?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   usedAt?: Prisma.SortOrder
@@ -647,6 +695,8 @@ export type TicketCountOrderByAggregateInput = {
 
 export type TicketAvgOrderByAggregateInput = {
   quantity?: Prisma.SortOrder
+  childrenUnder12?: Prisma.SortOrder
+  children12Plus?: Prisma.SortOrder
 }
 
 export type TicketMaxOrderByAggregateInput = {
@@ -667,6 +717,8 @@ export type TicketMaxOrderByAggregateInput = {
   venue?: Prisma.SortOrder
   city?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
+  childrenUnder12?: Prisma.SortOrder
+  children12Plus?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   usedAt?: Prisma.SortOrder
@@ -691,6 +743,8 @@ export type TicketMinOrderByAggregateInput = {
   venue?: Prisma.SortOrder
   city?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
+  childrenUnder12?: Prisma.SortOrder
+  children12Plus?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   usedAt?: Prisma.SortOrder
@@ -699,6 +753,8 @@ export type TicketMinOrderByAggregateInput = {
 
 export type TicketSumOrderByAggregateInput = {
   quantity?: Prisma.SortOrder
+  childrenUnder12?: Prisma.SortOrder
+  children12Plus?: Prisma.SortOrder
 }
 
 export type StringFieldUpdateOperationsInput = {
@@ -749,6 +805,8 @@ export type TicketSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   venue?: boolean
   city?: boolean
   quantity?: boolean
+  childrenUnder12?: boolean
+  children12Plus?: boolean
   status?: boolean
   createdAt?: boolean
   usedAt?: boolean
@@ -773,6 +831,8 @@ export type TicketSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   venue?: boolean
   city?: boolean
   quantity?: boolean
+  childrenUnder12?: boolean
+  children12Plus?: boolean
   status?: boolean
   createdAt?: boolean
   usedAt?: boolean
@@ -797,6 +857,8 @@ export type TicketSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   venue?: boolean
   city?: boolean
   quantity?: boolean
+  childrenUnder12?: boolean
+  children12Plus?: boolean
   status?: boolean
   createdAt?: boolean
   usedAt?: boolean
@@ -821,13 +883,15 @@ export type TicketSelectScalar = {
   venue?: boolean
   city?: boolean
   quantity?: boolean
+  childrenUnder12?: boolean
+  children12Plus?: boolean
   status?: boolean
   createdAt?: boolean
   usedAt?: boolean
   cancelledAt?: boolean
 }
 
-export type TicketOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ticketNumber" | "verificationToken" | "firstName" | "lastName" | "participantName" | "email" | "phone" | "reservationId" | "eventId" | "eventTitle" | "dateLabel" | "time" | "duration" | "venue" | "city" | "quantity" | "status" | "createdAt" | "usedAt" | "cancelledAt", ExtArgs["result"]["ticket"]>
+export type TicketOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ticketNumber" | "verificationToken" | "firstName" | "lastName" | "participantName" | "email" | "phone" | "reservationId" | "eventId" | "eventTitle" | "dateLabel" | "time" | "duration" | "venue" | "city" | "quantity" | "childrenUnder12" | "children12Plus" | "status" | "createdAt" | "usedAt" | "cancelledAt", ExtArgs["result"]["ticket"]>
 
 export type $TicketPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Ticket"
@@ -850,6 +914,8 @@ export type $TicketPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     venue: string
     city: string
     quantity: number
+    childrenUnder12: number
+    children12Plus: number
     status: $Enums.TicketStatus
     createdAt: Date
     usedAt: Date | null
@@ -1294,6 +1360,8 @@ export interface TicketFieldRefs {
   readonly venue: Prisma.FieldRef<"Ticket", 'String'>
   readonly city: Prisma.FieldRef<"Ticket", 'String'>
   readonly quantity: Prisma.FieldRef<"Ticket", 'Int'>
+  readonly childrenUnder12: Prisma.FieldRef<"Ticket", 'Int'>
+  readonly children12Plus: Prisma.FieldRef<"Ticket", 'Int'>
   readonly status: Prisma.FieldRef<"Ticket", 'TicketStatus'>
   readonly createdAt: Prisma.FieldRef<"Ticket", 'DateTime'>
   readonly usedAt: Prisma.FieldRef<"Ticket", 'DateTime'>

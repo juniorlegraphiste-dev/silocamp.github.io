@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Ticket" ADD COLUMN     "children12Plus" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "childrenUnder12" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "totalAttendees" INTEGER NOT NULL DEFAULT 1;

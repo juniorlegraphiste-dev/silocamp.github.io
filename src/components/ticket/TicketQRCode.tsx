@@ -18,13 +18,25 @@ export default function TicketQRCode({
   className = "",
 }: TicketQRCodeProps) {
   const [qrCode, setQrCode] = useState<string>("");
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
+    setQrCode("");
+    setError(false);
+
     async function generateQRCode() {
       try {
+        if (!ticket?.ticketNumber) {
+          throw new Error("Numéro de billet manquant.");
+        }
+
         const verificationUrl = getVerificationUrl(ticket);
+
+        if (!verificationUrl) {
+          throw new Error("URL de vérification du billet manquante.");
+        }
 
         const dataUrl = await QRCode.toDataURL(verificationUrl, {
           width: size,
@@ -44,6 +56,10 @@ export default function TicketQRCode({
           "[SiloCamp] Impossible de générer le QR Code :",
           error,
         );
+
+        if (!cancelled) {
+          setError(true);
+        }
       }
     }
 
@@ -52,7 +68,23 @@ export default function TicketQRCode({
     return () => {
       cancelled = true;
     };
-  }, [ticket, size]);
+  }, [ticket?.ticketNumber, ticket?.verificationToken, size]);
+
+  if (error) {
+    return (
+      <div
+        className={`flex items-center justify-center rounded-2xl bg-gray-100 ${className}`}
+        style={{
+          width: size,
+          height: size,
+        }}
+      >
+        <span className="px-4 text-center text-sm text-red-500">
+          QR Code indisponible
+        </span>
+      </div>
+    );
+  }
 
   if (!qrCode) {
     return (
@@ -80,6 +112,7 @@ export default function TicketQRCode({
         width={size}
         height={size}
         className="block"
+        draggable={false}
       />
     </div>
   );

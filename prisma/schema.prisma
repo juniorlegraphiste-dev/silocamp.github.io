@@ -15,35 +15,38 @@ enum TicketStatus {
 }
 
 model Ticket {
-  id                String       @id @default(cuid())
-  ticketNumber      String       @unique
-  verificationToken String       @unique
+  id String @id @default(cuid())
 
-  firstName         String?
-  lastName          String?
+  ticketNumber String @unique
+  verificationToken String @unique
 
-  participantName   String
-  email             String
-  phone             String?
+  firstName String?
+  lastName String?
+  participantName String
 
-  reservationId     String?      @unique
-  eventId           String?
+  email String
+  phone String?
 
-  eventTitle        String
-  dateLabel         String
-  time              String
-  duration          String?
+  reservationId String? @unique
 
-  venue             String
-  city              String
+  eventId String?
+  eventTitle String
+  dateLabel String
+  time String
+  duration String?
+  venue String
+  city String
 
-  quantity          Int          @default(1)
+  quantity Int @default(1)
 
-  status            TicketStatus @default(VALID)
+  childrenUnder12 Int @default(0)
+  children12Plus Int @default(0)
 
-  createdAt         DateTime     @default(now())
-  usedAt            DateTime?
-  cancelledAt       DateTime?
+  status TicketStatus @default(VALID)
+
+  createdAt DateTime @default(now())
+  usedAt DateTime?
+  cancelledAt DateTime?
 
   @@index([email])
   @@index([phone])
