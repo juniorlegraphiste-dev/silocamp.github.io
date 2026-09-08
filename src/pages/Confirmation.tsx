@@ -77,7 +77,10 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
         return;
       }
 
-      const base64 = result.replace(/^data:application\/pdf;base64,/i, "");
+      const base64 = result.replace(
+        /^data:application\/pdf;base64,/i,
+        "",
+      );
 
       resolve(base64);
     };
@@ -188,7 +191,10 @@ export default function Confirmation() {
         return;
       }
 
-      const under12 = Math.max(0, Math.floor(Number(children.under12 ?? 0)));
+      const under12 = Math.max(
+        0,
+        Math.floor(Number(children.under12 ?? 0)),
+      );
 
       const age12Plus = Math.max(
         0,
@@ -223,15 +229,21 @@ export default function Confirmation() {
         let foundTicket: SiloTicket | null = null;
 
         if (identifiers.ticketNumber) {
-          foundTicket = await getTicketByNumber(identifiers.ticketNumber);
+          foundTicket = await getTicketByNumber(
+            identifiers.ticketNumber,
+          );
         }
 
         if (!foundTicket && identifiers.ticketId) {
-          foundTicket = await getTicketById(identifiers.ticketId);
+          foundTicket = await getTicketById(
+            identifiers.ticketId,
+          );
         }
 
         if (!foundTicket) {
-          throw new Error("Impossible d'identifier votre billet.");
+          throw new Error(
+            "Impossible d'identifier votre billet.",
+          );
         }
 
         if (cancelled) {
@@ -245,7 +257,10 @@ export default function Confirmation() {
           return;
         }
 
-        console.error("[SiloCamp] Impossible de récupérer le billet.", error);
+        console.error(
+          "[SiloCamp] Impossible de récupérer le billet.",
+          error,
+        );
 
         setTicket(null);
         setTicketNotFound(true);
@@ -267,7 +282,10 @@ export default function Confirmation() {
     return () => {
       cancelled = true;
     };
-  }, [identifiers.ticketId, identifiers.ticketNumber]);
+  }, [
+    identifiers.ticketId,
+    identifiers.ticketNumber,
+  ]);
 
   useEffect(() => {
     if (!ticket) {
@@ -306,7 +324,9 @@ export default function Confirmation() {
             Récupération de votre réservation...
           </p>
 
-          <p className="mt-2 text-xs text-cream-faint">Connexion à SiloCamp</p>
+          <p className="mt-2 text-xs text-cream-faint">
+            Connexion à SiloCamp
+          </p>
         </div>
       </div>
     );
@@ -325,8 +345,8 @@ export default function Confirmation() {
           </h1>
 
           <p className="mt-3 text-sm leading-relaxed text-cream-dim">
-            Nous n'avons pas pu récupérer votre billet depuis le serveur
-            SiloCamp.
+            Nous n'avons pas pu récupérer votre billet depuis le
+            serveur SiloCamp.
           </p>
 
           {loadError && (
@@ -373,16 +393,21 @@ export default function Confirmation() {
   }
 
   const ticketNumber =
-    ticket.ticketNumber?.trim() || identifiers.ticketNumber.trim();
+    ticket.ticketNumber?.trim() ||
+    identifiers.ticketNumber.trim();
 
   const participantName =
     ticket.participantName ||
-    [ticket.firstName, ticket.lastName].filter(Boolean).join(" ") ||
+    [ticket.firstName, ticket.lastName]
+      .filter(Boolean)
+      .join(" ") ||
     state.participantName ||
     "Participant";
 
   const verificationToken =
-    identifiers.verificationToken || ticket.verificationToken || "";
+    identifiers.verificationToken ||
+    ticket.verificationToken ||
+    "";
 
   const verificationUrl = verificationToken
     ? `${window.location.origin}/ticket/verify?token=${encodeURIComponent(
@@ -403,10 +428,13 @@ export default function Confirmation() {
 
   const children12Plus = Math.max(
     0,
-    Math.floor(Number(ticket.children12Plus ?? childrenInfo.age12Plus ?? 0)),
+    Math.floor(
+      Number(ticket.children12Plus ?? childrenInfo.age12Plus ?? 0),
+    ),
   );
 
-  const totalChildren = childrenUnder12 + children12Plus;
+  const totalChildren =
+    childrenUnder12 + children12Plus;
 
   const downloadQRCode = () => {
     const canvas = document.getElementById(
@@ -419,7 +447,9 @@ export default function Confirmation() {
     }
 
     if (!verificationUrl) {
-      console.error("[SiloCamp] Token de vérification indisponible.");
+      console.error(
+        "[SiloCamp] Token de vérification indisponible.",
+      );
       return;
     }
 
@@ -441,11 +471,15 @@ export default function Confirmation() {
     ) as HTMLCanvasElement | null;
 
     if (!canvas) {
-      throw new Error("Impossible de récupérer le QR Code.");
+      throw new Error(
+        "Impossible de récupérer le QR Code.",
+      );
     }
 
     if (!verificationUrl) {
-      throw new Error("Token de vérification indisponible.");
+      throw new Error(
+        "Token de vérification indisponible.",
+      );
     }
 
     const qrCodeDataUrl = canvas.toDataURL("image/png");
@@ -454,7 +488,10 @@ export default function Confirmation() {
       ...ticket,
       ticketNumber,
       participantName,
-      reservationId: ticket.reservationId ?? identifiers.reservationId ?? null,
+      reservationId:
+        ticket.reservationId ??
+        identifiers.reservationId ??
+        null,
       childrenUnder12,
       children12Plus,
     };
@@ -485,7 +522,10 @@ export default function Confirmation() {
 
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("[SiloCamp] Impossible de générer le PDF.", error);
+      console.error(
+        "[SiloCamp] Impossible de générer le PDF.",
+        error,
+      );
     }
   };
 
@@ -496,7 +536,9 @@ export default function Confirmation() {
     }
 
     if (!ticket.email) {
-      setEmailError("Aucune adresse e-mail n'est associée à ce billet.");
+      setEmailError(
+        "Aucune adresse e-mail n'est associée à ce billet.",
+      );
       return;
     }
 
@@ -510,11 +552,15 @@ export default function Confirmation() {
       ) as HTMLCanvasElement | null;
 
       if (!canvas) {
-        throw new Error("Impossible de récupérer le QR Code.");
+        throw new Error(
+          "Impossible de récupérer le QR Code.",
+        );
       }
 
       if (!verificationUrl) {
-        throw new Error("Le lien de vérification du billet est indisponible.");
+        throw new Error(
+          "Le lien de vérification du billet est indisponible.",
+        );
       }
 
       const qrCodeDataUrl = canvas.toDataURL("image/png");
@@ -524,7 +570,9 @@ export default function Confirmation() {
         ticketNumber,
         participantName,
         reservationId:
-          ticket.reservationId ?? identifiers.reservationId ?? null,
+          ticket.reservationId ??
+          identifiers.reservationId ??
+          null,
         childrenUnder12,
         children12Plus,
       };
@@ -540,39 +588,61 @@ export default function Confirmation() {
       const pdfBase64 = await blobToBase64(blob);
 
       if (!pdfBase64) {
-        throw new Error("Le PDF généré est vide.");
+        throw new Error(
+          "Le PDF généré est vide.",
+        );
       }
 
-      console.log("[SiloCamp] Envoi du billet par e-mail...");
+      console.log(
+        "[SiloCamp] Envoi du billet par e-mail...",
+      );
 
-      console.log("[SiloCamp] Ticket :", ticketNumber);
+      console.log(
+        "[SiloCamp] Ticket :",
+        ticketNumber,
+      );
 
-      console.log("[SiloCamp] Destinataire :", ticket.email);
+      console.log(
+        "[SiloCamp] Destinataire :",
+        ticket.email,
+      );
 
-      console.log("[SiloCamp] Taille PDF Base64 :", pdfBase64.length);
+      console.log(
+        "[SiloCamp] Taille PDF Base64 :",
+        pdfBase64.length,
+      );
 
-      const response = await fetch("/api/tickets/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "/api/tickets/email",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ticketNumber,
+            email: ticket.email,
+            pdfBase64,
+          }),
         },
-        body: JSON.stringify({
-          ticketNumber,
-          email: ticket.email,
-          pdfBase64,
-        }),
-      });
+      );
 
-      const data = await response.json().catch(() => null);
+      const data = await response
+        .json()
+        .catch(() => null);
 
-      console.log("[SiloCamp] Réponse API :", {
-        status: response.status,
-        data,
-      });
+      console.log(
+        "[SiloCamp] Réponse API :",
+        {
+          status: response.status,
+          data,
+        },
+      );
 
       if (!response.ok) {
         throw new Error(
-          data?.message || "Le service d'e-mail a refusé l'envoi du billet.",
+          data?.message ||
+            "Le service d'e-mail a refusé l'envoi du billet.",
         );
       }
 
@@ -596,17 +666,20 @@ export default function Confirmation() {
   const statusConfig = {
     VALID: {
       label: "Billet valide",
-      className: "bg-emerald-500/15 text-emerald-300",
+      className:
+        "bg-emerald-500/15 text-emerald-300",
     },
 
     USED: {
       label: "Billet utilisé",
-      className: "bg-amber-500/15 text-amber-300",
+      className:
+        "bg-amber-500/15 text-amber-300",
     },
 
     CANCELLED: {
       label: "Billet annulé",
-      className: "bg-red-500/15 text-red-300",
+      className:
+        "bg-red-500/15 text-red-300",
     },
   } as const;
 
@@ -634,12 +707,15 @@ export default function Confirmation() {
 
         <h1 className="mt-5 font-display text-4xl font-medium text-cream sm:text-5xl">
           Votre réservation est{" "}
-          <span className="text-gold-gradient">confirmée</span>
+          <span className="text-gold-gradient">
+            confirmée
+          </span>
         </h1>
 
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
-          Votre e-billet a été enregistré avec succès. Conservez ce billet et
-          présentez le QR Code à l'entrée du Camp.
+          Votre e-billet a été enregistré avec succès.
+          Conservez ce billet et présentez le QR Code à
+          l'entrée du Camp.
         </p>
       </Reveal>
 
@@ -670,25 +746,33 @@ export default function Confirmation() {
             <div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <InfoItem
-                  icon={<User className="h-4 w-4" />}
+                  icon={
+                    <User className="h-4 w-4" />
+                  }
                   label="Participant"
                   value={participantName}
                 />
 
                 <InfoItem
-                  icon={<Ticket className="h-4 w-4" />}
+                  icon={
+                    <Ticket className="h-4 w-4" />
+                  }
                   label="Numéro du billet"
                   value={ticketNumber}
                 />
 
                 <InfoItem
-                  icon={<CalendarDays className="h-4 w-4" />}
+                  icon={
+                    <CalendarDays className="h-4 w-4" />
+                  }
                   label="Date"
                   value={`${ticket.dateLabel} · ${ticket.time}`}
                 />
 
                 <InfoItem
-                  icon={<MapPin className="h-4 w-4" />}
+                  icon={
+                    <MapPin className="h-4 w-4" />
+                  }
                   label="Lieu"
                   value={`${ticket.venue}, ${ticket.city}`}
                 />
@@ -696,7 +780,9 @@ export default function Confirmation() {
 
               <div className="mt-5">
                 <InfoItem
-                  icon={<Mail className="h-4 w-4" />}
+                  icon={
+                    <Mail className="h-4 w-4" />
+                  }
                   label="E-mail"
                   value={ticket.email}
                 />
@@ -705,7 +791,9 @@ export default function Confirmation() {
               {ticket.phone && (
                 <div className="mt-5">
                   <InfoItem
-                    icon={<User className="h-4 w-4" />}
+                    icon={
+                      <User className="h-4 w-4" />
+                    }
                     label="Téléphone"
                     value={ticket.phone}
                   />
@@ -714,7 +802,9 @@ export default function Confirmation() {
 
               <div className="mt-5">
                 <InfoItem
-                  icon={<Users className="h-4 w-4" />}
+                  icon={
+                    <Users className="h-4 w-4" />
+                  }
                   label="Participant"
                   value="1 personne · 1 billet"
                 />
@@ -737,7 +827,9 @@ export default function Confirmation() {
                       <>
                         <p className="mt-2 text-sm font-medium text-cream">
                           {totalChildren}{" "}
-                          {totalChildren > 1 ? "enfants" : "enfant"}
+                          {totalChildren > 1
+                            ? "enfants"
+                            : "enfant"}
                         </p>
 
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -783,7 +875,8 @@ export default function Confirmation() {
                 </p>
 
                 <p className="mt-2 break-all font-mono text-sm text-gold-300">
-                  {reservationId || "Réservation confirmée"}
+                  {reservationId ||
+                    "Réservation confirmée"}
                 </p>
               </div>
 
@@ -797,9 +890,10 @@ export default function Confirmation() {
                     </h3>
 
                     <p className="mt-1 text-sm leading-relaxed text-cream-dim">
-                      Le QR Code contient un lien sécurisé permettant à
-                      l'organisation de vérifier votre billet directement depuis
-                      le serveur SiloCamp.
+                      Le QR Code contient un lien sécurisé
+                      permettant à l'organisation de vérifier
+                      votre billet directement depuis le serveur
+                      SiloCamp.
                     </p>
                   </div>
                 </div>
@@ -810,7 +904,10 @@ export default function Confirmation() {
               <div className="rounded-3xl bg-white p-5 shadow-xl">
                 <QRCodeCanvas
                   id="silocamp-ticket-qr"
-                  value={verificationUrl || ticketNumber}
+                  value={
+                    verificationUrl ||
+                    ticketNumber
+                  }
                   size={220}
                   level="H"
                   includeMargin
@@ -818,8 +915,8 @@ export default function Confirmation() {
               </div>
 
               <p className="mt-4 max-w-[240px] text-center text-xs leading-relaxed text-cream-faint">
-                Scannez ce QR Code pour ouvrir automatiquement la page de
-                vérification.
+                Scannez ce QR Code pour ouvrir
+                automatiquement la page de vérification.
               </p>
 
               <button
@@ -852,7 +949,9 @@ export default function Confirmation() {
               >
                 <Mail className="h-4 w-4" />
 
-                {emailSending ? "Envoi en cours..." : "Recevoir par e-mail"}
+                {emailSending
+                  ? "Envoi en cours..."
+                  : "Recevoir par e-mail"}
               </button>
             </div>
 
@@ -864,14 +963,17 @@ export default function Confirmation() {
                 </div>
 
                 <p className="mt-1 text-center text-xs text-cream-dim">
-                  Le billet PDF a été envoyé à <strong>{ticket.email}</strong>.
+                  Le billet PDF a été envoyé à{" "}
+                  <strong>{ticket.email}</strong>.
                 </p>
               </div>
             )}
 
             {emailError && (
               <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-400/5 p-4">
-                <p className="text-center text-sm text-red-300">{emailError}</p>
+                <p className="text-center text-sm text-red-300">
+                  {emailError}
+                </p>
               </div>
             )}
           </div>
@@ -905,10 +1007,14 @@ function InfoItem({
       <div className="flex items-center gap-2 text-gold-300">
         {icon}
 
-        <span className="text-xs uppercase tracking-wider">{label}</span>
+        <span className="text-xs uppercase tracking-wider">
+          {label}
+        </span>
       </div>
 
-      <p className="mt-2 break-words text-sm font-medium text-cream">{value}</p>
+      <p className="mt-2 break-words text-sm font-medium text-cream">
+        {value}
+      </p>
     </div>
   );
 }
