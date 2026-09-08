@@ -1,8 +1,107 @@
 import { neon } from "@neondatabase/serverless";
-import { isScanAuthenticated } from "../auth/_session";
+import crypto from "crypto";
+
+const COOKIE_NAME = "silocamp_scan_session";
 
 function normalizeToken(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
+}
+
+function getSessionFromRequest(
+  req: any,
+): { username: string; exp: number } | null {
+  try {
+    const cookieHeader = req.headers?.cookie || "";
+
+    const cookie = cookieHeader
+      .split(";")
+      .map((item: string) => item.trim())
+      .find((item: string) =>
+        item.startsWith(`${COOKIE_NAME}=`),
+      );
+
+    if (!cookie) {
+      return null;
+    }
+
+    const session = decodeURIComponent(
+      cookie.substring(COOKIE_NAME.length + 1),
+    );
+
+    const parts = session.split(".");
+
+    if (parts.length !== 2) {
+      return null;
+    }
+
+    const [payload, signature] = parts;
+
+    const secret = process.env.SCANNER_SESSION_SECRET;
+
+    if (!secret) {
+      console.error(
+        "[SiloCamp Verify] SCANNER_SESSION_SECRET manquant.",
+      );
+
+      return null;
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(payload)
+      .digest("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/g, "");
+
+    const signatureBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+
+    if (
+      signatureBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(
+        signatureBuffer,
+        expectedBuffer,
+      )
+    ) {
+      return null;
+    }
+
+    const normalizedPayload = payload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+
+    const data = JSON.parse(
+      Buffer.from(normalizedPayload, "base64").toString("utf8"),
+    ) as {
+      username?: string;
+      exp?: number;
+    };
+
+    if (
+      !data ||
+      typeof data.username !== "string" ||
+      typeof data.exp !== "number"
+    ) {
+      return null;
+    }
+
+    if (Date.now() >= data.exp) {
+      return null;
+    }
+
+    return {
+      username: data.username,
+      exp: data.exp,
+    };
+  } catch (error) {
+    console.error(
+      "[SiloCamp Verify Session]",
+      error,
+    );
+
+    return null;
+  }
 }
 
 function sanitizeTicket(ticket: any) {
@@ -35,29 +134,43 @@ function sanitizeTicket(ticket: any) {
   };
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(
+  req: any,
+  res: any,
+) {
   if (req.method !== "POST") {
     return res.status(405).json({
       ok: false,
-      error: "Méthode non autorisée.",
+      valid: false,
+      reason: "METHOD_NOT_ALLOWED",
+      message: "Méthode non autorisée.",
     });
   }
 
-  if (!isScanAuthenticated(req)) {
+  const session = getSessionFromRequest(req);
+
+  if (!session) {
     return res.status(401).json({
       ok: false,
       valid: false,
       reason: "SCAN_UNAUTHORIZED",
-      message: "Authentification requise.",
+      message:
+        "Authentification requise pour vérifier les billets.",
     });
   }
 
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
+    console.error(
+      "[SiloCamp Verify] DATABASE_URL manquante.",
+    );
+
     return res.status(500).json({
       ok: false,
-      error: "DATABASE_URL manquante.",
+      valid: false,
+      reason: "DATABASE_ERROR",
+      message: "Configuration de la base de données manquante.",
     });
   }
 
@@ -151,7 +264,10 @@ export default async function handler(req: any, res: any) {
       ticket: sanitizeTicket(ticket),
     });
   } catch (error: any) {
-    console.error("VERIFY TICKET ERROR:", error);
+    console.error(
+      "[SiloCamp Verify Ticket Error]",
+      error,
+    );
 
     return res.status(500).json({
       ok: false,
