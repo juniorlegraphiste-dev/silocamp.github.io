@@ -1,24 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  MapPin,
-  ShieldCheck,
-  Ticket,
-  UserRound,
-  XCircle,
   AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
   RefreshCw,
+  XCircle,
 } from "lucide-react";
-import {
-  verifyTicket,
-  type Ticket as SiloCampTicket,
-} from "@/services/ticketService";
+import { verifyTicket } from "@/services/ticketService";
 
-type VerificationStatus =
+type VerifyState =
   | "loading"
   | "valid"
   | "used"
@@ -27,289 +18,79 @@ type VerificationStatus =
   | "error"
   | "missing-token";
 
-type VerificationResult = {
+type VerifyResult = {
   valid?: boolean;
-  ticket?: SiloCampTicket | null;
+  ticket?: unknown;
   reason?: string;
   message?: string;
 };
 
-function getTokenFromUrl(): string {
-  if (typeof window === "undefined") return "";
-
-  const params = new URLSearchParams(window.location.search);
-  return params.get("token")?.trim() || "";
+function normalizeReason(reason?: string) {
+  return (reason ?? "").toUpperCase();
 }
 
-function getVerificationStatus(
-  result: VerificationResult
-): VerificationStatus {
-  if (result.valid && result.ticket) {
-    return "valid";
-  }
-
-  const reason = String(result.reason || "").toUpperCase();
-
-  if (
-    reason === "TICKET_ALREADY_USED" ||
-    reason === "USED" ||
-    reason.includes("ALREADY_USED")
-  ) {
-    return "used";
-  }
-
-  if (
-    reason === "TICKET_CANCELLED" ||
-    reason === "CANCELLED" ||
-    reason.includes("CANCEL")
-  ) {
-    return "cancelled";
-  }
-
-  if (
-    reason === "TICKET_NOT_FOUND" ||
-    reason === "NOT_FOUND" ||
-    reason.includes("NOT_FOUND")
-  ) {
-    return "not-found";
-  }
-
-  return "error";
-}
-
-function formatTime(value?: string | null): string {
-  if (!value) return "09h00";
-
-  return value.replace(":", "h");
-}
-
-function InfoItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
+function ValidTicketPage() {
   return (
-    <div className="flex items-start gap-4 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300">
-        {icon}
-      </div>
-
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gold-300">
-          {label}
-        </p>
-
-        <p className="mt-1 break-words text-sm font-medium leading-6 text-cream">
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ValidTicketPage({
-  ticket,
-}: {
-  ticket: SiloCampTicket;
-}) {
-  const participantName =
-    ticket.participantName?.trim() ||
-    `${ticket.firstName ?? ""} ${ticket.lastName ?? ""}`.trim() ||
-    "Participant";
-
-  const date =
-    ticket.dateLabel?.trim() || "Samedi 12 Décembre 2026";
-
-  const time = formatTime(ticket.time);
-
-  const venue =
-    ticket.venue?.trim() || "Le Carré d'Or Casablanca";
-
-  const city = ticket.city?.trim() || "Casablanca";
-
-  const childrenUnder12 = Number(ticket.childrenUnder12 ?? 0);
-  const children12Plus = Number(ticket.children12Plus ?? 0);
-  const childrenTotal = childrenUnder12 + children12Plus;
-
-  return (
-    <main className="min-h-screen bg-ink-950 px-4 pb-20 pt-28 md:pt-32">
-      <div className="mx-auto w-full max-w-3xl">
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-emerald-300">
-            <CheckCircle2 className="h-4 w-4" />
-            Billet valide
-          </div>
-
-          <h1 className="mt-6 text-3xl font-black tracking-tight text-cream sm:text-4xl">
-            Accès{" "}
-            <span className="text-gold-gradient">
-              confirmé
-            </span>
-          </h1>
-
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-cream-dim">
-            Votre billet a été vérifié avec succès et votre accès au Camp
-            International Silo 2026 est confirmé.
-          </p>
-        </div>
-
-        <section className="mt-8 overflow-hidden rounded-[2rem] border border-gold-400/15 bg-ink-900/60 shadow-2xl">
-          <div className="border-b border-gold-400/10 bg-gold-400/5 p-6 sm:p-8">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-400/10 text-gold-300">
-                <Ticket className="h-6 w-6" />
-              </div>
-
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold-300">
-                  Silo Camp
-                </p>
-
-                <h2 className="mt-1 text-xl font-black text-cream sm:text-2xl">
-                  Camp International Silo 2026
-                </h2>
-              </div>
+    <main className="min-h-screen bg-ink-950 px-4 py-24 text-cream sm:px-6">
+      <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center">
+        <div className="w-full overflow-hidden rounded-[2rem] border border-gold-400/10 bg-ink-900/60 shadow-2xl shadow-black/20">
+          <div className="px-6 py-10 text-center sm:px-10 sm:py-14">
+            <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10">
+              <CheckCircle2
+                className="h-10 w-10 text-emerald-400"
+                strokeWidth={1.8}
+              />
             </div>
-          </div>
 
-          <div className="p-6 sm:p-8">
-            <div className="mb-7">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold-300">
-                Participant
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-gold-300">
+              Billet valide
+            </p>
+
+            <h1 className="text-3xl font-semibold tracking-tight text-cream sm:text-4xl">
+              Accès confirmé
+            </h1>
+
+            <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-cream-dim sm:text-base">
+              Votre billet a été vérifié avec succès et votre accès au
+              <span className="font-medium text-cream">
+                {" "}
+                Camp International Silo 2026
+              </span>{" "}
+              est confirmé.
+            </p>
+
+            <div className="my-9 h-px bg-gold-400/10" />
+
+            <div className="space-y-1">
+              <p className="text-lg font-semibold tracking-[0.18em] text-gold-300">
+                SILO CAMP
               </p>
 
-              <h3 className="mt-2 text-2xl font-black text-cream sm:text-3xl">
-                {participantName}
-              </h3>
+              <p className="text-sm text-cream-dim">
+                Camp International Silo 2026
+              </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <InfoItem
-                icon={<Ticket className="h-5 w-5" />}
-                label="Numéro du billet"
-                value={ticket.ticketNumber || "—"}
-              />
-
-              <InfoItem
-                icon={<ShieldCheck className="h-5 w-5" />}
-                label="Réservation"
-                value={ticket.reservationId || "—"}
-              />
-
-              <InfoItem
-                icon={<CalendarDays className="h-5 w-5" />}
-                label="Date"
-                value={date}
-              />
-
-              <InfoItem
-                icon={<Clock3 className="h-5 w-5" />}
-                label="Heure"
-                value={time}
-              />
-
-              <InfoItem
-                icon={<MapPin className="h-5 w-5" />}
-                label="Lieu"
-                value={`${venue}, ${city}`}
-              />
-
-              <InfoItem
-                icon={<UserRound className="h-5 w-5" />}
-                label="Email"
-                value={ticket.email || "—"}
-              />
-
-              {ticket.phone && (
-                <InfoItem
-                  icon={<UserRound className="h-5 w-5" />}
-                  label="Téléphone"
-                  value={ticket.phone}
-                />
-              )}
-            </div>
-
-            {childrenTotal > 0 && (
-              <div className="mt-6 rounded-2xl border border-gold-400/10 bg-gold-400/5 p-5">
-                <div className="flex items-center gap-3">
-                  <UserRound className="h-5 w-5 text-gold-300" />
-
-                  <div>
-                    <p className="text-sm font-bold text-cream">
-                      Accompagnants
-                    </p>
-
-                    <p className="text-xs text-cream-dim">
-                      Informations organisationnelles
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl bg-ink-950/50 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-cream-dim">
-                      Moins de 12 ans
-                    </p>
-
-                    <p className="mt-1 text-lg font-black text-gold-300">
-                      {childrenUnder12}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-ink-950/50 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-cream-dim">
-                      12 ans et plus
-                    </p>
-
-                    <p className="mt-1 text-lg font-black text-gold-300">
-                      {children12Plus}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-ink-950/50 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-cream-dim">
-                      Total
-                    </p>
-
-                    <p className="mt-1 text-lg font-black text-gold-300">
-                      {childrenTotal}
-                    </p>
-                  </div>
-                </div>
+            <div className="mt-9 rounded-2xl border border-emerald-400/10 bg-emerald-400/5 px-5 py-4">
+              <div className="flex items-center justify-center gap-2 text-sm font-medium text-emerald-300">
+                <CheckCircle2 className="h-4 w-4" />
+                Accès confirmé
               </div>
-            )}
 
-            <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-5">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
-
-                <div>
-                  <p className="text-sm font-bold text-emerald-300">
-                    Accès confirmé
-                  </p>
-
-                  <p className="mt-1 text-xs leading-6 text-cream-dim">
-                    Ce billet est actuellement valide. Présentez simplement
-                    votre billet à l'équipe d'accueil lors de votre arrivée.
-                  </p>
-                </div>
-              </div>
+              <p className="mt-2 text-xs leading-6 text-cream-dim">
+                Ce billet est actuellement valide. Présentez simplement votre
+                billet à l'équipe d'accueil lors de votre arrivée.
+              </p>
             </div>
+
+            <Link
+              to="/"
+              className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 px-6 py-3.5 text-sm font-semibold text-ink-950 transition-all duration-200 hover:bg-gold-300 focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:ring-offset-2 focus:ring-offset-ink-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Retour à l'accueil
+            </Link>
           </div>
-        </section>
-
-        <div className="mt-8 flex justify-center">
-          <Link
-            to="/"
-            className="btn-ghost inline-flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour à l'accueil
-          </Link>
         </div>
       </div>
     </main>
@@ -317,123 +98,107 @@ function ValidTicketPage({
 }
 
 function InvalidTicketPage({
-  status,
+  state,
   message,
 }: {
-  status: "used" | "cancelled" | "not-found" | "error";
+  state: Exclude<VerifyState, "loading" | "valid" | "missing-token">;
   message?: string;
 }) {
   const config = {
     used: {
-      icon: AlertTriangle,
-      badge: "Billet déjà utilisé",
+      icon: CheckCircle2,
       title: "Billet déjà utilisé",
-      description:
-        "Ce billet a déjà été contrôlé et enregistré comme utilisé. Il ne peut pas être utilisé une seconde fois.",
-      color:
-        "border-amber-400/20 bg-amber-400/5 text-amber-300",
+      text:
+        message ||
+        "Ce billet a déjà été contrôlé et utilisé. Il ne peut plus être présenté comme un accès valide.",
+      iconClass: "text-amber-400",
+      iconBg: "bg-amber-400/10",
+      iconBorder: "border-amber-400/20",
+      textClass: "text-amber-300",
     },
-
     cancelled: {
       icon: XCircle,
-      badge: "Billet annulé",
       title: "Billet annulé",
-      description:
-        "Ce billet a été annulé et n'autorise plus l'accès au Camp International Silo 2026.",
-      color:
-        "border-red-400/20 bg-red-400/5 text-red-300",
+      text:
+        message ||
+        "Ce billet a été annulé et ne permet plus l'accès au Camp International Silo 2026.",
+      iconClass: "text-red-400",
+      iconBg: "bg-red-400/10",
+      iconBorder: "border-red-400/20",
+      textClass: "text-red-300",
     },
-
     "not-found": {
       icon: XCircle,
-      badge: "Billet introuvable",
       title: "Billet introuvable",
-      description:
-        "Aucun billet correspondant à cette demande n'a été trouvé dans le système SiloCamp.",
-      color:
-        "border-red-400/20 bg-red-400/5 text-red-300",
+      text:
+        message ||
+        "Ce billet n'a pas pu être retrouvé. Vérifiez que le lien utilisé est correct.",
+      iconClass: "text-red-400",
+      iconBg: "bg-red-400/10",
+      iconBorder: "border-red-400/20",
+      textClass: "text-red-300",
     },
-
     error: {
       icon: AlertTriangle,
-      badge: "Erreur de vérification",
       title: "Vérification impossible",
-      description:
+      text:
         message ||
         "Une erreur est survenue pendant la vérification du billet. Veuillez réessayer.",
-      color:
-        "border-red-400/20 bg-red-400/5 text-red-300",
+      iconClass: "text-amber-400",
+      iconBg: "bg-amber-400/10",
+      iconBorder: "border-amber-400/20",
+      textClass: "text-amber-300",
     },
-  };
+  } as const;
 
-  const current = config[status];
+  const current = config[state] ?? config.error;
   const Icon = current.icon;
 
   return (
-    <main className="min-h-screen bg-ink-950 px-4 pb-20 pt-28 md:pt-32">
-      <div className="mx-auto w-full max-w-2xl">
-        <div className="overflow-hidden rounded-[2rem] border border-gold-400/15 bg-ink-900/60 shadow-2xl">
-          <div className="p-8 text-center sm:p-12">
+    <main className="min-h-screen bg-ink-950 px-4 py-24 text-cream sm:px-6">
+      <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center">
+        <div className="w-full overflow-hidden rounded-[2rem] border border-gold-400/10 bg-ink-900/60 shadow-2xl shadow-black/20">
+          <div className="px-6 py-10 text-center sm:px-10 sm:py-14">
             <div
-              className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full border ${current.color}`}
+              className={`mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full border ${current.iconBorder} ${current.iconBg}`}
             >
-              <Icon className="h-9 w-9" />
+              <Icon
+                className={`h-10 w-10 ${current.iconClass}`}
+                strokeWidth={1.8}
+              />
             </div>
 
-            <div
-              className={`mx-auto mt-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] ${current.color}`}
-            >
-              <Icon className="h-4 w-4" />
-              {current.badge}
-            </div>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-gold-300">
+              Billet
+            </p>
 
-            <h1 className="mt-6 text-3xl font-black tracking-tight text-cream sm:text-4xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-cream sm:text-4xl">
               {current.title}
             </h1>
 
-            <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-cream-dim">
-              {current.description}
+            <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-cream-dim sm:text-base">
+              {current.text}
             </p>
-          </div>
 
-          <div className="border-t border-gold-400/10 p-6 sm:p-8">
-            <div className="rounded-2xl border border-gold-400/10 bg-ink-950/40 p-5">
-              <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-gold-300" />
+            <div className="my-9 h-px bg-gold-400/10" />
 
-                <div>
-                  <p className="text-sm font-bold text-cream">
-                    Vérification SiloCamp
-                  </p>
+            <div className="space-y-1">
+              <p className="text-lg font-semibold tracking-[0.18em] text-gold-300">
+                SILO CAMP
+              </p>
 
-                  <p className="mt-1 text-xs leading-6 text-cream-dim">
-                    Pour toute question concernant votre billet, veuillez
-                    contacter l'organisation du Camp International Silo 2026.
-                  </p>
-                </div>
-              </div>
+              <p className="text-sm text-cream-dim">
+                Camp International Silo 2026
+              </p>
             </div>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              {status === "error" && (
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  className="btn-gold inline-flex flex-1 items-center justify-center gap-2"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Réessayer
-                </button>
-              )}
-
-              <Link
-                to="/"
-                className="btn-ghost inline-flex flex-1 items-center justify-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Retour à l'accueil
-              </Link>
-            </div>
+            <Link
+              to="/"
+              className="mt-9 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 px-6 py-3.5 text-sm font-semibold text-ink-950 transition-all duration-200 hover:bg-gold-300 focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:ring-offset-2 focus:ring-offset-ink-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Retour à l'accueil
+            </Link>
           </div>
         </div>
       </div>
@@ -443,28 +208,32 @@ function InvalidTicketPage({
 
 function MissingTokenPage() {
   return (
-    <main className="min-h-screen bg-ink-950 px-4 pb-20 pt-28 md:pt-32">
-      <div className="mx-auto w-full max-w-2xl">
-        <div className="overflow-hidden rounded-[2rem] border border-gold-400/15 bg-ink-900/60 shadow-2xl">
-          <div className="p-8 text-center sm:p-12">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gold-400/10 text-gold-300">
-              <Ticket className="h-9 w-9" />
+    <main className="min-h-screen bg-ink-950 px-4 py-24 text-cream sm:px-6">
+      <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center">
+        <div className="w-full overflow-hidden rounded-[2rem] border border-gold-400/10 bg-ink-900/60 shadow-2xl shadow-black/20">
+          <div className="px-6 py-10 text-center sm:px-10 sm:py-14">
+            <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10">
+              <AlertTriangle
+                className="h-10 w-10 text-amber-400"
+                strokeWidth={1.8}
+              />
             </div>
 
-            <h1 className="mt-6 text-3xl font-black tracking-tight text-cream sm:text-4xl">
-              Lien de vérification invalide
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-gold-300">
+              Vérification
+            </p>
+
+            <h1 className="text-3xl font-semibold tracking-tight text-cream sm:text-4xl">
+              Lien invalide
             </h1>
 
-            <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-cream-dim">
-              Ce lien ne contient pas les informations nécessaires pour
-              vérifier le billet.
+            <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-cream-dim sm:text-base">
+              Aucun identifiant de vérification n'a été fourni avec ce lien.
             </p>
-          </div>
 
-          <div className="border-t border-gold-400/10 p-6 sm:p-8">
             <Link
               to="/"
-              className="btn-gold inline-flex w-full items-center justify-center gap-2"
+              className="mt-9 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gold-400 px-6 py-3.5 text-sm font-semibold text-ink-950 transition-all duration-200 hover:bg-gold-300 focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:ring-offset-2 focus:ring-offset-ink-900"
             >
               <ArrowLeft className="h-4 w-4" />
               Retour à l'accueil
@@ -477,112 +246,100 @@ function MissingTokenPage() {
 }
 
 export default function TicketVerify() {
-  const [status, setStatus] =
-    useState<VerificationStatus>("loading");
-
-  const [ticket, setTicket] =
-    useState<SiloCampTicket | null>(null);
-
+  const [state, setState] = useState<VerifyState>("loading");
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
+  async function checkTicket(token: string) {
+    try {
+      setState("loading");
+      setMessage("");
 
-    async function verify() {
-      const token = getTokenFromUrl();
+      const result = (await verifyTicket(token)) as VerifyResult;
 
-      if (!token) {
-        if (!cancelled) {
-          setStatus("missing-token");
-        }
-
+      if (result?.valid) {
+        setState("valid");
         return;
       }
 
-      try {
-        setStatus("loading");
-        setMessage("");
+      const reason = normalizeReason(result?.reason);
 
-        const result = (await verifyTicket(
-          token
-        )) as VerificationResult;
-
-        if (cancelled) return;
-
-        if (result.valid && result.ticket) {
-          setTicket(result.ticket);
-          setStatus("valid");
-          return;
-        }
-
-        setTicket(null);
-        setMessage(result.message || "");
-        setStatus(getVerificationStatus(result));
-      } catch (error) {
-        console.error(
-          "[SiloCamp] Erreur de vérification du billet :",
-          error
-        );
-
-        if (!cancelled) {
-          setTicket(null);
-          setMessage(
-            "Impossible de contacter le service de vérification du billet."
-          );
-          setStatus("error");
-        }
+      if (
+        reason === "TICKET_ALREADY_USED" ||
+        reason === "ALREADY_USED" ||
+        reason === "USED"
+      ) {
+        setState("used");
+        setMessage(result?.message || "");
+        return;
       }
+
+      if (reason === "TICKET_CANCELLED" || reason === "CANCELLED") {
+        setState("cancelled");
+        setMessage(result?.message || "");
+        return;
+      }
+
+      if (reason === "TICKET_NOT_FOUND" || reason === "NOT_FOUND") {
+        setState("not-found");
+        setMessage(result?.message || "");
+        return;
+      }
+
+      setState("error");
+      setMessage(result?.message || "Le billet n'a pas pu être validé.");
+    } catch (error) {
+      console.error("[SiloCamp] Erreur de vérification du billet :", error);
+
+      setState("error");
+      setMessage(
+        "Une erreur est survenue pendant la vérification du billet. Veuillez réessayer.",
+      );
+    }
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token")?.trim();
+
+    if (!token) {
+      setState("missing-token");
+      return;
     }
 
-    verify();
-
-    return () => {
-      cancelled = true;
-    };
+    checkTicket(token);
   }, []);
 
-  if (status === "loading") {
+  if (state === "loading") {
     return (
-      <main className="min-h-screen bg-ink-950 px-4 pb-20 pt-28 md:pt-32">
-        <div className="mx-auto w-full max-w-2xl">
-          <div className="overflow-hidden rounded-[2rem] border border-gold-400/15 bg-ink-900/60 shadow-2xl">
-            <div className="p-10 text-center sm:p-14">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gold-400/10 text-gold-300">
-                <RefreshCw className="h-9 w-9 animate-spin" />
-              </div>
-
-              <h1 className="mt-7 text-2xl font-black text-cream sm:text-3xl">
-                Vérification du billet
-              </h1>
-
-              <p className="mt-3 text-sm leading-7 text-cream-dim">
-                Nous vérifions votre billet SiloCamp...
-              </p>
+      <main className="min-h-screen bg-ink-950 px-4 py-24 text-cream sm:px-6">
+        <div className="mx-auto flex min-h-[70vh] max-w-xl items-center justify-center">
+          <div className="w-full overflow-hidden rounded-[2rem] border border-gold-400/10 bg-ink-900/60 px-6 py-14 text-center shadow-2xl shadow-black/20 sm:px-10">
+            <div className="mx-auto mb-7 flex h-16 w-16 items-center justify-center rounded-full border border-gold-400/10 bg-gold-400/5">
+              <RefreshCw className="h-7 w-7 animate-spin text-gold-300" />
             </div>
+
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold-300">
+              Silo Camp
+            </p>
+
+            <h1 className="mt-4 text-2xl font-semibold text-cream">
+              Vérification du billet
+            </h1>
+
+            <p className="mt-3 text-sm text-cream-dim">Veuillez patienter...</p>
           </div>
         </div>
       </main>
     );
   }
 
-  if (status === "missing-token") {
+  if (state === "valid") {
+    return <ValidTicketPage />;
+  }
+
+  if (state === "missing-token") {
     return <MissingTokenPage />;
   }
 
-  if (status === "valid" && ticket) {
-    return <ValidTicketPage ticket={ticket} />;
-  }
-
-  return (
-    <InvalidTicketPage
-      status={
-        status as
-          | "used"
-          | "cancelled"
-          | "not-found"
-          | "error"
-      }
-      message={message}
-    />
-  );
+  return <InvalidTicketPage state={state} message={message} />;
 }
