@@ -1,20 +1,16 @@
-"use client";
-
 import { useEffect, useState } from "react";
-
+import { Link } from "react-router-dom";
 import {
-  CheckCircle2,
-  XCircle,
-  Clock3,
-  Ticket as TicketIcon,
-  User,
-  Mail,
-  Phone,
-  CalendarDays,
-  MapPin,
-  Hash,
-  Loader2,
   AlertTriangle,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Home,
+  Loader2,
+  MapPin,
+  ShieldCheck,
+  Ticket as TicketIcon,
+  XCircle,
 } from "lucide-react";
 
 import {
@@ -32,14 +28,10 @@ type VerificationState =
   | "missing-token";
 
 export default function TicketVerify() {
-  const [ticket, setTicket] =
-    useState<Ticket | null>(null);
-
+  const [ticket, setTicket] = useState<Ticket | null>(null);
   const [state, setState] =
     useState<VerificationState>("loading");
-
-  const [message, setMessage] =
-    useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +47,7 @@ export default function TicketVerify() {
         if (!cancelled) {
           setState("missing-token");
           setMessage(
-            "Aucun token de vérification n'a été fourni.",
+            "Aucun lien de vérification valide n'a été fourni.",
           );
         }
 
@@ -63,8 +55,7 @@ export default function TicketVerify() {
       }
 
       try {
-        const result =
-          await verifyTicket(token);
+        const result = await verifyTicket(token);
 
         if (cancelled) {
           return;
@@ -77,14 +68,13 @@ export default function TicketVerify() {
         if (result.valid) {
           setState("valid");
           setMessage(
-            result.message ||
-              "Billet valide.",
+            result.message || "Votre billet est valide.",
           );
-
           return;
         }
 
         switch (result.reason) {
+          case "TICKET_ALREADY_USED":
           case "USED":
             setState("used");
             setMessage(
@@ -93,6 +83,7 @@ export default function TicketVerify() {
             );
             break;
 
+          case "TICKET_CANCELLED":
           case "CANCELLED":
             setState("cancelled");
             setMessage(
@@ -101,6 +92,7 @@ export default function TicketVerify() {
             );
             break;
 
+          case "TICKET_NOT_FOUND":
           case "NOT_FOUND":
             setState("not-found");
             setMessage(
@@ -122,7 +114,7 @@ export default function TicketVerify() {
         }
 
         console.error(
-          "[TicketVerify]",
+          "[SiloCamp TicketVerify]",
           error,
         );
 
@@ -143,362 +135,452 @@ export default function TicketVerify() {
     };
   }, []);
 
-  /* =========================================================
-     LOADING
-     ========================================================= */
-
   if (state === "loading") {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
-        <div className="text-center text-white">
-          <Loader2 className="mx-auto mb-5 h-12 w-12 animate-spin" />
-
-          <h1 className="text-xl font-bold">
-            Vérification du billet
-          </h1>
-
-          <p className="mt-2 text-sm text-white/60">
-            Connexion au système SiloCamp...
-          </p>
-        </div>
-      </main>
-    );
+    return <LoadingScreen />;
   }
-
-  /* =========================================================
-     ERREUR / TOKEN MANQUANT
-     ========================================================= */
 
   if (
     state === "error" ||
     state === "missing-token"
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10">
-        <div className="w-full max-w-md rounded-[28px] bg-white p-8 text-center shadow-2xl">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-            <AlertTriangle className="h-9 w-9 text-red-600" />
-          </div>
-
-          <h1 className="text-2xl font-black text-slate-900">
-            Erreur de vérification
-          </h1>
-
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            {message}
-          </p>
-
-          <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            VÉRIFICATION IMPOSSIBLE
-          </div>
-        </div>
-      </main>
+      <StatusPage
+        type="error"
+        title="Vérification impossible"
+        message={message}
+      />
     );
   }
 
-  /* =========================================================
-     BILLET INTROUVABLE
-     ========================================================= */
-
-  if (
-    state === "not-found" ||
-    !ticket
-  ) {
+  if (state === "not-found") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10">
-        <div className="w-full max-w-md rounded-[28px] bg-white p-8 text-center shadow-2xl">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-            <XCircle className="h-9 w-9 text-red-600" />
-          </div>
-
-          <h1 className="text-2xl font-black text-slate-900">
-            Billet introuvable
-          </h1>
-
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            Ce QR Code ne correspond à aucun
-            billet enregistré dans la base de
-            données SiloCamp.
-          </p>
-
-          <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-            BILLET NON VALIDE
-          </div>
-        </div>
-      </main>
+      <StatusPage
+        type="invalid"
+        title="Billet introuvable"
+        message={
+          message ||
+          "Ce billet ne correspond à aucun billet enregistré dans le système SiloCamp."
+        }
+      />
     );
   }
 
-  const isValid =
-    state === "valid";
+  if (!ticket) {
+    return (
+      <StatusPage
+        type="invalid"
+        title="Billet non valide"
+        message="Les informations du billet n'ont pas pu être récupérées."
+      />
+    );
+  }
 
-  const isUsed =
-    state === "used";
+  const participantName =
+    ticket.participantName ||
+    [ticket.firstName, ticket.lastName]
+      .filter(Boolean)
+      .join(" ") ||
+    "Participant";
 
-  const isCancelled =
-    state === "cancelled";
+  if (state === "valid") {
+    return (
+      <ValidTicketPage
+        ticket={ticket}
+        participantName={participantName}
+      />
+    );
+  }
 
-  /* =========================================================
-     STATUS
-     ========================================================= */
-
-  const statusTitle = isValid
-    ? "BILLET VALIDE"
-    : isUsed
-      ? "BILLET DÉJÀ UTILISÉ"
-      : isCancelled
-        ? "BILLET ANNULÉ"
-        : "BILLET NON VALIDE";
-
-  const statusMessage = isValid
-    ? "Ce billet est enregistré et peut être présenté à l'entrée."
-    : isUsed
-      ? "Ce billet a déjà été utilisé."
-      : isCancelled
-        ? "Ce billet a été annulé."
-        : message;
-
-  const statusClass = isValid
-    ? "bg-emerald-500"
-    : isUsed
-      ? "bg-amber-500"
-      : "bg-red-500";
-
-  /* =========================================================
-     PAGE
-     ========================================================= */
+  if (state === "used") {
+    return (
+      <UsedTicketPage
+        ticket={ticket}
+        participantName={participantName}
+        message={message}
+      />
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6">
-      <div className="mx-auto w-full max-w-lg">
-        {/* HEADER */}
+    <CancelledTicketPage
+      ticket={ticket}
+      participantName={participantName}
+      message={message}
+    />
+  );
+}
 
-        <div className="mb-6 text-center text-white">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10">
-            <TicketIcon className="h-7 w-7" />
-          </div>
-
-          <h1 className="text-3xl font-black">
-            SiloCamp
-          </h1>
-
-          <p className="mt-1 text-sm text-white/60">
-            Vérification officielle du billet
-          </p>
+function LoadingScreen() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#10081f] px-6">
+      <div className="w-full max-w-md text-center">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#d6b36a]/20 bg-[#d6b36a]/10">
+          <Loader2 className="h-9 w-9 animate-spin text-[#d6b36a]" />
         </div>
 
-        {/* TICKET */}
+        <h1 className="mt-7 font-display text-3xl font-semibold text-white">
+          Vérification du billet
+        </h1>
 
-        <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
-          {/* STATUS */}
-
-          <div
-            className={`px-6 py-8 text-center ${statusClass}`}
-          >
-            {isValid ? (
-              <CheckCircle2 className="mx-auto h-14 w-14 text-white" />
-            ) : isUsed ? (
-              <Clock3 className="mx-auto h-14 w-14 text-white" />
-            ) : (
-              <XCircle className="mx-auto h-14 w-14 text-white" />
-            )}
-
-            <h2 className="mt-4 text-2xl font-black text-white">
-              {statusTitle}
-            </h2>
-
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-white/85">
-              {statusMessage}
-            </p>
-          </div>
-
-          {/* CONTENT */}
-
-          <div className="p-6">
-            {/* NUMÉRO */}
-
-            <div className="mb-7 rounded-2xl bg-slate-50 p-5 text-center">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-                Numéro du billet
-              </p>
-
-              <p className="mt-2 break-all text-xl font-black tracking-wide text-slate-900">
-                {ticket.ticketNumber}
-              </p>
-            </div>
-
-            {/* PARTICIPANT */}
-
-            <section>
-              <SectionTitle>
-                Participant
-              </SectionTitle>
-
-              <div className="space-y-4">
-                <InfoRow
-                  icon={
-                    <User className="h-4 w-4" />
-                  }
-                  label="Prénom"
-                  value={
-                    ticket.firstName || "—"
-                  }
-                />
-
-                <InfoRow
-                  icon={
-                    <User className="h-4 w-4" />
-                  }
-                  label="Nom"
-                  value={
-                    ticket.lastName || "—"
-                  }
-                />
-
-                <InfoRow
-                  icon={
-                    <Phone className="h-4 w-4" />
-                  }
-                  label="Téléphone"
-                  value={
-                    ticket.phone || "—"
-                  }
-                />
-
-                <InfoRow
-                  icon={
-                    <Mail className="h-4 w-4" />
-                  }
-                  label="E-mail"
-                  value={
-                    ticket.email || "—"
-                  }
-                />
-              </div>
-            </section>
-
-            {/* ÉVÉNEMENT */}
-
-            <section className="mt-8">
-              <SectionTitle>
-                Événement
-              </SectionTitle>
-
-              <div className="space-y-4">
-                <InfoRow
-                  icon={
-                    <TicketIcon className="h-4 w-4" />
-                  }
-                  label="Événement"
-                  value={
-                    ticket.eventTitle
-                  }
-                />
-
-                <InfoRow
-                  icon={
-                    <CalendarDays className="h-4 w-4" />
-                  }
-                  label="Date"
-                  value={
-                    ticket.dateLabel
-                  }
-                />
-
-                <InfoRow
-                  icon={
-                    <Clock3 className="h-4 w-4" />
-                  }
-                  label="Heure"
-                  value={ticket.time}
-                />
-
-                <InfoRow
-                  icon={
-                    <MapPin className="h-4 w-4" />
-                  }
-                  label="Lieu"
-                  value={`${ticket.venue}, ${ticket.city}`}
-                />
-              </div>
-            </section>
-
-            {/* RÉSERVATION */}
-
-            <section className="mt-8">
-              <SectionTitle>
-                Réservation
-              </SectionTitle>
-
-              <div className="space-y-4">
-                <InfoRow
-                  icon={
-                    <Hash className="h-4 w-4" />
-                  }
-                  label="Référence"
-                  value={
-                    ticket.reservationId ||
-                    "—"
-                  }
-                />
-
-                <InfoRow
-                  icon={
-                    <TicketIcon className="h-4 w-4" />
-                  }
-                  label="Statut"
-                  value={
-                    ticket.status ===
-                    "VALID"
-                      ? "Valide"
-                      : ticket.status ===
-                          "USED"
-                        ? "Utilisé"
-                        : "Annulé"
-                  }
-                />
-              </div>
-            </section>
-          </div>
-
-          {/* FOOTER */}
-
-          <div className="border-t border-slate-100 px-6 py-5 text-center">
-            <p className="text-xs font-medium text-slate-400">
-              SiloCamp • Billetterie officielle
-            </p>
-
-            <p className="mt-1 text-[11px] text-slate-300">
-              Vérification sécurisée par QR Code
-            </p>
-          </div>
-        </div>
+        <p className="mt-3 text-sm leading-6 text-white/55">
+          Nous vérifions votre billet auprès du système
+          officiel SiloCamp...
+        </p>
       </div>
     </main>
   );
 }
 
-/* =========================================================
-   SECTION TITLE
-   ========================================================= */
-
-function SectionTitle({
-  children,
+function ValidTicketPage({
+  ticket,
+  participantName,
 }: {
-  children: React.ReactNode;
+  ticket: Ticket;
+  participantName: string;
 }) {
   return (
-    <h3 className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-      {children}
-    </h3>
+    <main className="min-h-screen bg-[#10081f] px-4 py-10 sm:px-6 sm:py-14">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl flex-col justify-center">
+        <div className="text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 shadow-[0_0_50px_rgba(16,185,129,0.12)]">
+            <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+          </div>
+
+          <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-[#d6b36a]/20 bg-[#d6b36a]/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.25em] text-[#d6b36a]">
+            <ShieldCheck className="h-4 w-4" />
+            Vérification officielle
+          </div>
+
+          <h1 className="mt-6 font-display text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+            Votre billet est{" "}
+            <span className="text-[#d6b36a]">
+              valide
+            </span>
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-white/60 sm:text-base">
+            Bonjour{" "}
+            <span className="font-semibold text-white">
+              {participantName}
+            </span>
+            . Votre billet a été vérifié avec succès.
+          </p>
+        </div>
+
+        <div className="mt-9 overflow-hidden rounded-[30px] border border-white/10 bg-white shadow-2xl shadow-black/30">
+          <div className="bg-gradient-to-r from-[#24123e] to-[#160b29] px-6 py-7 text-white sm:px-8">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#d6b36a]/20 bg-[#d6b36a]/10">
+                <TicketIcon className="h-6 w-6 text-[#d6b36a]" />
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/40">
+                  Billet SiloCamp
+                </p>
+
+                <p className="mt-1 break-all font-mono text-sm font-bold text-[#d6b36a]">
+                  {ticket.ticketNumber}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 sm:p-8">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                </div>
+
+                <div>
+                  <p className="text-sm font-black text-emerald-800">
+                    Accès confirmé
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-emerald-700">
+                    Ce billet est actuellement valide et
+                    peut être présenté à l'entrée du Camp.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-7">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                Participant
+              </p>
+
+              <p className="mt-2 text-xl font-black text-slate-900">
+                {participantName}
+              </p>
+            </div>
+
+            <div className="mt-7 grid gap-4 sm:grid-cols-2">
+              <TicketInfo
+                icon={<TicketIcon className="h-4 w-4" />}
+                label="Événement"
+                value={ticket.eventTitle}
+              />
+
+              <TicketInfo
+                icon={<CalendarDays className="h-4 w-4" />}
+                label="Date"
+                value={ticket.dateLabel}
+              />
+
+              <TicketInfo
+                icon={<Clock3 className="h-4 w-4" />}
+                label="Heure"
+                value={ticket.time}
+              />
+
+              <TicketInfo
+                icon={<MapPin className="h-4 w-4" />}
+                label="Lieu"
+                value={`${ticket.venue}, ${ticket.city}`}
+              />
+            </div>
+
+            {ticket.reservationId && (
+              <div className="mt-7 rounded-2xl bg-slate-50 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Réservation
+                </p>
+
+                <p className="mt-2 break-all font-mono text-sm font-bold text-slate-800">
+                  {ticket.reservationId}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-slate-100 bg-slate-50 px-6 py-5 text-center">
+            <p className="text-xs font-medium text-slate-400">
+              SiloCamp • Billetterie officielle
+            </p>
+
+            <p className="mt-1 text-[11px] text-slate-300">
+              Vérification sécurisée de votre billet
+            </p>
+          </div>
+        </div>
+
+        <Link
+          to="/"
+          className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#d6b36a] px-6 py-4 text-sm font-black text-[#160b29] shadow-lg shadow-[#d6b36a]/10 transition hover:-translate-y-0.5 hover:bg-[#e2c47e]"
+        >
+          <Home className="h-5 w-5" />
+          Retour à l'accueil
+        </Link>
+
+        <p className="mt-5 text-center text-[11px] leading-5 text-white/30">
+          Présentez votre billet et son QR Code lors de
+          votre arrivée au Camp.
+        </p>
+      </div>
+    </main>
   );
 }
 
-/* =========================================================
-   INFO ROW
-   ========================================================= */
+function UsedTicketPage({
+  ticket,
+  participantName,
+  message,
+}: {
+  ticket: Ticket;
+  participantName: string;
+  message: string;
+}) {
+  return (
+    <main className="min-h-screen bg-[#10081f] px-4 py-10 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl flex-col justify-center">
+        <div className="text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10">
+            <Clock3 className="h-10 w-10 text-amber-400" />
+          </div>
 
-function InfoRow({
+          <h1 className="mt-7 font-display text-4xl font-semibold text-white">
+            Billet déjà utilisé
+          </h1>
+
+          <p className="mt-4 text-sm leading-6 text-white/60">
+            {message}
+          </p>
+        </div>
+
+        <StatusTicketCard
+          ticket={ticket}
+          participantName={participantName}
+          status="used"
+        />
+
+        <HomeButton />
+      </div>
+    </main>
+  );
+}
+
+function CancelledTicketPage({
+  ticket,
+  participantName,
+  message,
+}: {
+  ticket: Ticket;
+  participantName: string;
+  message: string;
+}) {
+  return (
+    <main className="min-h-screen bg-[#10081f] px-4 py-10 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-xl flex-col justify-center">
+        <div className="text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-red-400/20 bg-red-400/10">
+            <XCircle className="h-10 w-10 text-red-400" />
+          </div>
+
+          <h1 className="mt-7 font-display text-4xl font-semibold text-white">
+            Billet annulé
+          </h1>
+
+          <p className="mt-4 text-sm leading-6 text-white/60">
+            {message}
+          </p>
+        </div>
+
+        <StatusTicketCard
+          ticket={ticket}
+          participantName={participantName}
+          status="cancelled"
+        />
+
+        <HomeButton />
+      </div>
+    </main>
+  );
+}
+
+function StatusTicketCard({
+  ticket,
+  participantName,
+  status,
+}: {
+  ticket: Ticket;
+  participantName: string;
+  status: "used" | "cancelled";
+}) {
+  const isUsed = status === "used";
+
+  return (
+    <div className="mt-9 overflow-hidden rounded-[30px] bg-white shadow-2xl">
+      <div
+        className={`px-6 py-6 ${
+          isUsed
+            ? "bg-amber-500"
+            : "bg-red-500"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
+              Numéro du billet
+            </p>
+
+            <p className="mt-1 break-all font-mono text-sm font-black text-white">
+              {ticket.ticketNumber}
+            </p>
+          </div>
+
+          {isUsed ? (
+            <Clock3 className="h-8 w-8 shrink-0 text-white" />
+          ) : (
+            <XCircle className="h-8 w-8 shrink-0 text-white" />
+          )}
+        </div>
+      </div>
+
+      <div className="p-6 sm:p-8">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          Participant
+        </p>
+
+        <p className="mt-2 text-xl font-black text-slate-900">
+          {participantName}
+        </p>
+
+        <div className="mt-7 grid gap-4">
+          <TicketInfo
+            icon={<TicketIcon className="h-4 w-4" />}
+            label="Événement"
+            value={ticket.eventTitle}
+          />
+
+          <TicketInfo
+            icon={<CalendarDays className="h-4 w-4" />}
+            label="Date"
+            value={ticket.dateLabel}
+          />
+
+          <TicketInfo
+            icon={<MapPin className="h-4 w-4" />}
+            label="Lieu"
+            value={`${ticket.venue}, ${ticket.city}`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusPage({
+  type,
+  title,
+  message,
+}: {
+  type: "error" | "invalid";
+  title: string;
+  message: string;
+}) {
+  const isError = type === "error";
+
+  return (
+    <main className="min-h-screen bg-[#10081f] px-4 py-10 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-md flex-col justify-center text-center">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-red-400/20 bg-red-400/10">
+          {isError ? (
+            <AlertTriangle className="h-10 w-10 text-red-400" />
+          ) : (
+            <XCircle className="h-10 w-10 text-red-400" />
+          )}
+        </div>
+
+        <div className="mt-7 inline-flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-[0.25em] text-[#d6b36a]">
+          <ShieldCheck className="h-4 w-4" />
+          SiloCamp
+        </div>
+
+        <h1 className="mt-5 font-display text-4xl font-semibold text-white">
+          {title}
+        </h1>
+
+        <p className="mt-4 text-sm leading-7 text-white/55">
+          {message}
+        </p>
+
+        <div className="mt-8 rounded-2xl border border-red-400/10 bg-red-400/5 px-5 py-4">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-red-300">
+            {isError
+              ? "Vérification impossible"
+              : "Billet non valide"}
+          </p>
+        </div>
+
+        <HomeButton />
+      </div>
+    </main>
+  );
+}
+
+function TicketInfo({
   icon,
   label,
   value,
@@ -508,20 +590,32 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-3 border-b border-slate-100 pb-3 last:border-0">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+    <div className="flex min-w-0 items-start gap-3 rounded-2xl border border-slate-100 bg-white p-4">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f4efe6] text-[#8d6c2d]">
         {icon}
       </div>
 
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-slate-400">
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
           {label}
         </p>
 
-        <p className="mt-0.5 break-words text-sm font-semibold text-slate-900">
-          {value}
+        <p className="mt-1 break-words text-sm font-bold text-slate-800">
+          {value || "—"}
         </p>
       </div>
     </div>
+  );
+}
+
+function HomeButton() {
+  return (
+    <Link
+      to="/"
+      className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#d6b36a] px-6 py-4 text-sm font-black text-[#160b29] shadow-lg shadow-[#d6b36a]/10 transition hover:-translate-y-0.5 hover:bg-[#e2c47e]"
+    >
+      <Home className="h-5 w-5" />
+      Retour à l'accueil
+    </Link>
   );
 }
