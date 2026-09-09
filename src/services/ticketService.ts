@@ -22,9 +22,28 @@ export type Ticket = {
   venue: string;
   city: string;
 
+  /**
+   * Nombre réel de places consommées :
+   *
+   * 1 participant principal
+   * + enfants de 12 ans et plus
+   *
+   * Les enfants de moins de 12 ans
+   * ne consomment pas de place.
+   */
   quantity: number;
 
+  /**
+   * Enfants accompagnateurs de moins de 12 ans.
+   * Ils sont enregistrés pour l'organisation
+   * mais ne consomment pas de billet.
+   */
   childrenUnder12: number;
+
+  /**
+   * Enfants accompagnateurs de 12 ans et plus.
+   * Chaque enfant consomme une place.
+   */
   children12Plus: number;
 
   status: TicketStatus;
@@ -52,6 +71,10 @@ export type CreateTicketInput = {
   venue: string;
   city: string;
 
+  /**
+   * Conservé pour compatibilité,
+   * mais la quantité est recalculée automatiquement.
+   */
   quantity?: number;
 
   childrenUnder12?: number;
@@ -64,16 +87,29 @@ export type TicketStats = {
   validTickets: number;
   usedTickets: number;
   cancelledTickets: number;
+
+  /**
+   * Nombre total de places consommées.
+   */
   reserved: number;
+
   used: number;
   remaining: number;
 };
+
+/* =========================================================
+   CONFIGURATION API
+========================================================= */
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL || window.location.origin
 ).replace(/\/$/, "");
 
 const API_URL = `${API_BASE_URL}/api/tickets`;
+
+/* =========================================================
+   NORMALISATION
+========================================================= */
 
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -83,17 +119,56 @@ function normalizePhone(value: string): string {
   return value.replace(/[^\d+]/g, "").trim();
 }
 
+function normalizeQuantity(value: unknown): number {
+  const quantity = Math.floor(Number(value ?? 0));
+
+  return Number.isFinite(quantity) ? Math.max(0, quantity) : 0;
+}
+
+/**
+ * Calcule le nombre réel de places consommées.
+ *
+ * Participant principal = 1 place
+ * Enfant moins de 12 ans = 0 place
+ * Enfant 12 ans et plus = 1 place
+ */
+function calculateConsumedPlaces(children12Plus: number): number {
+  return 1 + children12Plus;
+}
+
+/* =========================================================
+   NORMALISATION BILLET
+========================================================= */
+
 function normalizeTicket(ticket: Ticket): Ticket {
+  const childrenUnder12 = normalizeQuantity(ticket.childrenUnder12);
+
+  const children12Plus = normalizeQuantity(ticket.children12Plus);
+
   return {
     ...ticket,
 
-    childrenUnder12: Number(ticket.childrenUnder12 ?? 0),
-    children12Plus: Number(ticket.children12Plus ?? 0),
+    /**
+     * On garde la quantité retournée par le serveur,
+     * mais si elle est absente/invalide, on la recalcule.
+     */
+    quantity:
+      normalizeQuantity(ticket.quantity) ||
+      calculateConsumedPlaces(children12Plus),
+
+    childrenUnder12,
+
+    children12Plus,
 
     usedAt: ticket.usedAt ?? null,
+
     cancelledAt: ticket.cancelledAt ?? null,
   };
 }
+
+/* =========================================================
+   LECTURE JSON
+========================================================= */
 
 async function parseJson(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") || "";
@@ -119,6 +194,10 @@ async function parseJson(response: Response): Promise<unknown> {
   }
 }
 
+/* =========================================================
+   ERREURS API
+========================================================= */
+
 function getApiError(data: unknown, fallback: string): string {
   if (typeof data === "object" && data !== null) {
     const value = data as Record<string, unknown>;
@@ -134,6 +213,10 @@ function getApiError(data: unknown, fallback: string): string {
 
   return fallback;
 }
+
+/* =========================================================
+   EXTRACTION DES BILLETS
+========================================================= */
 
 function extractTickets(data: unknown): Ticket[] | null {
   if (Array.isArray(data)) {
@@ -162,6 +245,7 @@ function extractTickets(data: unknown): Ticket[] | null {
 export async function getTickets(): Promise<Ticket[]> {
   const response = await fetch(API_URL, {
     method: "GET",
+
     headers: {
       Accept: "application/json",
     },
@@ -181,7 +265,10 @@ export async function getTickets(): Promise<Ticket[]> {
   const tickets = extractTickets(data);
 
   if (!tickets) {
-    console.error("[SiloCamp] Réponse reçue depuis /api/tickets :", data);
+    console.error(
+      "[SiloCamp] Réponse reçue depuis /api/tickets :",
+      data,
+    );
 
     throw new Error(
       "La réponse du serveur ne contient pas une liste de billets valide.",
@@ -195,7 +282,9 @@ export async function getTickets(): Promise<Ticket[]> {
    BILLET PAR ID
 ========================================================= */
 
-export async function getTicketById(id: string): Promise<Ticket | null> {
+export async function getTicketById(
+  id: string,
+): Promise<Ticket | null> {
   const normalizedId = id.trim();
 
   if (!normalizedId) {
@@ -204,7 +293,9 @@ export async function getTicketById(id: string): Promise<Ticket | null> {
 
   const tickets = await getTickets();
 
-  return tickets.find((ticket) => ticket.id === normalizedId) ?? null;
+  return tickets.find(
+    (ticket) => ticket.id === normalizedId,
+  ) ?? null;
 }
 
 /* =========================================================
@@ -224,7 +315,8 @@ export async function getTicketByNumber(
 
   return (
     tickets.find(
-      (ticket) => ticket.ticketNumber.trim().toLowerCase() === normalizedNumber,
+      (ticket) =>
+        ticket.ticketNumber.trim().toLowerCase() === normalizedNumber,
     ) ?? null
   );
 }
@@ -233,7 +325,9 @@ export async function getTicketByNumber(
    BILLET PAR EMAIL
 ========================================================= */
 
-export async function getTicketByEmail(email: string): Promise<Ticket[]> {
+export async function getTicketByEmail(
+  email: string,
+): Promise<Ticket[]> {
   const normalizedEmail = normalizeEmail(email);
 
   if (!normalizedEmail) {
@@ -243,7 +337,8 @@ export async function getTicketByEmail(email: string): Promise<Ticket[]> {
   const tickets = await getTickets();
 
   return tickets.filter(
-    (ticket) => normalizeEmail(ticket.email) === normalizedEmail,
+    (ticket) =>
+      normalizeEmail(ticket.email) === normalizedEmail,
   );
 }
 
@@ -251,7 +346,9 @@ export async function getTicketByEmail(email: string): Promise<Ticket[]> {
    BILLET PAR TÉLÉPHONE
 ========================================================= */
 
-export async function getTicketByPhone(phone: string): Promise<Ticket[]> {
+export async function getTicketByPhone(
+  phone: string,
+): Promise<Ticket[]> {
   const normalizedPhone = normalizePhone(phone);
 
   if (!normalizedPhone) {
@@ -261,7 +358,8 @@ export async function getTicketByPhone(phone: string): Promise<Ticket[]> {
   const tickets = await getTickets();
 
   return tickets.filter(
-    (ticket) => normalizePhone(ticket.phone ?? "") === normalizedPhone,
+    (ticket) =>
+      normalizePhone(ticket.phone ?? "") === normalizedPhone,
   );
 }
 
@@ -269,7 +367,9 @@ export async function getTicketByPhone(phone: string): Promise<Ticket[]> {
    VÉRIFICATION TOKEN
 ========================================================= */
 
-export async function verifyTicket(verificationToken: string): Promise<{
+export async function verifyTicket(
+  verificationToken: string,
+): Promise<{
   valid: boolean;
   reason?: string | null;
   message: string;
@@ -296,11 +396,15 @@ export async function verifyTicket(verificationToken: string): Promise<{
   try {
     const response = await fetch(`${API_URL}/verify`, {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ token }),
+
+      body: JSON.stringify({
+        token,
+      }),
     });
 
     const data = await parseJson(response);
@@ -324,17 +428,28 @@ export async function verifyTicket(verificationToken: string): Promise<{
     if (response.ok && result.valid === true) {
       return {
         valid: true,
+
         reason: result.reason ?? null,
+
         message: result.message || "Billet valide.",
-        ticket: result.ticket ? normalizeTicket(result.ticket) : undefined,
+
+        ticket: result.ticket
+          ? normalizeTicket(result.ticket)
+          : undefined,
       };
     }
 
     return {
       valid: false,
+
       reason: result.reason ?? "INVALID_TICKET",
-      message: result.message || "Impossible de vérifier le billet.",
-      ticket: result.ticket ? normalizeTicket(result.ticket) : undefined,
+
+      message:
+        result.message || "Impossible de vérifier le billet.",
+
+      ticket: result.ticket
+        ? normalizeTicket(result.ticket)
+        : undefined,
     };
   } catch (error) {
     console.error(
@@ -344,42 +459,101 @@ export async function verifyTicket(verificationToken: string): Promise<{
 
     return {
       valid: false,
+
       reason: "NETWORK_ERROR",
-      message: "Impossible de contacter le service de vérification.",
+
+      message:
+        "Impossible de contacter le service de vérification.",
     };
   }
 }
 
 /* =========================================================
-   CRÉATION BILLET
+   CRÉATION DU BILLET
 ========================================================= */
 
-export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
-  const childrenUnder12 = Math.max(
-    0,
-    Math.floor(Number(input.childrenUnder12 ?? 0)),
+export async function createTicket(
+  input: CreateTicketInput,
+): Promise<Ticket> {
+  const childrenUnder12 = normalizeQuantity(
+    input.childrenUnder12,
   );
 
-  const children12Plus = Math.max(
-    0,
-    Math.floor(Number(input.children12Plus ?? 0)),
+  const children12Plus = normalizeQuantity(
+    input.children12Plus,
   );
+
+  /**
+   * =====================================================
+   * CALCUL AUTOMATIQUE DES PLACES CONSOMMÉES
+   *
+   * 1 participant principal
+   * + enfants de 12 ans et plus
+   *
+   * Les enfants de moins de 12 ans
+   * ne consomment aucune place.
+   * =====================================================
+   */
+  const quantity = calculateConsumedPlaces(children12Plus);
+
+  const participantName =
+    input.participantName?.trim() ||
+    `${input.firstName ?? ""} ${input.lastName ?? ""}`.trim();
+
+  if (!participantName) {
+    throw new Error("Le nom du participant est obligatoire.");
+  }
+
+  const email = normalizeEmail(input.email);
+
+  if (!email) {
+    throw new Error("L'adresse e-mail est obligatoire.");
+  }
 
   const payload = {
-    ...input,
+    firstName: input.firstName?.trim() || undefined,
 
-    email: normalizeEmail(input.email),
+    lastName: input.lastName?.trim() || undefined,
 
-    phone: input.phone ? normalizePhone(input.phone) : undefined,
+    participantName,
 
-    participantName:
-      input.participantName?.trim() ||
-      `${input.firstName ?? ""} ${input.lastName ?? ""}`.trim(),
+    email,
 
-    quantity: input.quantity ?? 1,
+    phone: input.phone
+      ? normalizePhone(input.phone)
+      : undefined,
 
+    reservationId:
+      input.reservationId?.trim() || undefined,
+
+    eventId: input.eventId?.trim() || undefined,
+
+    eventTitle: input.eventTitle,
+
+    dateLabel: input.dateLabel,
+
+    time: input.time,
+
+    duration: input.duration,
+
+    venue: input.venue,
+
+    city: input.city,
+
+    /**
+     * Nombre réel de places consommées.
+     */
+    quantity,
+
+    /**
+     * Enfants informatifs uniquement.
+     */
     childrenUnder12,
 
+    /**
+     * Chaque enfant de 12 ans ou plus
+     * est compté dans quantity.
+     */
     children12Plus,
   };
 
@@ -405,10 +579,19 @@ export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
     );
   }
 
-  if (typeof data !== "object" || data === null || !("ticket" in data)) {
-    console.error("[SiloCamp] Réponse création billet :", data);
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("ticket" in data)
+  ) {
+    console.error(
+      "[SiloCamp] Réponse création billet :",
+      data,
+    );
 
-    throw new Error("Le serveur n'a pas retourné le billet créé.");
+    throw new Error(
+      "Le serveur n'a pas retourné le billet créé.",
+    );
   }
 
   const ticket = (
@@ -423,9 +606,14 @@ export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
     !ticket.id ||
     !ticket.ticketNumber
   ) {
-    console.error("[SiloCamp] Billet retourné invalide :", ticket);
+    console.error(
+      "[SiloCamp] Billet retourné invalide :",
+      ticket,
+    );
 
-    throw new Error("Le serveur n'a pas retourné un billet valide.");
+    throw new Error(
+      "Le serveur n'a pas retourné un billet valide.",
+    );
   }
 
   return normalizeTicket(ticket);
@@ -438,6 +626,7 @@ export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
 export async function getTicketStats(): Promise<TicketStats> {
   const response = await fetch(`${API_URL}/stats`, {
     method: "GET",
+
     headers: {
       Accept: "application/json",
     },
@@ -472,14 +661,16 @@ export async function getTicketStats(): Promise<TicketStats> {
     );
   }
 
-  return data as TicketStats;
+  return stats as TicketStats;
 }
 
 /* =========================================================
    DISPONIBILITÉ
 ========================================================= */
 
-export async function checkTicketAvailability(requestedQuantity = 1): Promise<{
+export async function checkTicketAvailability(
+  requestedQuantity = 1,
+): Promise<{
   available: boolean;
   capacity: number;
   reserved: number;
@@ -488,8 +679,11 @@ export async function checkTicketAvailability(requestedQuantity = 1): Promise<{
 }> {
   const stats = await getTicketStats();
 
+  const quantity = normalizeQuantity(requestedQuantity);
+
   const available =
-    requestedQuantity > 0 && requestedQuantity <= stats.remaining;
+    quantity > 0 &&
+    quantity <= stats.remaining;
 
   return {
     available,
@@ -503,6 +697,46 @@ export async function checkTicketAvailability(requestedQuantity = 1): Promise<{
     message: available
       ? undefined
       : `Il ne reste que ${stats.remaining} place(s) disponible(s).`,
+  };
+}
+
+/* =========================================================
+   DISPONIBILITÉ POUR UNE FAMILLE
+========================================================= */
+
+/**
+ * Vérifie la disponibilité selon :
+ *
+ * 1 participant principal
+ * + enfants de 12 ans et plus
+ *
+ * Les enfants de moins de 12 ans
+ * ne consomment aucune place.
+ */
+export async function checkFamilyTicketAvailability(
+  children12Plus = 0,
+): Promise<{
+  available: boolean;
+  requestedQuantity: number;
+  capacity: number;
+  reserved: number;
+  remaining: number;
+  message?: string;
+}> {
+  const normalizedChildren12Plus =
+    normalizeQuantity(children12Plus);
+
+  const requestedQuantity = calculateConsumedPlaces(
+    normalizedChildren12Plus,
+  );
+
+  const availability =
+    await checkTicketAvailability(requestedQuantity);
+
+  return {
+    ...availability,
+
+    requestedQuantity,
   };
 }
 
@@ -543,10 +777,12 @@ export function getVerificationUrl(ticket: Ticket): string {
 }
 
 /* =========================================================
-   ALIAS
+   ALIAS VALIDATION TOKEN
 ========================================================= */
 
-export async function validateTicketByToken(verificationToken: string) {
+export async function validateTicketByToken(
+  verificationToken: string,
+) {
   return verifyTicket(verificationToken);
 }
 
@@ -554,8 +790,11 @@ export async function validateTicketByToken(verificationToken: string) {
    VALIDATION PHYSIQUE
 ========================================================= */
 
-export async function validateTicket(ticketNumber: string): Promise<Ticket> {
-  const normalizedNumber = ticketNumber.trim().toUpperCase();
+export async function validateTicket(
+  ticketNumber: string,
+): Promise<Ticket> {
+  const normalizedNumber =
+    ticketNumber.trim().toUpperCase();
 
   if (!normalizedNumber) {
     throw new Error("Numéro de billet manquant.");
@@ -563,6 +802,7 @@ export async function validateTicket(ticketNumber: string): Promise<Ticket> {
 
   const response = await fetch(`${API_URL}/validate`, {
     method: "POST",
+
     credentials: "include",
 
     headers: {
@@ -586,8 +826,14 @@ export async function validateTicket(ticketNumber: string): Promise<Ticket> {
     );
   }
 
-  if (typeof data !== "object" || data === null || !("ticket" in data)) {
-    throw new Error("Le serveur n'a pas retourné le billet validé.");
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("ticket" in data)
+  ) {
+    throw new Error(
+      "Le serveur n'a pas retourné le billet validé.",
+    );
   }
 
   const ticket = (
@@ -602,7 +848,9 @@ export async function validateTicket(ticketNumber: string): Promise<Ticket> {
     !ticket.id ||
     !ticket.ticketNumber
   ) {
-    throw new Error("Le serveur a retourné un billet invalide.");
+    throw new Error(
+      "Le serveur a retourné un billet invalide.",
+    );
   }
 
   return normalizeTicket(ticket);
@@ -612,15 +860,19 @@ export async function validateTicket(ticketNumber: string): Promise<Ticket> {
    UTILISATION DU BILLET
 ========================================================= */
 
-export async function useTicket(ticketNumber: string): Promise<Ticket> {
+export async function useTicket(
+  ticketNumber: string,
+): Promise<Ticket> {
   return validateTicket(ticketNumber);
 }
 
 /* =========================================================
-   MARQUER BILLET COMME UTILISÉ
+   MARQUER COMME UTILISÉ
 ========================================================= */
 
-export async function markTicketAsUsed(ticketNumber: string): Promise<Ticket> {
+export async function markTicketAsUsed(
+  ticketNumber: string,
+): Promise<Ticket> {
   return validateTicket(ticketNumber);
 }
 
@@ -628,8 +880,11 @@ export async function markTicketAsUsed(ticketNumber: string): Promise<Ticket> {
    ANNULATION
 ========================================================= */
 
-export async function cancelTicket(ticketNumber: string): Promise<Ticket> {
-  const normalizedNumber = ticketNumber.trim().toUpperCase();
+export async function cancelTicket(
+  ticketNumber: string,
+): Promise<Ticket> {
+  const normalizedNumber =
+    ticketNumber.trim().toUpperCase();
 
   if (!normalizedNumber) {
     throw new Error("Numéro de billet manquant.");
@@ -652,12 +907,17 @@ export async function cancelTicket(ticketNumber: string): Promise<Ticket> {
 
   if (!response.ok) {
     throw new Error(
-      getApiError(data, `Impossible d'annuler le billet (${response.status}).`),
+      getApiError(
+        data,
+        `Impossible d'annuler le billet (${response.status}).`,
+      ),
     );
   }
 
   if (typeof data !== "object" || data === null) {
-    throw new Error("La réponse d'annulation du billet est invalide.");
+    throw new Error(
+      "La réponse d'annulation du billet est invalide.",
+    );
   }
 
   const ticket = (
@@ -672,8 +932,11 @@ export async function cancelTicket(ticketNumber: string): Promise<Ticket> {
     !ticket.id ||
     !ticket.ticketNumber
   ) {
-    throw new Error("Le serveur n'a pas retourné le billet annulé.");
+    throw new Error(
+      "Le serveur n'a pas retourné le billet annulé.",
+    );
   }
 
   return normalizeTicket(ticket);
 }
+
