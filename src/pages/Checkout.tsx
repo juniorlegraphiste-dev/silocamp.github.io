@@ -31,7 +31,6 @@ type FormState = {
   lastName: string;
   email: string;
   phone: string;
-
   hasChildren: boolean;
   childrenUnder12: number;
   children12Plus: number;
@@ -44,7 +43,6 @@ const EMPTY_FORM: FormState = {
   lastName: "",
   email: "",
   phone: "",
-
   hasChildren: false,
   childrenUnder12: 0,
   children12Plus: 0,
@@ -56,16 +54,16 @@ export type Order = {
 
   eventId: string;
   eventTitle: string;
+
   city: string;
   venue: string;
+
   dateLabel: string;
   time: string;
 
   lines: CartLine[];
 
   total: number;
-
-  // Nombre réel de places consommées
   count: number;
 
   customer: {
@@ -77,15 +75,9 @@ export type Order = {
 
   children: {
     hasChildren: boolean;
-
     under12: number;
-
     age12Plus: number;
-
     total: number;
-
-    // Places réellement consommées
-    placesConsumed: number;
   };
 
   createdAt: string;
@@ -140,12 +132,29 @@ export default function Checkout() {
     : 0;
 
   /*
-   * Le participant principal reste limité à 1 sélection
-   * dans le panier.
+   * Une réservation commence toujours avec :
    *
-   * Les enfants de 12 ans et plus sont ajoutés
-   * séparément dans la logique de capacité.
+   * 1 participant = 1 place
+   *
+   * Puis :
+   *
+   * + 1 place pour chaque enfant de 12 ans ou plus.
+   *
+   * Les enfants de moins de 12 ans ne consomment aucune place
+   * supplémentaire.
    */
+  const childrenUnder12 = form.hasChildren
+    ? Math.max(0, Math.floor(form.childrenUnder12))
+    : 0;
+
+  const children12Plus = form.hasChildren
+    ? Math.max(0, Math.floor(form.children12Plus))
+    : 0;
+
+  const totalChildren = childrenUnder12 + children12Plus;
+
+  const placesConsumed = 1 + children12Plus;
+
   useEffect(() => {
     if (!participationCategoryId) {
       return;
@@ -156,7 +165,10 @@ export default function Checkout() {
     }
   }, [participationCategoryId, participationQuantity, setQuantity]);
 
-  const set = (key: keyof FormState, value: string | boolean | number) => {
+  const set = (
+    key: keyof FormState,
+    value: string | boolean | number,
+  ) => {
     setForm((current) => ({
       ...current,
       [key]: value,
@@ -173,9 +185,7 @@ export default function Checkout() {
   const selectChildrenOption = (hasChildren: boolean) => {
     setForm((current) => ({
       ...current,
-
       hasChildren,
-
       ...(hasChildren
         ? {}
         : {
@@ -186,7 +196,6 @@ export default function Checkout() {
 
     setErrors((current) => ({
       ...current,
-
       hasChildren: undefined,
       childrenUnder12: undefined,
       children12Plus: undefined,
@@ -201,13 +210,11 @@ export default function Checkout() {
   ) => {
     setForm((current) => ({
       ...current,
-
       [field]: Math.max(0, current[field] + delta),
     }));
 
     setErrors((current) => ({
       ...current,
-
       childrenUnder12: undefined,
       children12Plus: undefined,
     }));
@@ -243,11 +250,21 @@ export default function Checkout() {
     } else if (!isValidEmail(email)) {
       nextErrors.email = "Adresse e-mail invalide.";
     } else {
-      const existingTickets = await getTicketByEmail(email);
+      try {
+        const existingTickets = await getTicketByEmail(email);
 
-      if (existingTickets.length > 0) {
+        if (existingTickets.length > 0) {
+          nextErrors.email =
+            "Cette adresse e-mail a déjà été utilisée pour une participation.";
+        }
+      } catch (error) {
+        console.error(
+          "[SiloCamp] Erreur lors de la vérification de l'e-mail :",
+          error,
+        );
+
         nextErrors.email =
-          "Cette adresse e-mail a déjà été utilisée pour une participation.";
+          "Impossible de vérifier cette adresse e-mail.";
       }
     }
 
@@ -263,23 +280,28 @@ export default function Checkout() {
       if (digits.length < 8 || digits.length > 15) {
         nextErrors.phone = "Numéro de téléphone invalide.";
       } else {
-        const existingTickets = await getTicketByPhone(phone);
+        try {
+          const existingTickets = await getTicketByPhone(phone);
 
-        if (existingTickets.length > 0) {
+          if (existingTickets.length > 0) {
+            nextErrors.phone =
+              "Ce numéro de téléphone a déjà été utilisé pour une participation.";
+          }
+        } catch (error) {
+          console.error(
+            "[SiloCamp] Erreur lors de la vérification du téléphone :",
+            error,
+          );
+
           nextErrors.phone =
-            "Ce numéro de téléphone a déjà été utilisé pour une participation.";
+            "Impossible de vérifier ce numéro de téléphone.";
         }
       }
     }
 
-    if (form.hasChildren) {
-      const totalChildren =
-        form.childrenUnder12 + form.children12Plus;
-
-      if (totalChildren <= 0) {
-        nextErrors.childrenUnder12 =
-          "Veuillez indiquer le nombre d'enfants.";
-      }
+    if (form.hasChildren && totalChildren <= 0) {
+      nextErrors.childrenUnder12 =
+        "Veuillez indiquer le nombre d'enfants.";
     }
 
     setErrors(nextErrors);
@@ -293,7 +315,9 @@ export default function Checkout() {
     }
 
     if (!event) {
-      setSubmitError("Événement introuvable.");
+      setSubmitError(
+        "L'événement demandé est introuvable.",
+      );
       return;
     }
 
@@ -301,7 +325,6 @@ export default function Checkout() {
       setSubmitError(
         "La participation n'est pas disponible pour cet événement.",
       );
-
       return;
     }
 
@@ -318,17 +341,26 @@ export default function Checkout() {
       return;
     }
 
+    /*
+     * Le panier ne doit contenir qu'une seule ligne
+     * Participation.
+     *
+     * Les places supplémentaires liées aux enfants de 12 ans
+     * ou plus sont calculées séparément.
+     */
     if (participationQuantity !== 1) {
       setQuantity(participationCategory.id, 1);
 
       setSubmitError(
-        "Une seule place peut être réservée par participant.",
+        "La participation principale doit être limitée à une seule place.",
       );
 
       return;
     }
 
-    if (!(await validate())) {
+    const isValid = await validate();
+
+    if (!isValid) {
       window.scrollTo({
         top: 0,
         behavior: "smooth",
@@ -341,32 +373,11 @@ export default function Checkout() {
 
     const normalizedPhone = normalizePhone(form.phone);
 
-    /*
-     * ENFANTS
-     */
+    const firstName = form.firstName.trim();
 
-    const childrenUnder12 = form.hasChildren
-      ? Math.max(0, form.childrenUnder12)
-      : 0;
+    const lastName = form.lastName.trim();
 
-    const children12Plus = form.hasChildren
-      ? Math.max(0, form.children12Plus)
-      : 0;
-
-    const totalChildren =
-      childrenUnder12 + children12Plus;
-
-    /*
-     * LOGIQUE DES PLACES
-     *
-     * Participant principal = 1 place
-     *
-     * Moins de 12 ans = 0 place
-     *
-     * 12 ans et plus = 1 place chacun
-     */
-
-    const placesConsumed = 1 + children12Plus;
+    const participantName = `${firstName} ${lastName}`;
 
     setSubmitting(true);
 
@@ -374,17 +385,21 @@ export default function Checkout() {
 
     try {
       /*
-       * Vérification de la capacité
-       * avec le nombre réel de places consommées.
+       * IMPORTANT :
+       *
+       * La disponibilité utilise exactement la même valeur
+       * que celle envoyée à l'API et enregistrée en base :
+       *
+       * 1 participant + enfants de 12 ans ou plus.
        */
-
-      const availability =
-        await checkTicketAvailability(placesConsumed);
+      const availability = await checkTicketAvailability(
+        placesConsumed,
+      );
 
       if (!availability.available) {
         setSubmitError(
           availability.message ??
-            "Les places demandées ne sont plus disponibles.",
+            `Il ne reste pas suffisamment de places disponibles pour cette réservation. Places nécessaires : ${placesConsumed}.`,
         );
 
         setSubmitting(false);
@@ -398,16 +413,14 @@ export default function Checkout() {
       }
 
       /*
-       * Vérification supplémentaire e-mail
+       * DOUBLE VÉRIFICATION E-MAIL
        */
-
       const existingEmailTickets =
         await getTicketByEmail(normalizedEmail);
 
       if (existingEmailTickets.length > 0) {
         setErrors((current) => ({
           ...current,
-
           email:
             "Cette adresse e-mail a déjà été utilisée pour une participation.",
         }));
@@ -423,16 +436,14 @@ export default function Checkout() {
       }
 
       /*
-       * Vérification supplémentaire téléphone
+       * DOUBLE VÉRIFICATION TÉLÉPHONE
        */
-
       const existingPhoneTickets =
         await getTicketByPhone(normalizedPhone);
 
       if (existingPhoneTickets.length > 0) {
         setErrors((current) => ({
           ...current,
-
           phone:
             "Ce numéro de téléphone a déjà été utilisé pour une participation.",
         }));
@@ -447,25 +458,27 @@ export default function Checkout() {
         return;
       }
 
-      const firstName = form.firstName.trim();
-
-      const lastName = form.lastName.trim();
-
-      const participantName =
-        `${firstName} ${lastName}`.trim();
-
-      const reservationId =
-        generateReservationId();
+      /*
+       * ID UNIQUE DE RÉSERVATION
+       */
+      const reservationId = generateReservationId();
 
       /*
-       * CRÉATION DU TICKET
+       * CRÉATION DU BILLET
+       *
+       * quantity = placesConsumed
+       *
+       * Exemple :
+       *
+       * 0 enfant 12+  => quantity 1
+       * 1 enfant 12+  => quantity 2
+       * 2 enfants 12+ => quantity 3
+       *
+       * childrenUnder12 ne rajoute aucune place.
        */
-
       const ticket = await createTicket({
         firstName,
-
         lastName,
-
         participantName,
 
         email: normalizedEmail,
@@ -488,11 +501,6 @@ export default function Checkout() {
 
         city: event.city,
 
-        /*
-         * IMPORTANT :
-         * quantité réellement consommée
-         */
-
         quantity: placesConsumed,
 
         childrenUnder12,
@@ -501,19 +509,18 @@ export default function Checkout() {
       });
 
       /*
-       * SAUVEGARDE DE LA COMMANDE
+       * COMMANDE
+       *
+       * count correspond exactement à ticket.quantity.
        */
-
       const order: Order = {
         reservationId,
 
         ticketId: ticket.id,
 
-        verificationToken:
-          ticket.verificationToken,
+        verificationToken: ticket.verificationToken,
 
-        ticketNumber:
-          ticket.ticketNumber,
+        ticketNumber: ticket.ticketNumber,
 
         eventId: event.id,
 
@@ -539,11 +546,7 @@ export default function Checkout() {
 
         total: 0,
 
-        /*
-         * Nombre réel de places consommées
-         */
-
-        count: placesConsumed,
+        count: ticket.quantity,
 
         customer: {
           firstName,
@@ -558,23 +561,21 @@ export default function Checkout() {
         children: {
           hasChildren: form.hasChildren,
 
-          under12: childrenUnder12,
+          under12: ticket.childrenUnder12,
 
-          age12Plus: children12Plus,
+          age12Plus: ticket.children12Plus,
 
-          total: totalChildren,
-
-          placesConsumed,
+          total:
+            ticket.childrenUnder12 +
+            ticket.children12Plus,
         },
 
-        createdAt:
-          new Date().toISOString(),
+        createdAt: new Date().toISOString(),
       };
 
       /*
-       * Sauvegarde temporaire
+       * SESSION STORAGE
        */
-
       try {
         sessionStorage.setItem(
           "silocamp-last-order",
@@ -587,25 +588,26 @@ export default function Checkout() {
         );
       } catch (storageError) {
         console.warn(
-          "[SiloCamp] Impossible de sauvegarder la réservation.",
+          "[SiloCamp] Impossible de sauvegarder la réservation dans sessionStorage.",
           storageError,
         );
       }
 
+      /*
+       * VIDER LE PANIER
+       */
       clear();
 
       /*
-       * Redirection confirmation
+       * REDIRECTION VERS CONFIRMATION
        */
-
       navigate("/confirmation", {
         state: {
           eventId: event.id,
 
           ticketId: ticket.id,
 
-          ticketNumber:
-            ticket.ticketNumber,
+          ticketNumber: ticket.ticketNumber,
 
           verificationToken:
             ticket.verificationToken,
@@ -618,18 +620,18 @@ export default function Checkout() {
 
           phone: normalizedPhone,
 
-          quantity: placesConsumed,
+          quantity: ticket.quantity,
 
           children: {
             hasChildren: form.hasChildren,
 
-            under12: childrenUnder12,
+            under12: ticket.childrenUnder12,
 
-            age12Plus: children12Plus,
+            age12Plus: ticket.children12Plus,
 
-            total: totalChildren,
-
-            placesConsumed,
+            total:
+              ticket.childrenUnder12 +
+              ticket.children12Plus,
           },
         },
       });
@@ -710,7 +712,8 @@ export default function Checkout() {
           </h1>
 
           <p className="mt-3 text-sm text-cream-dim">
-            Aucune catégorie de participation n'est configurée pour cet événement.
+            Aucune catégorie de participation n'est configurée
+            pour cet événement.
           </p>
 
           <Link
@@ -725,30 +728,14 @@ export default function Checkout() {
   }
 
   if (participationQuantity === 0) {
-    return (
-      <EmptyCart
-        eventSlug={event.slug}
-      />
-    );
+    return <EmptyCart eventSlug={event.slug} />;
   }
-
-  const totalChildren = form.hasChildren
-    ? form.childrenUnder12 + form.children12Plus
-    : 0;
-
-  /*
-   * Places consommées affichées dans l'interface
-   */
-
-  const placesConsumed =
-    1 + (form.hasChildren ? form.children12Plus : 0);
 
   return (
     <div className="container-px mx-auto max-w-7xl pb-28 pt-28 md:pt-32 lg:pb-20">
       <Reveal className="mb-10 text-center">
         <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.25em] text-gold-300">
           <CheckCircle2 className="h-4 w-4" />
-
           Étape 2 sur 2 · Confirmation
         </span>
 
@@ -760,7 +747,8 @@ export default function Checkout() {
         </h1>
 
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
-          Vérifiez vos informations puis confirmez votre participation.
+          Vérifiez vos informations puis confirmez votre
+          participation pour recevoir votre e-billet avec QR Code.
         </p>
       </Reveal>
 
@@ -817,8 +805,9 @@ export default function Checkout() {
                   </div>
 
                   <p className="mt-3 max-w-lg text-sm leading-relaxed text-cream-faint">
-                    Réservez gratuitement votre place au Camp International
-                    Silo 2026.
+                    Réservez gratuitement votre place au Camp
+                    International Silo 2026. Votre e-billet avec
+                    QR Code sera généré après confirmation.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -827,28 +816,65 @@ export default function Checkout() {
                     </span>
 
                     <span className="rounded-full border border-gold-400/15 px-3 py-1 text-xs text-cream-faint">
-                      ✓ Inscription gratuite
+                      ✓ E-billet
                     </span>
 
                     <span className="rounded-full border border-gold-400/15 px-3 py-1 text-xs text-cream-faint">
-                      ✓ Billet sécurisé
+                      ✓ QR Code
                     </span>
                   </div>
                 </div>
 
                 <div className="flex shrink-0 items-center">
-                  <div className="flex h-10 min-w-16 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 text-sm font-semibold text-emerald-300">
+                  <div className="flex min-h-10 min-w-16 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300">
                     {placesConsumed} place
                     {placesConsumed > 1 ? "s" : ""}
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/30 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <span className="text-cream-faint">
+                    Participant principal
+                  </span>
+
+                  <span className="font-medium text-cream">
+                    1 place
+                  </span>
+                </div>
+
+                {children12Plus > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <span className="text-cream-faint">
+                      Enfant(s) de 12 ans ou plus
+                    </span>
+
+                    <span className="font-medium text-cream">
+                      +{children12Plus} place
+                      {children12Plus > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
+
+                {childrenUnder12 > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <span className="text-cream-faint">
+                      Enfant(s) de moins de 12 ans
+                    </span>
+
+                    <span className="font-medium text-emerald-300">
+                      Aucun supplément de place
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </Section>
 
           <Section
             title="Vos informations"
-            subtitle="Ces informations seront utilisées pour votre inscription."
+            subtitle="Ces informations seront utilisées pour générer votre e-billet."
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
@@ -922,8 +948,8 @@ export default function Checkout() {
                   </h3>
 
                   <p className="mt-1 text-sm leading-relaxed text-cream-dim">
-                    Les enfants de 12 ans et plus occupent une place dans la
-                    capacité du Camp.
+                    Cette information nous aide à mieux préparer
+                    l'accueil des familles.
                   </p>
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -964,16 +990,16 @@ export default function Checkout() {
                         </h4>
 
                         <p className="mt-1 text-xs text-cream-faint">
-                          Les enfants de moins de 12 ans ne consomment pas de
-                          place. Les enfants de 12 ans et plus consomment une
-                          place chacun.
+                          Les enfants de moins de 12 ans ne consomment
+                          pas de place supplémentaire. Chaque enfant
+                          de 12 ans ou plus consomme une place.
                         </p>
                       </div>
 
                       <div className="space-y-3">
                         <ChildrenCounter
                           label="Moins de 12 ans"
-                          value={form.childrenUnder12}
+                          value={childrenUnder12}
                           onDecrease={() =>
                             changeChildrenCount(
                               "childrenUnder12",
@@ -990,7 +1016,7 @@ export default function Checkout() {
 
                         <ChildrenCounter
                           label="12 ans ou plus"
-                          value={form.children12Plus}
+                          value={children12Plus}
                           onDecrease={() =>
                             changeChildrenCount(
                               "children12Plus",
@@ -1012,28 +1038,26 @@ export default function Checkout() {
                         </p>
                       )}
 
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-                          <span className="text-sm text-cream-dim">
-                            Total enfants
-                          </span>
+                      <div className="mt-4 flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+                        <span className="text-sm text-cream-dim">
+                          Total enfants
+                        </span>
 
-                          <span className="font-semibold text-emerald-300">
-                            {totalChildren} enfant
-                            {totalChildren > 1 ? "s" : ""}
-                          </span>
-                        </div>
+                        <span className="font-semibold text-emerald-300">
+                          {totalChildren} enfant
+                          {totalChildren > 1 ? "s" : ""}
+                        </span>
+                      </div>
 
-                        <div className="flex items-center justify-between rounded-2xl border border-gold-400/20 bg-gold-400/5 px-4 py-3">
-                          <span className="text-sm text-cream-dim">
-                            Places consommées
-                          </span>
+                      <div className="mt-3 flex items-center justify-between rounded-2xl border border-gold-400/15 bg-gold-400/5 px-4 py-3">
+                        <span className="text-sm text-cream-dim">
+                          Places consommées
+                        </span>
 
-                          <span className="font-semibold text-gold-300">
-                            {placesConsumed} place
-                            {placesConsumed > 1 ? "s" : ""}
-                          </span>
-                        </div>
+                        <span className="font-semibold text-gold-300">
+                          {placesConsumed} place
+                          {placesConsumed > 1 ? "s" : ""}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -1043,8 +1067,9 @@ export default function Checkout() {
 
             <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
               <p className="text-xs leading-relaxed text-cream-faint">
-                Vos informations permettent d'enregistrer votre participation
-                et de sécuriser votre accès à l'événement.
+                Vos informations permettent de générer votre
+                e-billet personnel et de sécuriser votre accès grâce
+                à un QR Code unique.
               </p>
             </div>
           </Section>
@@ -1061,36 +1086,59 @@ export default function Checkout() {
                 />
 
                 <ConfirmationItem
-                  title="Participant principal"
-                  text="Votre inscription consomme une place dans la capacité du Camp."
+                  title="Un seul billet par participant"
+                  text="Chaque participant principal peut effectuer une seule réservation. Les enfants de 12 ans ou plus ajoutent une place à cette réservation."
                 />
-
-                {form.children12Plus > 0 && (
-                  <ConfirmationItem
-                    title="Enfants de 12 ans et plus"
-                    text={`${form.children12Plus} enfant${
-                      form.children12Plus > 1 ? "s" : ""
-                    } de 12 ans ou plus consomme${
-                      form.children12Plus > 1 ? "nt" : ""
-                    } également une place.`}
-                  />
-                )}
-
-                {form.childrenUnder12 > 0 && (
-                  <ConfirmationItem
-                    title="Enfants de moins de 12 ans"
-                    text={`${form.childrenUnder12} enfant${
-                      form.childrenUnder12 > 1 ? "s" : ""
-                    } accompagnera${
-                      form.childrenUnder12 > 1 ? "ont" : ""
-                    } le participant sans consommer de place.`}
-                  />
-                )}
 
                 <ConfirmationItem
-                  title="Accès confirmé"
-                  text="Votre inscription sera enregistrée automatiquement après validation."
+                  title="E-billet personnel"
+                  text="Un e-billet avec QR Code unique sera généré automatiquement après validation."
                 />
+
+                <ConfirmationItem
+                  title="Entrée simplifiée"
+                  text="Présentez votre QR Code à l'accueil du Camp pour accéder rapidement à l'événement."
+                />
+
+                {form.hasChildren &&
+                  totalChildren > 0 && (
+                    <ConfirmationItem
+                      title="Accompagnement familial"
+                      text={`${totalChildren} enfant${
+                        totalChildren > 1 ? "s" : ""
+                      } vous accompagnera${
+                        totalChildren > 1 ? "ont" : ""
+                      } pendant le Camp.`}
+                    />
+                  )}
+
+                {children12Plus > 0 && (
+                  <ConfirmationItem
+                    title="Places supplémentaires"
+                    text={`${children12Plus} place${
+                      children12Plus > 1 ? "s" : ""
+                    } supplémentaire${
+                      children12Plus > 1 ? "s" : ""
+                    } ${
+                      children12Plus > 1
+                        ? "sont"
+                        : "est"
+                    } comptabilisée${
+                      children12Plus > 1 ? "s" : ""
+                    } pour les enfants de 12 ans ou plus.`}
+                  />
+                )}
+
+                {childrenUnder12 > 0 && (
+                  <ConfirmationItem
+                    title="Enfants de moins de 12 ans"
+                    text={`Les ${childrenUnder12} enfant${
+                      childrenUnder12 > 1 ? "s" : ""
+                    } de moins de 12 ans n'ajoute${
+                      childrenUnder12 > 1 ? "nt" : ""
+                    } aucune place supplémentaire.`}
+                  />
+                )}
               </div>
 
               <div className="mt-6 rounded-2xl border border-gold-400/15 bg-gold-400/5 p-4">
@@ -1099,7 +1147,8 @@ export default function Checkout() {
                   <span className="font-semibold text-cream">
                     « Confirmer ma participation »
                   </span>
-                  , votre inscription sera enregistrée.
+                  , votre inscription sera enregistrée et votre
+                  e-billet sera généré.
                 </p>
               </div>
             </div>
@@ -1109,10 +1158,10 @@ export default function Checkout() {
         <aside>
           <Summary
             lines={lines}
-            hasChildren={form.hasChildren}
-            childrenUnder12={form.childrenUnder12}
-            children12Plus={form.children12Plus}
             placesConsumed={placesConsumed}
+            hasChildren={form.hasChildren}
+            childrenUnder12={childrenUnder12}
+            children12Plus={children12Plus}
             onSubmit={submit}
             onCancel={cancelReservation}
             submitting={submitting}
@@ -1296,19 +1345,19 @@ function ConfirmationItem({
 
 function Summary({
   lines,
+  placesConsumed,
   hasChildren,
   childrenUnder12,
   children12Plus,
-  placesConsumed,
   onSubmit,
   onCancel,
   submitting,
 }: {
   lines: CartLine[];
+  placesConsumed: number;
   hasChildren: boolean;
   childrenUnder12: number;
   children12Plus: number;
-  placesConsumed: number;
   onSubmit: () => void;
   onCancel: () => void;
   submitting: boolean;
@@ -1357,9 +1406,7 @@ function Summary({
                   </div>
 
                   <p className="mt-1 text-xs text-cream-faint">
-                    {placesConsumed} place
-                    {placesConsumed > 1 ? "s" : ""} consommée
-                    {placesConsumed > 1 ? "s" : ""}
+                    1 participant
                   </p>
                 </div>
 
@@ -1382,10 +1429,13 @@ function Summary({
           />
 
           <Row
-            label="Places consommées"
-            value={`${placesConsumed} place${
-              placesConsumed > 1 ? "s" : ""
-            }`}
+            label="Billet"
+            value="E-billet gratuit"
+          />
+
+          <Row
+            label="Accès"
+            value="QR Code sécurisé"
           />
 
           <Row
@@ -1416,14 +1466,20 @@ function Summary({
                   {children12Plus}
                 </span>
               </div>
-
-              <div className="mt-2 border-t border-white/5 pt-2 text-gold-300">
-                Les enfants de 12 ans et plus consomment une place.
-              </div>
             </div>
           )}
 
           <div className="my-2 h-px bg-gold-400/12" />
+
+          <div className="flex items-center justify-between">
+            <span className="font-display text-lg text-cream">
+              Places
+            </span>
+
+            <span className="font-display text-2xl font-semibold text-gold-300">
+              {placesConsumed}
+            </span>
+          </div>
 
           <div className="flex items-center justify-between">
             <span className="font-display text-lg text-cream">
@@ -1446,13 +1502,11 @@ function Summary({
             {submitting ? (
               <>
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-
                 Confirmation...
               </>
             ) : (
               <>
                 Confirmer ma participation
-
                 <ArrowRight className="h-4 w-4" />
               </>
             )}
@@ -1468,7 +1522,10 @@ function Summary({
           </button>
 
           <p className="mt-3 text-center text-[11px] leading-relaxed text-cream-faint">
-            Inscription 100 % gratuite • Places calculées automatiquement
+            1 participant • {placesConsumed} place
+            {placesConsumed > 1 ? "s" : ""} consommée
+            {placesConsumed > 1 ? "s" : ""} • Inscription 100 %
+            gratuite • QR Code sécurisé
           </p>
         </div>
       </div>
@@ -1513,7 +1570,8 @@ function EmptyCart({
       </h1>
 
       <p className="mt-4 max-w-lg text-lg leading-relaxed text-cream-dim">
-        Vous n'avez pas encore sélectionné votre participation au{" "}
+        Vous n'avez pas encore sélectionné votre
+        participation au{" "}
         <span className="font-medium text-gold-300">
           Camp International Silo 2026
         </span>
@@ -1523,12 +1581,14 @@ function EmptyCart({
       <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-6">
         <h3 className="flex items-center justify-center gap-2 font-display text-xl text-cream">
           <BadgeCheck className="h-6 w-6 text-emerald-400" />
-
           Réservation 100 % gratuite
         </h3>
 
         <p className="mt-3 text-sm leading-relaxed text-cream-dim">
-          Une place principale est réservée pour chaque participant.
+          Une réservation correspond à un participant.
+          Les enfants de moins de 12 ans ne consomment pas de
+          place supplémentaire. Chaque enfant de 12 ans ou plus
+          consomme une place supplémentaire.
         </p>
       </div>
 
@@ -1566,6 +1626,8 @@ function ChildrenCounter({
   onDecrease: () => void;
   onIncrease: () => void;
 }) {
+  const isUnder12 = label.includes("Moins");
+
   return (
     <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <div>
@@ -1574,7 +1636,9 @@ function ChildrenCounter({
         </p>
 
         <p className="mt-1 text-xs text-cream-faint">
-          Enfant(s)
+          {isUnder12
+            ? "Ne consomme pas de place supplémentaire"
+            : "Consomme 1 place par enfant"}
         </p>
       </div>
 
