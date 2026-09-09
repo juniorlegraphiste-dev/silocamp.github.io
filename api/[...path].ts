@@ -15,6 +15,16 @@ function normalizePhone(value: unknown) {
     .trim();
 }
 
+function normalizeChildren(value: unknown) {
+  const number = Number(value ?? 0);
+
+  if (!Number.isFinite(number) || number < 0) {
+    return 0;
+  }
+
+  return Math.floor(number);
+}
+
 function generateTicketNumber() {
   return `SILO-${new Date().getFullYear()}-${crypto
     .randomBytes(5)
@@ -28,41 +38,48 @@ function generateVerificationToken() {
 
 export default async function handler(req: any, res: any) {
   const path = Array.isArray(req.query?.path) ? req.query.path : [];
-
   const route = path.join("/");
 
   if (route === "tickets") {
     if (req.method === "GET") {
       try {
-        const sql = neon(process.env.DATABASE_URL!);
+        const databaseUrl = process.env.DATABASE_URL;
+
+        if (!databaseUrl) {
+          return res.status(500).json({
+            ok: false,
+            error: "DATABASE_URL manquante",
+          });
+        }
+
+        const sql = neon(databaseUrl);
 
         const tickets = await sql`
-         
-        SELECT
-          id,
-          "ticketNumber",
-          "verificationToken",
-          "firstName",
-          "lastName",
-          "participantName",
-          email,
-          phone,
-          "reservationId",
-          "eventId",
-          "eventTitle",
-          "dateLabel",
-          time,
-          duration,
-          venue,
-          city,
-          quantity,
-          "childrenUnder12",
-          "children12Plus",
-          status,
-          "createdAt",
-          "usedAt",
-          "cancelledAt"
-        FROM "Ticket"
+          SELECT
+            id,
+            "ticketNumber",
+            "verificationToken",
+            "firstName",
+            "lastName",
+            "participantName",
+            email,
+            phone,
+            "reservationId",
+            "eventId",
+            "eventTitle",
+            "dateLabel",
+            time,
+            duration,
+            venue,
+            city,
+            quantity,
+            "childrenUnder12",
+            "children12Plus",
+            status,
+            "createdAt",
+            "usedAt",
+            "cancelledAt"
+          FROM "Ticket"
           ORDER BY "createdAt" DESC
         `;
 
@@ -107,12 +124,18 @@ export default async function handler(req: any, res: any) {
           duration,
           venue,
           city,
-          quantity,
+          childrenUnder12,
+          children12Plus,
         } = req.body ?? {};
 
         const normalizedEmail = normalizeEmail(email);
         const normalizedPhone = normalizePhone(phone);
         const normalizedReservationId = String(reservationId ?? "").trim();
+
+        const under12 = normalizeChildren(childrenUnder12);
+        const age12Plus = normalizeChildren(children12Plus);
+
+        const quantity = 1 + age12Plus;
 
         if (!participantName) {
           return res.status(400).json({
@@ -132,13 +155,6 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({
             ok: false,
             error: "Les informations de l'événement sont incomplètes.",
-          });
-        }
-
-        if (Number(quantity) !== 1) {
-          return res.status(400).json({
-            ok: false,
-            error: "Une réservation correspond à une seule place.",
           });
         }
 
@@ -201,10 +217,15 @@ export default async function handler(req: any, res: any) {
 
         const reserved = Number(capacityResult[0]?.reserved ?? 0);
 
-        if (reserved >= MAX_TICKETS) {
+        const remaining = Math.max(0, MAX_TICKETS - reserved);
+
+        if (quantity > remaining) {
           return res.status(409).json({
             ok: false,
-            error: "Les 1200 places disponibles ont déjà été réservées.",
+            error:
+              remaining === 0
+                ? "Il n'y a plus de place disponible."
+                : `Il ne reste plus que ${remaining} place(s) disponible(s).`,
           });
         }
 
@@ -230,6 +251,8 @@ export default async function handler(req: any, res: any) {
             venue,
             city,
             quantity,
+            "childrenUnder12",
+            "children12Plus",
             status
           )
           VALUES (
@@ -249,7 +272,9 @@ export default async function handler(req: any, res: any) {
             ${duration || null},
             ${venue},
             ${city},
-            1,
+            ${quantity},
+            ${under12},
+            ${age12Plus},
             'VALID'
           )
           RETURNING
@@ -270,6 +295,8 @@ export default async function handler(req: any, res: any) {
             venue,
             city,
             quantity,
+            "childrenUnder12",
+            "children12Plus",
             status,
             "createdAt",
             "usedAt",
