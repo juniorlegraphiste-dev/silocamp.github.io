@@ -13,6 +13,8 @@ import Confirmation from "@/pages/Confirmation";
 import Contact from "@/pages/Contact";
 import ScanTicket from "@/pages/ScanTicket";
 import TicketVerify from "@/pages/TicketVerify";
+import AdminDashboard from "./pages/AdminDashboard";
+
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -50,40 +52,22 @@ function AnimatedRoutes() {
         <Routes location={location}>
           <Route path="/" element={<Home />} />
 
-          <Route
-            path="/evenement/:id"
-            element={<EventDetail />}
-          />
+          <Route path="/evenement/:id" element={<EventDetail />} />
 
-          <Route
-            path="/billetterie"
-            element={<Checkout />}
-          />
+          <Route path="/billetterie" element={<Checkout />} />
 
-          <Route
-            path="/confirmation"
-            element={<Confirmation />}
-          />
+          <Route path="/confirmation" element={<Confirmation />} />
 
-          <Route
-            path="/ticket/verify"
-            element={<TicketVerify />}
-          />
+          <Route path="/ticket/verify" element={<TicketVerify />} />
 
-          <Route
-            path="/scanner"
-            element={<ScanTicket />}
-          />
+          <Route path="/scanner" element={<ScanTicket />} />
 
-          <Route
-            path="/contact"
-            element={<Contact />}
-          />
+          {/* ADMIN */}
+          <Route path="/admin" element={<AdminDashboard />} />
 
-          <Route
-            path="*"
-            element={<Home />}
-          />
+          <Route path="/contact" element={<Contact />} />
+
+          <Route path="*" element={<Home />} />
         </Routes>
       </motion.main>
     </AnimatePresence>
