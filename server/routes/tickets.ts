@@ -556,4 +556,56 @@ router.patch("/:ticketNumber/cancel", async (req, res) => {
   }
 });
 
+router.delete("/:ticketNumber", async (req, res) => {
+  try {
+    const ticketNumber = String(
+      req.params.ticketNumber ?? "",
+    )
+      .trim()
+      .toUpperCase();
+
+    if (!ticketNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Numéro de billet manquant.",
+      });
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: {
+        ticketNumber,
+      },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: "Participant introuvable.",
+      });
+    }
+
+    await prisma.ticket.delete({
+      where: {
+        id: ticket.id,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Participant supprimé définitivement.",
+      ticketNumber,
+    });
+  } catch (error) {
+    console.error(
+      "[DELETE /api/tickets/:ticketNumber]",
+      error,
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Impossible de supprimer le participant.",
+    });
+  }
+});
+
 export default router;
