@@ -29,7 +29,6 @@ function normalizeInteger(value: unknown): number {
 
 function calculateQuantity(children12Plus: unknown): number {
   const age12Plus = normalizeInteger(children12Plus);
-
   return 1 + age12Plus;
 }
 
@@ -113,6 +112,38 @@ async function getStats(sql: any) {
   };
 }
 
+async function getTicketSelect(sql: any, ticketNumber: string) {
+  return sql`
+    SELECT
+      id,
+      "ticketNumber",
+      "verificationToken",
+      "firstName",
+      "lastName",
+      "participantName",
+      email,
+      phone,
+      "reservationId",
+      "eventId",
+      "eventTitle",
+      "dateLabel",
+      time,
+      duration,
+      venue,
+      city,
+      quantity,
+      "childrenUnder12",
+      "children12Plus",
+      status,
+      "createdAt",
+      "usedAt",
+      "cancelledAt"
+    FROM "Ticket"
+    WHERE UPPER("ticketNumber") = ${ticketNumber}
+    LIMIT 1
+  `;
+}
+
 export default async function handler(req: any, res: any) {
   const databaseUrl = getDatabaseUrl();
 
@@ -130,11 +161,11 @@ export default async function handler(req: any, res: any) {
     /*
      * =========================================================
      * GET /api/tickets
-     * RÉCUPÉRER LES BILLETS
+     * POST /api/tickets
      * =========================================================
      */
 
-    if (route === "" || route === "tickets") {
+    if (route === "tickets") {
       if (req.method === "GET") {
         const tickets = await sql`
           SELECT
@@ -171,29 +202,19 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      /*
-       * =======================================================
-       * POST /api/tickets
-       * CRÉER UN BILLET
-       * =======================================================
-       */
-
       if (req.method === "POST") {
         const body = req.body ?? {};
 
-        const firstName = String(
-          body.firstName ?? "",
-        ).trim();
+        const firstName = String(body.firstName ?? "").trim();
 
-        const lastName = String(
-          body.lastName ?? "",
-        ).trim();
+        const lastName = String(body.lastName ?? "").trim();
 
         const participantName =
           String(body.participantName ?? "").trim() ||
           `${firstName} ${lastName}`.trim();
 
         const email = normalizeEmail(body.email);
+
         const phone = normalizePhone(body.phone);
 
         const reservationId = String(
@@ -356,7 +377,7 @@ export default async function handler(req: any, res: any) {
             FROM "Ticket"
             WHERE REGEXP_REPLACE(
               COALESCE(phone, ''),
-              '\\s+',
+              '\s+',
               '',
               'g'
             ) = ${phone}
@@ -397,7 +418,7 @@ export default async function handler(req: any, res: any) {
 
         /*
          * =====================================================
-         * CALCUL DE LA CAPACITÉ
+         * CAPACITÉ
          * =====================================================
          */
 
@@ -441,12 +462,12 @@ export default async function handler(req: any, res: any) {
          * =====================================================
          */
 
-        const id = crypto.randomUUID();
+        let id = crypto.randomUUID();
 
-        const ticketNumber =
+        let ticketNumber =
           generateTicketNumber();
 
-        const verificationToken =
+        let verificationToken =
           generateVerificationToken();
 
         /*
@@ -541,11 +562,10 @@ export default async function handler(req: any, res: any) {
     /*
      * =========================================================
      * GET /api/tickets/stats
-     * STATISTIQUES
      * =========================================================
      */
 
-    if (route === "stats") {
+    if (route === "tickets/stats") {
       if (req.method !== "GET") {
         return res.status(405).json({
           ok: false,
@@ -564,11 +584,10 @@ export default async function handler(req: any, res: any) {
     /*
      * =========================================================
      * POST /api/tickets/verify
-     * VÉRIFICATION QR CODE
      * =========================================================
      */
 
-    if (route === "verify") {
+    if (route === "tickets/verify") {
       if (req.method !== "POST") {
         return res.status(405).json({
           ok: false,
@@ -647,7 +666,8 @@ export default async function handler(req: any, res: any) {
           ok: false,
           valid: false,
           reason: "TICKET_CANCELLED",
-          message: "Ce billet a été annulé.",
+          message:
+            "Ce billet a été annulé.",
           ticket,
         });
       }
@@ -675,11 +695,10 @@ export default async function handler(req: any, res: any) {
     /*
      * =========================================================
      * POST /api/tickets/validate
-     * VALIDATION PHYSIQUE À L'ENTRÉE
      * =========================================================
      */
 
-    if (route === "validate") {
+    if (route === "tickets/validate") {
       if (req.method !== "POST") {
         return res.status(405).json({
           ok: false,
@@ -701,35 +720,10 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      const result = await sql`
-        SELECT
-          id,
-          "ticketNumber",
-          "verificationToken",
-          "firstName",
-          "lastName",
-          "participantName",
-          email,
-          phone,
-          "reservationId",
-          "eventId",
-          "eventTitle",
-          "dateLabel",
-          time,
-          duration,
-          venue,
-          city,
-          quantity,
-          "childrenUnder12",
-          "children12Plus",
-          status,
-          "createdAt",
-          "usedAt",
-          "cancelledAt"
-        FROM "Ticket"
-        WHERE UPPER("ticketNumber") = ${ticketNumber}
-        LIMIT 1
-      `;
+      const result = await getTicketSelect(
+        sql,
+        ticketNumber,
+      );
 
       if (result.length === 0) {
         return res.status(404).json({
@@ -743,7 +737,8 @@ export default async function handler(req: any, res: any) {
       if (ticket.status === "CANCELLED") {
         return res.status(409).json({
           ok: false,
-          error: "Ce billet a été annulé.",
+          error:
+            "Ce billet a été annulé.",
           ticket,
         });
       }
@@ -800,11 +795,10 @@ export default async function handler(req: any, res: any) {
     /*
      * =========================================================
      * POST /api/tickets/cancel
-     * ANNULATION
      * =========================================================
      */
 
-    if (route === "cancel") {
+    if (route === "tickets/cancel") {
       if (req.method !== "POST") {
         return res.status(405).json({
           ok: false,
@@ -902,96 +896,11 @@ export default async function handler(req: any, res: any) {
 
     /*
      * =========================================================
-     * DELETE /api/tickets/:ticketNumber
-     * SUPPRESSION DÉFINITIVE
-     * =========================================================
-     */
-
-    if (
-      route.startsWith("tickets/") &&
-      route !== "tickets/stats" &&
-      route !== "tickets/verify" &&
-      route !== "tickets/validate" &&
-      route !== "tickets/cancel"
-    ) {
-      const segments = route.split("/");
-
-      if (
-        segments.length === 2 &&
-        segments[0] === "tickets"
-      ) {
-        const ticketNumber = decodeURIComponent(
-          segments[1],
-        )
-          .trim()
-          .toUpperCase();
-
-        if (req.method === "DELETE") {
-          if (!ticketNumber) {
-            return res.status(400).json({
-              ok: false,
-              success: false,
-              error:
-                "Numéro de billet manquant.",
-              message:
-                "Numéro de billet manquant.",
-            });
-          }
-
-          const existing = await sql`
-            SELECT
-              id,
-              "ticketNumber",
-              status
-            FROM "Ticket"
-            WHERE UPPER("ticketNumber") = ${ticketNumber}
-            LIMIT 1
-          `;
-
-          if (existing.length === 0) {
-            return res.status(404).json({
-              ok: false,
-              success: false,
-              error:
-                "Participant introuvable.",
-              message:
-                "Participant introuvable.",
-            });
-          }
-
-          const ticket = existing[0];
-
-          await sql`
-            DELETE FROM "Ticket"
-            WHERE id = ${ticket.id}
-          `;
-
-          return res.status(200).json({
-            ok: true,
-            success: true,
-            message:
-              "Participant supprimé définitivement.",
-            ticketNumber:
-              ticket.ticketNumber,
-          });
-        }
-
-        return res.status(405).json({
-          ok: false,
-          success: false,
-          error:
-            "Méthode non autorisée.",
-        });
-      }
-    }
-
-    /*
-     * =========================================================
      * GET /api/tickets/number/:ticketNumber
      * =========================================================
      */
 
-    if (route.startsWith("number/")) {
+    if (route.startsWith("tickets/number/")) {
       if (req.method !== "GET") {
         return res.status(405).json({
           ok: false,
@@ -1000,7 +909,9 @@ export default async function handler(req: any, res: any) {
       }
 
       const ticketNumber = decodeURIComponent(
-        route.substring("number/".length),
+        route.substring(
+          "tickets/number/".length,
+        ),
       )
         .trim()
         .toUpperCase();
@@ -1013,35 +924,10 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      const result = await sql`
-        SELECT
-          id,
-          "ticketNumber",
-          "verificationToken",
-          "firstName",
-          "lastName",
-          "participantName",
-          email,
-          phone,
-          "reservationId",
-          "eventId",
-          "eventTitle",
-          "dateLabel",
-          time,
-          duration,
-          venue,
-          city,
-          quantity,
-          "childrenUnder12",
-          "children12Plus",
-          status,
-          "createdAt",
-          "usedAt",
-          "cancelledAt"
-        FROM "Ticket"
-        WHERE UPPER("ticketNumber") = ${ticketNumber}
-        LIMIT 1
-      `;
+      const result = await getTicketSelect(
+        sql,
+        ticketNumber,
+      );
 
       if (result.length === 0) {
         return res.status(404).json({
@@ -1062,7 +948,7 @@ export default async function handler(req: any, res: any) {
      * =========================================================
      */
 
-    if (route.startsWith("email/")) {
+    if (route.startsWith("tickets/email/")) {
       if (req.method !== "GET") {
         return res.status(405).json({
           ok: false,
@@ -1072,7 +958,9 @@ export default async function handler(req: any, res: any) {
 
       const email = normalizeEmail(
         decodeURIComponent(
-          route.substring("email/".length),
+          route.substring(
+            "tickets/email/".length,
+          ),
         ),
       );
 
@@ -1126,7 +1014,7 @@ export default async function handler(req: any, res: any) {
      * =========================================================
      */
 
-    if (route.startsWith("phone/")) {
+    if (route.startsWith("tickets/phone/")) {
       if (req.method !== "GET") {
         return res.status(405).json({
           ok: false,
@@ -1136,7 +1024,9 @@ export default async function handler(req: any, res: any) {
 
       const phone = normalizePhone(
         decodeURIComponent(
-          route.substring("phone/".length),
+          route.substring(
+            "tickets/phone/".length,
+          ),
         ),
       );
 
@@ -1176,7 +1066,7 @@ export default async function handler(req: any, res: any) {
         FROM "Ticket"
         WHERE REGEXP_REPLACE(
           COALESCE(phone, ''),
-          '\\s+',
+          '\s+',
           '',
           'g'
         ) = ${phone}
@@ -1186,6 +1076,82 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({
         ok: true,
         tickets,
+      });
+    }
+
+    /*
+     * =========================================================
+     * DELETE /api/tickets/:ticketNumber
+     * SUPPRESSION DÉFINITIVE
+     * =========================================================
+     */
+
+    if (
+      route.startsWith("tickets/") &&
+      route.split("/").length === 2
+    ) {
+      const segments = route.split("/");
+
+      const ticketNumber = decodeURIComponent(
+        segments[1] ?? "",
+      )
+        .trim()
+        .toUpperCase();
+
+      if (req.method === "DELETE") {
+        if (!ticketNumber) {
+          return res.status(400).json({
+            ok: false,
+            success: false,
+            error:
+              "Numéro de billet manquant.",
+            message:
+              "Numéro de billet manquant.",
+          });
+        }
+
+        const existing = await sql`
+          SELECT
+            id,
+            "ticketNumber"
+          FROM "Ticket"
+          WHERE UPPER("ticketNumber") = ${ticketNumber}
+          LIMIT 1
+        `;
+
+        if (existing.length === 0) {
+          return res.status(404).json({
+            ok: false,
+            success: false,
+            error:
+              "Participant introuvable.",
+            message:
+              "Participant introuvable.",
+          });
+        }
+
+        const ticket = existing[0];
+
+        await sql`
+          DELETE FROM "Ticket"
+          WHERE id = ${ticket.id}
+        `;
+
+        return res.status(200).json({
+          ok: true,
+          success: true,
+          message:
+            "Participant supprimé définitivement.",
+          ticketNumber:
+            ticket.ticketNumber,
+        });
+      }
+
+      return res.status(405).json({
+        ok: false,
+        success: false,
+        error:
+          "Méthode non autorisée.",
       });
     }
 
