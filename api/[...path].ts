@@ -3,8 +3,6 @@ import crypto from "node:crypto";
 
 const MAX_TICKETS = 1200;
 
-type TicketStatus = "VALID" | "USED" | "CANCELLED";
-
 function normalizeEmail(value: unknown): string {
   return String(value ?? "")
     .trim()
@@ -48,50 +46,45 @@ function getDatabaseUrl(): string | null {
 }
 
 function getRoute(req: any): string {
-  const path = req.query?.path;
+  const url = String(req.url || "");
+  const pathname = url.split("?")[0];
 
-  if (Array.isArray(path)) {
-    return path.join("/");
+  const apiPrefix = "/api/";
+
+  if (!pathname.startsWith(apiPrefix)) {
+    return "";
   }
 
-  if (typeof path === "string") {
-    return path;
-  }
-
-  return "";
+  return pathname
+    .slice(apiPrefix.length)
+    .replace(/^\/+|\/+$/g, "");
 }
 
 async function getStats(sql: any) {
   const result = await sql`
     SELECT
       COUNT(*)::int AS "totalTickets",
-
       COUNT(*) FILTER (
         WHERE status = 'VALID'
       )::int AS "validTickets",
-
       COUNT(*) FILTER (
         WHERE status = 'USED'
       )::int AS "usedTickets",
-
       COUNT(*) FILTER (
         WHERE status = 'CANCELLED'
       )::int AS "cancelledTickets",
-
       COALESCE(
         SUM(quantity) FILTER (
           WHERE status IN ('VALID', 'USED')
         ),
         0
       )::int AS reserved,
-
       COALESCE(
         SUM(quantity) FILTER (
           WHERE status = 'USED'
         ),
         0
       )::int AS used
-
     FROM "Ticket"
   `;
 
@@ -158,13 +151,6 @@ export default async function handler(req: any, res: any) {
   const route = getRoute(req);
 
   try {
-    /*
-     * =========================================================
-     * GET /api/tickets
-     * POST /api/tickets
-     * =========================================================
-     */
-
     if (route === "tickets") {
       if (req.method === "GET") {
         const tickets = await sql`
@@ -206,7 +192,6 @@ export default async function handler(req: any, res: any) {
         const body = req.body ?? {};
 
         const firstName = String(body.firstName ?? "").trim();
-
         const lastName = String(body.lastName ?? "").trim();
 
         const participantName =
@@ -214,42 +199,21 @@ export default async function handler(req: any, res: any) {
           `${firstName} ${lastName}`.trim();
 
         const email = normalizeEmail(body.email);
-
         const phone = normalizePhone(body.phone);
 
-        const reservationId = String(
-          body.reservationId ?? "",
-        ).trim();
-
-        const eventId = String(
-          body.eventId ?? "",
-        ).trim();
-
-        const eventTitle = String(
-          body.eventTitle ?? "",
-        ).trim();
-
-        const dateLabel = String(
-          body.dateLabel ?? "",
-        ).trim();
-
-        const time = String(
-          body.time ?? "",
-        ).trim();
+        const reservationId = String(body.reservationId ?? "").trim();
+        const eventId = String(body.eventId ?? "").trim();
+        const eventTitle = String(body.eventTitle ?? "").trim();
+        const dateLabel = String(body.dateLabel ?? "").trim();
+        const time = String(body.time ?? "").trim();
 
         const duration =
-          body.duration !== undefined &&
-          body.duration !== null
+          body.duration !== undefined && body.duration !== null
             ? String(body.duration).trim()
             : null;
 
-        const venue = String(
-          body.venue ?? "",
-        ).trim();
-
-        const city = String(
-          body.city ?? "",
-        ).trim();
+        const venue = String(body.venue ?? "").trim();
+        const city = String(body.city ?? "").trim();
 
         const childrenUnder12 = normalizeInteger(
           body.childrenUnder12,
@@ -259,37 +223,23 @@ export default async function handler(req: any, res: any) {
           body.children12Plus,
         );
 
-        const quantity = calculateQuantity(
-          children12Plus,
-        );
-
-        /*
-         * =====================================================
-         * VALIDATION
-         * =====================================================
-         */
+        const quantity = calculateQuantity(children12Plus);
 
         if (!participantName) {
           return res.status(400).json({
             ok: false,
-            error:
-              "Le nom du participant est obligatoire.",
+            error: "Le nom du participant est obligatoire.",
           });
         }
 
         if (!email) {
           return res.status(400).json({
             ok: false,
-            error:
-              "L'adresse email est obligatoire.",
+            error: "L'adresse email est obligatoire.",
           });
         }
 
-        if (
-          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-            email,
-          )
-        ) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           return res.status(400).json({
             ok: false,
             error: "Adresse email invalide.",
@@ -299,56 +249,44 @@ export default async function handler(req: any, res: any) {
         if (!eventTitle) {
           return res.status(400).json({
             ok: false,
-            error:
-              "Le nom de l'événement est obligatoire.",
+            error: "Le nom de l'événement est obligatoire.",
           });
         }
 
         if (!dateLabel) {
           return res.status(400).json({
             ok: false,
-            error:
-              "La date de l'événement est obligatoire.",
+            error: "La date de l'événement est obligatoire.",
           });
         }
 
         if (!time) {
           return res.status(400).json({
             ok: false,
-            error:
-              "L'heure de l'événement est obligatoire.",
+            error: "L'heure de l'événement est obligatoire.",
           });
         }
 
         if (!venue) {
           return res.status(400).json({
             ok: false,
-            error:
-              "Le lieu de l'événement est obligatoire.",
+            error: "Le lieu de l'événement est obligatoire.",
           });
         }
 
         if (!city) {
           return res.status(400).json({
             ok: false,
-            error:
-              "La ville de l'événement est obligatoire.",
+            error: "La ville de l'événement est obligatoire.",
           });
         }
 
         if (quantity < 1) {
           return res.status(400).json({
             ok: false,
-            error:
-              "Le nombre de places demandé est invalide.",
+            error: "Le nombre de places demandé est invalide.",
           });
         }
-
-        /*
-         * =====================================================
-         * EMAIL UNIQUE
-         * =====================================================
-         */
 
         const existingEmail = await sql`
           SELECT id
@@ -364,12 +302,6 @@ export default async function handler(req: any, res: any) {
               "Cette adresse email possède déjà une réservation.",
           });
         }
-
-        /*
-         * =====================================================
-         * TÉLÉPHONE UNIQUE
-         * =====================================================
-         */
 
         if (phone) {
           const existingPhone = await sql`
@@ -393,12 +325,6 @@ export default async function handler(req: any, res: any) {
           }
         }
 
-        /*
-         * =====================================================
-         * RÉSERVATION UNIQUE
-         * =====================================================
-         */
-
         if (reservationId) {
           const existingReservation = await sql`
             SELECT id
@@ -410,17 +336,10 @@ export default async function handler(req: any, res: any) {
           if (existingReservation.length > 0) {
             return res.status(409).json({
               ok: false,
-              error:
-                "Cette réservation existe déjà.",
+              error: "Cette réservation existe déjà.",
             });
           }
         }
-
-        /*
-         * =====================================================
-         * CAPACITÉ
-         * =====================================================
-         */
 
         const capacityResult = await sql`
           SELECT
@@ -456,25 +375,10 @@ export default async function handler(req: any, res: any) {
           });
         }
 
-        /*
-         * =====================================================
-         * GÉNÉRATION
-         * =====================================================
-         */
-
-        let id = crypto.randomUUID();
-
-        let ticketNumber =
-          generateTicketNumber();
-
-        let verificationToken =
+        const id = crypto.randomUUID();
+        const ticketNumber = generateTicketNumber();
+        const verificationToken =
           generateVerificationToken();
-
-        /*
-         * =====================================================
-         * INSERTION
-         * =====================================================
-         */
 
         const result = await sql`
           INSERT INTO "Ticket" (
@@ -559,12 +463,6 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    /*
-     * =========================================================
-     * GET /api/tickets/stats
-     * =========================================================
-     */
-
     if (route === "tickets/stats") {
       if (req.method !== "GET") {
         return res.status(405).json({
@@ -581,12 +479,6 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    /*
-     * =========================================================
-     * POST /api/tickets/verify
-     * =========================================================
-     */
-
     if (route === "tickets/verify") {
       if (req.method !== "POST") {
         return res.status(405).json({
@@ -595,9 +487,7 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      const token = String(
-        req.body?.token ?? "",
-      )
+      const token = String(req.body?.token ?? "")
         .trim()
         .toLowerCase();
 
@@ -606,8 +496,7 @@ export default async function handler(req: any, res: any) {
           ok: false,
           valid: false,
           reason: "TOKEN_REQUIRED",
-          message:
-            "Token de vérification manquant.",
+          message: "Token de vérification manquant.",
         });
       }
 
@@ -666,8 +555,7 @@ export default async function handler(req: any, res: any) {
           ok: false,
           valid: false,
           reason: "TICKET_CANCELLED",
-          message:
-            "Ce billet a été annulé.",
+          message: "Ce billet a été annulé.",
           ticket,
         });
       }
@@ -677,8 +565,7 @@ export default async function handler(req: any, res: any) {
           ok: false,
           valid: false,
           reason: "TICKET_ALREADY_USED",
-          message:
-            "Ce billet a déjà été utilisé.",
+          message: "Ce billet a déjà été utilisé.",
           ticket,
         });
       }
@@ -691,12 +578,6 @@ export default async function handler(req: any, res: any) {
         ticket,
       });
     }
-
-    /*
-     * =========================================================
-     * POST /api/tickets/validate
-     * =========================================================
-     */
 
     if (route === "tickets/validate") {
       if (req.method !== "POST") {
@@ -715,8 +596,7 @@ export default async function handler(req: any, res: any) {
       if (!ticketNumber) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Numéro de billet manquant.",
+          error: "Numéro de billet manquant.",
         });
       }
 
@@ -737,8 +617,7 @@ export default async function handler(req: any, res: any) {
       if (ticket.status === "CANCELLED") {
         return res.status(409).json({
           ok: false,
-          error:
-            "Ce billet a été annulé.",
+          error: "Ce billet a été annulé.",
           ticket,
         });
       }
@@ -746,8 +625,7 @@ export default async function handler(req: any, res: any) {
       if (ticket.status === "USED") {
         return res.status(409).json({
           ok: false,
-          error:
-            "Ce billet a déjà été utilisé.",
+          error: "Ce billet a déjà été utilisé.",
           ticket,
         });
       }
@@ -786,17 +664,10 @@ export default async function handler(req: any, res: any) {
 
       return res.status(200).json({
         ok: true,
-        message:
-          "Billet validé avec succès.",
+        message: "Billet validé avec succès.",
         ticket: updated[0],
       });
     }
-
-    /*
-     * =========================================================
-     * POST /api/tickets/cancel
-     * =========================================================
-     */
 
     if (route === "tickets/cancel") {
       if (req.method !== "POST") {
@@ -815,8 +686,7 @@ export default async function handler(req: any, res: any) {
       if (!ticketNumber) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Numéro de billet manquant.",
+          error: "Numéro de billet manquant.",
         });
       }
 
@@ -841,8 +711,7 @@ export default async function handler(req: any, res: any) {
       if (ticket.status === "CANCELLED") {
         return res.status(409).json({
           ok: false,
-          error:
-            "Ce billet est déjà annulé.",
+          error: "Ce billet est déjà annulé.",
         });
       }
 
@@ -888,17 +757,10 @@ export default async function handler(req: any, res: any) {
 
       return res.status(200).json({
         ok: true,
-        message:
-          "Billet annulé avec succès.",
+        message: "Billet annulé avec succès.",
         ticket: updated[0],
       });
     }
-
-    /*
-     * =========================================================
-     * GET /api/tickets/number/:ticketNumber
-     * =========================================================
-     */
 
     if (route.startsWith("tickets/number/")) {
       if (req.method !== "GET") {
@@ -909,9 +771,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const ticketNumber = decodeURIComponent(
-        route.substring(
-          "tickets/number/".length,
-        ),
+        route.substring("tickets/number/".length),
       )
         .trim()
         .toUpperCase();
@@ -919,8 +779,7 @@ export default async function handler(req: any, res: any) {
       if (!ticketNumber) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Numéro de billet manquant.",
+          error: "Numéro de billet manquant.",
         });
       }
 
@@ -942,12 +801,6 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    /*
-     * =========================================================
-     * GET /api/tickets/email/:email
-     * =========================================================
-     */
-
     if (route.startsWith("tickets/email/")) {
       if (req.method !== "GET") {
         return res.status(405).json({
@@ -958,17 +811,14 @@ export default async function handler(req: any, res: any) {
 
       const email = normalizeEmail(
         decodeURIComponent(
-          route.substring(
-            "tickets/email/".length,
-          ),
+          route.substring("tickets/email/".length),
         ),
       );
 
       if (!email) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Adresse email manquante.",
+          error: "Adresse email manquante.",
         });
       }
 
@@ -1008,12 +858,6 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    /*
-     * =========================================================
-     * GET /api/tickets/phone/:phone
-     * =========================================================
-     */
-
     if (route.startsWith("tickets/phone/")) {
       if (req.method !== "GET") {
         return res.status(405).json({
@@ -1024,17 +868,14 @@ export default async function handler(req: any, res: any) {
 
       const phone = normalizePhone(
         decodeURIComponent(
-          route.substring(
-            "tickets/phone/".length,
-          ),
+          route.substring("tickets/phone/".length),
         ),
       );
 
       if (!phone) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Numéro de téléphone invalide.",
+          error: "Numéro de téléphone invalide.",
         });
       }
 
@@ -1079,11 +920,68 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    /*
-     * =========================================================
-     * ROUTE INCONNUE
-     * =========================================================
-     */
+    if (
+      req.method === "DELETE" &&
+      route.startsWith("tickets/")
+    ) {
+      const ticketNumber = decodeURIComponent(
+        route.substring("tickets/".length),
+      )
+        .trim()
+        .toUpperCase();
+
+      if (!ticketNumber || ticketNumber.includes("/")) {
+        return res.status(400).json({
+          ok: false,
+          error: "Numéro de billet invalide.",
+        });
+      }
+
+      console.log(
+        "[SiloCamp DELETE] Suppression demandée :",
+        ticketNumber,
+      );
+
+      const existing = await sql`
+        SELECT
+          id,
+          "ticketNumber",
+          status
+        FROM "Ticket"
+        WHERE UPPER("ticketNumber") = ${ticketNumber}
+        LIMIT 1
+      `;
+
+      if (existing.length === 0) {
+        console.log(
+          "[SiloCamp DELETE] Billet introuvable :",
+          ticketNumber,
+        );
+
+        return res.status(404).json({
+          ok: false,
+          error: "Participant introuvable.",
+          ticketNumber,
+        });
+      }
+
+      await sql`
+        DELETE FROM "Ticket"
+        WHERE id = ${existing[0].id}
+      `;
+
+      console.log(
+        "[SiloCamp DELETE] Suppression réussie :",
+        ticketNumber,
+      );
+
+      return res.status(200).json({
+        ok: true,
+        success: true,
+        message: "Participant supprimé avec succès.",
+        ticketNumber,
+      });
+    }
 
     return res.status(404).json({
       ok: false,
@@ -1091,10 +989,7 @@ export default async function handler(req: any, res: any) {
       route,
     });
   } catch (error: any) {
-    console.error(
-      "[SiloCamp API] Erreur :",
-      error,
-    );
+    console.error("[SiloCamp API] Erreur :", error);
 
     return res.status(500).json({
       ok: false,
