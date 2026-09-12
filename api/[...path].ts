@@ -46,45 +46,85 @@ function getDatabaseUrl(): string | null {
 }
 
 function getRoute(req: any): string {
-  const url = String(req.url || "");
-  const pathname = url.split("?")[0];
+  const queryPath = req?.query?.path;
 
-  const apiPrefix = "/api/";
-
-  if (!pathname.startsWith(apiPrefix)) {
-    return "";
+  if (Array.isArray(queryPath) && queryPath.length > 0) {
+    return queryPath
+      .join("/")
+      .replace(/^\/+|\/+$/g, "");
   }
 
-  return pathname
-    .slice(apiPrefix.length)
-    .replace(/^\/+|\/+$/g, "");
+  if (typeof queryPath === "string" && queryPath.trim()) {
+    return queryPath.replace(/^\/+|\/+$/g, "");
+  }
+
+  const possibleUrls = [
+    req?.url,
+    req?.originalUrl,
+    req?.path,
+  ]
+    .filter(Boolean)
+    .map((value: unknown) => String(value));
+
+  for (const rawUrl of possibleUrls) {
+    const pathname = rawUrl.split("?")[0];
+
+    const apiIndex = pathname.indexOf("/api/");
+
+    if (apiIndex >= 0) {
+      return pathname
+        .slice(apiIndex + "/api/".length)
+        .replace(/^\/+|\/+$/g, "");
+    }
+
+    if (pathname === "/api") {
+      return "";
+    }
+
+    const stripped = pathname.replace(/^\/+|\/+$/g, "");
+
+    if (
+      stripped === "tickets" ||
+      stripped.startsWith("tickets/")
+    ) {
+      return stripped;
+    }
+  }
+
+  return "";
 }
 
 async function getStats(sql: any) {
   const result = await sql`
     SELECT
       COUNT(*)::int AS "totalTickets",
+
       COUNT(*) FILTER (
         WHERE status = 'VALID'
       )::int AS "validTickets",
+
       COUNT(*) FILTER (
         WHERE status = 'USED'
       )::int AS "usedTickets",
+
       COUNT(*) FILTER (
         WHERE status = 'CANCELLED'
       )::int AS "cancelledTickets",
+
       COALESCE(
         SUM(quantity) FILTER (
           WHERE status IN ('VALID', 'USED')
         ),
         0
       )::int AS reserved,
+
       COALESCE(
         SUM(quantity) FILTER (
           WHERE status = 'USED'
         ),
         0
       )::int AS used
+
     FROM "Ticket"
   `;
 
@@ -149,6 +189,15 @@ export default async function handler(req: any, res: any) {
 
   const sql = neon(databaseUrl);
   const route = getRoute(req);
+
+  console.log("[SiloCamp API]", {
+    method: req.method,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    path: req.path,
+    query: req.query,
+    route,
+  });
 
   try {
     if (route === "tickets") {
@@ -922,7 +971,7 @@ export default async function handler(req: any, res: any) {
 
     if (
       req.method === "DELETE" &&
-      route.startsWith("tickets/")
+      /^tickets\/[^/]+$/.test(route)
     ) {
       const ticketNumber = decodeURIComponent(
         route.substring("tickets/".length),
@@ -930,10 +979,10 @@ export default async function handler(req: any, res: any) {
         .trim()
         .toUpperCase();
 
-      if (!ticketNumber || ticketNumber.includes("/")) {
+      if (!ticketNumber) {
         return res.status(400).json({
           ok: false,
-          error: "Numéro de billet invalide.",
+          error: "Numéro de billet manquant.",
         });
       }
 
