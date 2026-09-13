@@ -11,11 +11,43 @@ const SITE_URL =
   process.env.SITE_URL || "https://silocamp-github-io.vercel.app";
 
 /* =========================================================
+   TYPES
+========================================================= */
+
+type TicketRow = {
+  id: string;
+  ticketNumber: string;
+  verificationToken: string;
+  firstName: string | null;
+  lastName: string | null;
+  participantName: string;
+  email: string;
+  phone: string | null;
+  reservationId: string | null;
+  eventId: string | null;
+  eventTitle: string;
+  dateLabel: string;
+  time: string;
+  duration: string | null;
+  venue: string;
+  city: string;
+  quantity: number;
+  childrenUnder12: number;
+  children12Plus: number;
+  status: "VALID" | "USED" | "CANCELLED";
+  createdAt: string | Date;
+  usedAt: string | Date | null;
+  cancelledAt: string | Date | null;
+};
+
+/* =========================================================
    UTILITAIRES
 ========================================================= */
 
 function normalizeEmail(value: unknown): string {
-  return String(value ?? "").trim().toLowerCase();
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 function normalizePhone(value: unknown): string {
@@ -24,7 +56,10 @@ function normalizePhone(value: unknown): string {
     .replace(/[^\d+]/g, "");
 }
 
-function normalizeInteger(value: unknown, fallback = 0): number {
+function normalizeInteger(
+  value: unknown,
+  fallback = 0,
+): number {
   const number = Number(value);
 
   if (!Number.isFinite(number)) {
@@ -44,6 +79,18 @@ function calculateQuantity(value: unknown): number {
   return quantity;
 }
 
+function calculateChildren(
+  value: unknown,
+): number {
+  const number = normalizeInteger(value, 0);
+
+  if (number < 0) {
+    return 0;
+  }
+
+  return number;
+}
+
 function generateTicketNumber(): string {
   const year = new Date().getFullYear();
 
@@ -61,6 +108,15 @@ function generateVerificationToken(): string {
 
 function getDatabaseUrl(): string | undefined {
   return process.env.DATABASE_URL;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 /* =========================================================
@@ -85,7 +141,7 @@ function getRoute(req: VercelRequest): string {
 }
 
 /* =========================================================
-   AUTHENTIFICATION
+   SESSION / AUTHENTIFICATION
 ========================================================= */
 
 function createSession(
@@ -125,7 +181,8 @@ function getSession(
       .split(";")
       .map((item) => item.trim())
       .find(
-        (item) => item.startsWith(`${COOKIE_NAME}=`),
+        (item) =>
+          item.startsWith(`${COOKIE_NAME}=`),
       );
 
     if (!cookie) {
@@ -133,7 +190,9 @@ function getSession(
     }
 
     const session = decodeURIComponent(
-      cookie.substring(COOKIE_NAME.length + 1),
+      cookie.substring(
+        COOKIE_NAME.length + 1,
+      ),
     );
 
     const parts = session.split(".");
@@ -148,7 +207,8 @@ function getSession(
       return null;
     }
 
-    const secret = process.env.SCANNER_SESSION_SECRET;
+    const secret =
+      process.env.SCANNER_SESSION_SECRET;
 
     if (!secret) {
       return null;
@@ -162,11 +222,15 @@ function getSession(
       .replace(/\//g, "_")
       .replace(/=+$/g, "");
 
-    const signatureBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
+    const signatureBuffer =
+      Buffer.from(signature);
+
+    const expectedBuffer =
+      Buffer.from(expectedSignature);
 
     if (
-      signatureBuffer.length !== expectedBuffer.length ||
+      signatureBuffer.length !==
+        expectedBuffer.length ||
       !crypto.timingSafeEqual(
         signatureBuffer,
         expectedBuffer,
@@ -205,7 +269,11 @@ function getSession(
       exp: data.exp,
     };
   } catch (error) {
-    console.error("[SiloCamp Auth Session]", error);
+    console.error(
+      "[SiloCamp Auth Session]",
+      error,
+    );
+
     return null;
   }
 }
@@ -215,19 +283,17 @@ async function handleAuth(
   req: VercelRequest,
   res: VercelResponse,
 ): Promise<boolean> {
-  /* -------------------------
+  /* ---------------------------------------------------------
      LOGIN
-  ------------------------- */
+  --------------------------------------------------------- */
 
   if (route === "auth/login") {
     if (req.method !== "POST") {
-      res.status(405).json({
+      return res.status(405).json({
         ok: false,
         authenticated: false,
         message: "Méthode non autorisée.",
-      });
-
-      return true;
+      }) as unknown as boolean;
     }
 
     try {
@@ -257,28 +323,24 @@ async function handleAuth(
           "[SiloCamp Auth] Variables d'environnement manquantes.",
         );
 
-        res.status(500).json({
+        return res.status(500).json({
           ok: false,
           authenticated: false,
           message:
             "Configuration du serveur d'authentification incomplète.",
-        });
-
-        return true;
+        }) as unknown as boolean;
       }
 
       if (
         login !== expectedLogin ||
         password !== expectedPassword
       ) {
-        res.status(401).json({
+        return res.status(401).json({
           ok: false,
           authenticated: false,
           message:
             "Identifiant ou mot de passe incorrect.",
-        });
-
-        return true;
+        }) as unknown as boolean;
       }
 
       const session = createSession(
@@ -295,45 +357,42 @@ async function handleAuth(
         "Secure",
       ].join("; ");
 
-      res.setHeader("Set-Cookie", cookie);
+      res.setHeader(
+        "Set-Cookie",
+        cookie,
+      );
 
-      res.status(200).json({
+      return res.status(200).json({
         ok: true,
         authenticated: true,
         message: "Authentification réussie.",
-      });
-
-      return true;
+      }) as unknown as boolean;
     } catch (error) {
       console.error(
         "[SiloCamp Auth Login]",
         error,
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         ok: false,
         authenticated: false,
         message:
           "Erreur du serveur d'authentification.",
-      });
-
-      return true;
+      }) as unknown as boolean;
     }
   }
 
-  /* -------------------------
+  /* ---------------------------------------------------------
      LOGOUT
-  ------------------------- */
+  --------------------------------------------------------- */
 
   if (route === "auth/logout") {
     if (req.method !== "POST") {
-      res.status(405).json({
+      return res.status(405).json({
         ok: false,
         authenticated: false,
         message: "Méthode non autorisée.",
-      });
-
-      return true;
+      }) as unknown as boolean;
     }
 
     res.setHeader(
@@ -341,51 +400,75 @@ async function handleAuth(
       `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure`,
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       ok: true,
       authenticated: false,
       message: "Déconnexion réussie.",
-    });
-
-    return true;
+    }) as unknown as boolean;
   }
 
-  /* -------------------------
+  /* ---------------------------------------------------------
      ME
-  ------------------------- */
+  --------------------------------------------------------- */
 
   if (route === "auth/me") {
     if (req.method !== "GET") {
-      res.status(405).json({
+      return res.status(405).json({
         ok: false,
         authenticated: false,
         message: "Méthode non autorisée.",
-      });
-
-      return true;
+      }) as unknown as boolean;
     }
 
     const session = getSession(req);
 
     if (!session) {
-      res.status(401).json({
+      return res.status(401).json({
         ok: true,
         authenticated: false,
-      });
-
-      return true;
+      }) as unknown as boolean;
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       ok: true,
       authenticated: true,
       username: session.username,
-    });
-
-    return true;
+    }) as unknown as boolean;
   }
 
   return false;
+}
+
+/* =========================================================
+   SELECT COMMUN
+========================================================= */
+
+function ticketColumns(): string {
+  return `
+    "id",
+    "ticketNumber",
+    "verificationToken",
+    "firstName",
+    "lastName",
+    "participantName",
+    "email",
+    "phone",
+    "reservationId",
+    "eventId",
+    "eventTitle",
+    "dateLabel",
+    "time",
+    "duration",
+    "venue",
+    "city",
+    "quantity",
+    "childrenUnder12",
+    "children12Plus",
+    "status",
+    "createdAt",
+    "usedAt",
+    "cancelledAt"
+  `;
 }
 
 /* =========================================================
@@ -396,23 +479,32 @@ async function getStats(sql: any) {
   const result = await sql`
     SELECT
       COUNT(*) FILTER (
-        WHERE status = 'VALID'
+        WHERE "status" = 'VALID'
       )::int AS "validTickets",
 
       COUNT(*) FILTER (
-        WHERE status = 'USED'
+        WHERE "status" = 'USED'
       )::int AS "usedTickets",
 
       COUNT(*) FILTER (
-        WHERE status = 'CANCELLED'
+        WHERE "status" = 'CANCELLED'
       )::int AS "cancelledTickets",
 
+      COUNT(*)::int AS "totalTickets",
+
       COALESCE(
-        SUM(quantity) FILTER (
-          WHERE status IN ('VALID', 'USED')
+        SUM("quantity") FILTER (
+          WHERE "status" IN ('VALID', 'USED')
         ),
         0
-      )::int AS reserved
+      )::int AS "reserved",
+
+      COALESCE(
+        SUM("quantity") FILTER (
+          WHERE "status" = 'USED'
+        ),
+        0
+      )::int AS "usedPlaces"
 
     FROM "Ticket"
   `;
@@ -431,25 +523,26 @@ async function getStats(sql: any) {
     row?.cancelledTickets ?? 0,
   );
 
+  const totalTickets = Number(
+    row?.totalTickets ?? 0,
+  );
+
   const reserved = Number(
     row?.reserved ?? 0,
   );
 
+  const usedPlaces = Number(
+    row?.usedPlaces ?? 0,
+  );
+
   return {
     capacity: MAX_TICKETS,
-
-    totalTickets:
-      validTickets +
-      usedTickets +
-      cancelledTickets,
-
+    totalTickets,
     validTickets,
     usedTickets,
     cancelledTickets,
-
     reserved,
-    used: usedTickets,
-
+    used: usedPlaces,
     remaining: Math.max(
       0,
       MAX_TICKETS - reserved,
@@ -458,26 +551,7 @@ async function getStats(sql: any) {
 }
 
 /* =========================================================
-   TICKET SELECT
-========================================================= */
-
-function getTicketSelect() {
-  return `
-    id,
-    "ticketNumber",
-    name,
-    email,
-    phone,
-    quantity,
-    status,
-    "verificationToken",
-    "createdAt",
-    "updatedAt"
-  `;
-}
-
-/* =========================================================
-   EMAIL
+   EMAIL — ENVOI DU BILLET
 ========================================================= */
 
 async function sendTicketEmail(
@@ -547,7 +621,8 @@ async function sendTicketEmail(
 
       res.status(500).json({
         ok: false,
-        error: "Configuration email incomplète.",
+        error:
+          "Configuration email incomplète.",
       });
 
       return true;
@@ -555,13 +630,11 @@ async function sendTicketEmail(
 
     const result = await sql`
       SELECT
-        id,
         "ticketNumber",
-        name,
-        email,
-        phone,
-        quantity,
-        status,
+        "firstName",
+        "lastName",
+        "participantName",
+        "email",
         "verificationToken"
       FROM "Ticket"
       WHERE "ticketNumber" = ${ticketNumber}
@@ -593,23 +666,33 @@ async function sendTicketEmail(
       return true;
     }
 
-    const verificationToken =
-      String(
-        ticket.verificationToken ?? "",
-      );
+    const verificationToken = String(
+      ticket.verificationToken ?? "",
+    );
 
-    const verificationUrl =
-      verificationToken
-        ? `${SITE_URL}/ticket/verify?token=${encodeURIComponent(
-            verificationToken,
-          )}`
-        : `${SITE_URL}/ticket/verify?ticketNumber=${encodeURIComponent(
-            ticketNumber,
-          )}`;
+    const verificationUrl = verificationToken
+      ? `${SITE_URL}/ticket/verify?token=${encodeURIComponent(
+          verificationToken,
+        )}`
+      : `${SITE_URL}/ticket/verify?ticketNumber=${encodeURIComponent(
+          ticketNumber,
+        )}`;
 
-    const safeName = String(
-      ticket.name ?? "",
-    ).replace(/[<>&"]/g, "");
+    const displayName =
+      ticket.participantName ||
+      `${ticket.firstName ?? ""} ${
+        ticket.lastName ?? ""
+      }`.trim() ||
+      "Participant";
+
+    const safeName =
+      escapeHtml(displayName);
+
+    const safeTicketNumber =
+      escapeHtml(ticketNumber);
+
+    const safeVerificationUrl =
+      escapeHtml(verificationUrl);
 
     const html = `
 <!DOCTYPE html>
@@ -646,6 +729,7 @@ async function sendTicketEmail(
         color:#ffffff;
       "
     >
+
       <h1
         style="
           margin:0 0 10px;
@@ -694,6 +778,7 @@ async function sendTicketEmail(
           margin:25px 0;
         "
       >
+
         <p
           style="
             margin:0 0 8px;
@@ -711,8 +796,9 @@ async function sendTicketEmail(
             font-weight:bold;
           "
         >
-          ${ticketNumber}
+          ${safeTicketNumber}
         </p>
+
       </div>
 
       <p
@@ -735,7 +821,7 @@ async function sendTicketEmail(
       </p>
 
       <a
-        href="${verificationUrl}"
+        href="${safeVerificationUrl}"
         style="
           display:inline-block;
           margin-top:20px;
@@ -749,6 +835,7 @@ async function sendTicketEmail(
       >
         Vérifier mon billet
       </a>
+
     </div>
   </div>
 </body>
@@ -768,14 +855,12 @@ async function sendTicketEmail(
         headers: {
           Authorization:
             `Bearer ${resendApiKey}`,
-
           "Content-Type":
             "application/json",
         },
 
         body: JSON.stringify({
           from: resendFromEmail,
-
           to: [email],
 
           subject:
@@ -787,7 +872,6 @@ async function sendTicketEmail(
             {
               filename:
                 `${ticketNumber}-SiloCamp-2026.pdf`,
-
               content: cleanBase64,
             },
           ],
@@ -855,22 +939,22 @@ export default async function handler(
     if (route === "health") {
       return res.status(200).json({
         ok: true,
-        message: "SiloCamp API fonctionne",
+        message:
+          "SiloCamp API fonctionne",
+        route,
       });
     }
 
     /* =====================================================
        AUTHENTIFICATION
-
-       Important :
-       l'auth ne dépend PAS de Neon.
     ===================================================== */
 
-    const authHandled = await handleAuth(
-      route,
-      req,
-      res,
-    );
+    const authHandled =
+      await handleAuth(
+        route,
+        req,
+        res,
+      );
 
     if (authHandled) {
       return;
@@ -880,19 +964,22 @@ export default async function handler(
        DATABASE
     ===================================================== */
 
-    const databaseUrl = getDatabaseUrl();
+    const databaseUrl =
+      getDatabaseUrl();
 
     if (!databaseUrl) {
       return res.status(500).json({
         ok: false,
-        error: "DATABASE_URL manquante",
+        error:
+          "DATABASE_URL manquante.",
       });
     }
 
     const sql = neon(databaseUrl);
 
     /* =====================================================
-       EMAIL TICKET
+       EMAIL
+       POST /api/tickets/email
     ===================================================== */
 
     if (route === "tickets/email") {
@@ -906,14 +993,16 @@ export default async function handler(
     }
 
     /* =====================================================
-       TICKETS — STATS
+       STATS
+       GET /api/tickets/stats
     ===================================================== */
 
     if (
       route === "tickets/stats" &&
       req.method === "GET"
     ) {
-      const stats = await getStats(sql);
+      const stats =
+        await getStats(sql);
 
       return res.status(200).json({
         ok: true,
@@ -922,7 +1011,8 @@ export default async function handler(
     }
 
     /* =====================================================
-       TICKETS — VERIFY
+       VERIFY
+       POST /api/tickets/verify
     ===================================================== */
 
     if (
@@ -937,9 +1027,13 @@ export default async function handler(
         req.body?.ticketNumber ?? "",
       ).trim();
 
-      if (!token && !ticketNumber) {
+      if (
+        !token &&
+        !ticketNumber
+      ) {
         return res.status(400).json({
           ok: false,
+          valid: false,
           error:
             "token ou ticketNumber requis.",
         });
@@ -950,7 +1044,7 @@ export default async function handler(
       if (token) {
         result = await sql`
           SELECT
-            ${sql.unsafe(getTicketSelect())}
+            ${sql.unsafe(ticketColumns())}
           FROM "Ticket"
           WHERE "verificationToken" = ${token}
           LIMIT 1
@@ -958,54 +1052,47 @@ export default async function handler(
       } else {
         result = await sql`
           SELECT
-            ${sql.unsafe(getTicketSelect())}
+            ${sql.unsafe(ticketColumns())}
           FROM "Ticket"
           WHERE "ticketNumber" = ${ticketNumber}
           LIMIT 1
         `;
       }
 
-      const ticket = result[0];
+      const ticket =
+        result[0] as TicketRow | undefined;
 
       if (!ticket) {
         return res.status(404).json({
           ok: false,
           valid: false,
-          error: "Billet introuvable.",
+          error:
+            "Billet introuvable.",
         });
       }
 
-      const safeTicket = {
-        id: ticket.id,
-        ticketNumber:
-          ticket.ticketNumber,
-        name: ticket.name,
-        email: ticket.email,
-        phone: ticket.phone,
-        quantity: ticket.quantity,
-        status: ticket.status,
-        createdAt:
-          ticket.createdAt,
-        updatedAt:
-          ticket.updatedAt,
-      };
-
       return res.status(200).json({
         ok: true,
-        valid: ticket.status !== "CANCELLED",
-        ticket: safeTicket,
+
+        valid:
+          ticket.status === "VALID" ||
+          ticket.status === "USED",
+
+        ticket,
       });
     }
 
     /* =====================================================
-       TICKETS — VALIDATE / SCANNER
+       VALIDATE / SCANNER
+       POST /api/tickets/validate
     ===================================================== */
 
     if (
       route === "tickets/validate" &&
       req.method === "POST"
     ) {
-      const session = getSession(req);
+      const session =
+        getSession(req);
 
       if (!session) {
         return res.status(401).json({
@@ -1024,7 +1111,10 @@ export default async function handler(
         req.body?.ticketNumber ?? "",
       ).trim();
 
-      if (!token && !ticketNumber) {
+      if (
+        !token &&
+        !ticketNumber
+      ) {
         return res.status(400).json({
           ok: false,
           error:
@@ -1038,45 +1128,30 @@ export default async function handler(
         result = await sql`
           UPDATE "Ticket"
           SET
-            status = 'USED',
-            "updatedAt" = NOW()
+            "status" = 'USED',
+            "usedAt" = COALESCE("usedAt", NOW())
           WHERE
             "verificationToken" = ${token}
-            AND status = 'VALID'
+            AND "status" = 'VALID'
           RETURNING
-            id,
-            "ticketNumber",
-            name,
-            email,
-            phone,
-            quantity,
-            status,
-            "createdAt",
-            "updatedAt"
+            ${sql.unsafe(ticketColumns())}
         `;
       } else {
         result = await sql`
           UPDATE "Ticket"
           SET
-            status = 'USED',
-            "updatedAt" = NOW()
+            "status" = 'USED',
+            "usedAt" = COALESCE("usedAt", NOW())
           WHERE
             "ticketNumber" = ${ticketNumber}
-            AND status = 'VALID'
+            AND "status" = 'VALID'
           RETURNING
-            id,
-            "ticketNumber",
-            name,
-            email,
-            phone,
-            quantity,
-            status,
-            "createdAt",
-            "updatedAt"
+            ${sql.unsafe(ticketColumns())}
         `;
       }
 
-      const ticket = result[0];
+      const ticket =
+        result[0] as TicketRow | undefined;
 
       if (ticket) {
         return res.status(200).json({
@@ -1088,20 +1163,17 @@ export default async function handler(
         });
       }
 
+      /* ---------------------------------------------------
+         Le billet existe peut-être mais est déjà utilisé
+         ou annulé.
+      --------------------------------------------------- */
+
       let existing;
 
       if (token) {
         existing = await sql`
           SELECT
-            id,
-            "ticketNumber",
-            name,
-            email,
-            phone,
-            quantity,
-            status,
-            "createdAt",
-            "updatedAt"
+            ${sql.unsafe(ticketColumns())}
           FROM "Ticket"
           WHERE "verificationToken" = ${token}
           LIMIT 1
@@ -1109,33 +1181,28 @@ export default async function handler(
       } else {
         existing = await sql`
           SELECT
-            id,
-            "ticketNumber",
-            name,
-            email,
-            phone,
-            quantity,
-            status,
-            "createdAt",
-            "updatedAt"
+            ${sql.unsafe(ticketColumns())}
           FROM "Ticket"
           WHERE "ticketNumber" = ${ticketNumber}
           LIMIT 1
         `;
       }
 
-      const existingTicket = existing[0];
+      const existingTicket =
+        existing[0] as TicketRow | undefined;
 
       if (!existingTicket) {
         return res.status(404).json({
           ok: false,
           valid: false,
-          error: "Billet introuvable.",
+          error:
+            "Billet introuvable.",
         });
       }
 
       if (
-        existingTicket.status === "USED"
+        existingTicket.status ===
+        "USED"
       ) {
         return res.status(409).json({
           ok: false,
@@ -1153,7 +1220,8 @@ export default async function handler(
         return res.status(409).json({
           ok: false,
           valid: false,
-          error: "Ce billet est annulé.",
+          error:
+            "Ce billet est annulé.",
           ticket: existingTicket,
         });
       }
@@ -1168,7 +1236,8 @@ export default async function handler(
     }
 
     /* =====================================================
-       TICKETS — CANCEL
+       CANCEL
+       POST /api/tickets/cancel
     ===================================================== */
 
     if (
@@ -1190,24 +1259,20 @@ export default async function handler(
       const result = await sql`
         UPDATE "Ticket"
         SET
-          status = 'CANCELLED',
-          "updatedAt" = NOW()
+          "status" = 'CANCELLED',
+          "cancelledAt" = COALESCE(
+            "cancelledAt",
+            NOW()
+          )
         WHERE
           "ticketNumber" = ${ticketNumber}
-          AND status = 'VALID'
+          AND "status" = 'VALID'
         RETURNING
-          id,
-          "ticketNumber",
-          name,
-          email,
-          phone,
-          quantity,
-          status,
-          "createdAt",
-          "updatedAt"
+          ${sql.unsafe(ticketColumns())}
       `;
 
-      const ticket = result[0];
+      const ticket =
+        result[0] as TicketRow | undefined;
 
       if (ticket) {
         return res.status(200).json({
@@ -1218,29 +1283,23 @@ export default async function handler(
         });
       }
 
-      const existing = await sql`
-        SELECT
-          id,
-          "ticketNumber",
-          name,
-          email,
-          phone,
-          quantity,
-          status,
-          "createdAt",
-          "updatedAt"
-        FROM "Ticket"
-        WHERE "ticketNumber" = ${ticketNumber}
-        LIMIT 1
-      `;
+      const existing =
+        await sql`
+          SELECT
+            ${sql.unsafe(ticketColumns())}
+          FROM "Ticket"
+          WHERE "ticketNumber" = ${ticketNumber}
+          LIMIT 1
+        `;
 
       const existingTicket =
-        existing[0];
+        existing[0] as TicketRow | undefined;
 
       if (!existingTicket) {
         return res.status(404).json({
           ok: false,
-          error: "Billet introuvable.",
+          error:
+            "Billet introuvable.",
         });
       }
 
@@ -1262,7 +1321,8 @@ export default async function handler(
       ) {
         return res.status(409).json({
           ok: false,
-          error: "Ce billet est déjà annulé.",
+          error:
+            "Ce billet est déjà annulé.",
           ticket: existingTicket,
         });
       }
@@ -1276,19 +1336,22 @@ export default async function handler(
     }
 
     /* =====================================================
-       TICKETS — NUMBER
-       /api/tickets/number/SILO-...
+       GET PAR NUMÉRO
+       GET /api/tickets/number/SILO-...
     ===================================================== */
 
     if (
-      route.startsWith("tickets/number/") &&
+      route.startsWith(
+        "tickets/number/",
+      ) &&
       req.method === "GET"
     ) {
-      const ticketNumber = decodeURIComponent(
-        route.substring(
-          "tickets/number/".length,
-        ),
-      ).trim();
+      const ticketNumber =
+        decodeURIComponent(
+          route.substring(
+            "tickets/number/".length,
+          ),
+        ).trim();
 
       if (!ticketNumber) {
         return res.status(400).json({
@@ -1300,26 +1363,20 @@ export default async function handler(
 
       const result = await sql`
         SELECT
-          id,
-          "ticketNumber",
-          name,
-          email,
-          phone,
-          quantity,
-          status,
-          "createdAt",
-          "updatedAt"
+          ${sql.unsafe(ticketColumns())}
         FROM "Ticket"
         WHERE "ticketNumber" = ${ticketNumber}
         LIMIT 1
       `;
 
-      const ticket = result[0];
+      const ticket =
+        result[0] as TicketRow | undefined;
 
       if (!ticket) {
         return res.status(404).json({
           ok: false,
-          error: "Billet introuvable.",
+          error:
+            "Billet introuvable.",
         });
       }
 
@@ -1330,42 +1387,38 @@ export default async function handler(
     }
 
     /* =====================================================
-       TICKETS — EMAIL SEARCH
-       /api/tickets/email/:email
+       RECHERCHE PAR EMAIL
+       GET /api/tickets/email/:email
     ===================================================== */
 
     if (
-      route.startsWith("tickets/email/") &&
+      route.startsWith(
+        "tickets/email/",
+      ) &&
       req.method === "GET"
     ) {
-      const email = normalizeEmail(
-        decodeURIComponent(
-          route.substring(
-            "tickets/email/".length,
+      const email =
+        normalizeEmail(
+          decodeURIComponent(
+            route.substring(
+              "tickets/email/".length,
+            ),
           ),
-        ),
-      );
+        );
 
       if (!email) {
         return res.status(400).json({
           ok: false,
-          error: "Email requis.",
+          error:
+            "Email requis.",
         });
       }
 
       const result = await sql`
         SELECT
-          id,
-          "ticketNumber",
-          name,
-          email,
-          phone,
-          quantity,
-          status,
-          "createdAt",
-          "updatedAt"
+          ${sql.unsafe(ticketColumns())}
         FROM "Ticket"
-        WHERE LOWER(email) = ${email}
+        WHERE LOWER("email") = ${email}
         ORDER BY "createdAt" DESC
       `;
 
@@ -1376,45 +1429,38 @@ export default async function handler(
     }
 
     /* =====================================================
-       TICKETS — PHONE SEARCH
-       /api/tickets/phone/:phone
-
-       Il n'y a PAS besoin de phone.ts.
-       Cette route reste directement dans le catch-all.
+       RECHERCHE PAR TÉLÉPHONE
+       GET /api/tickets/phone/:phone
     ===================================================== */
 
     if (
-      route.startsWith("tickets/phone/") &&
+      route.startsWith(
+        "tickets/phone/",
+      ) &&
       req.method === "GET"
     ) {
-      const phone = normalizePhone(
-        decodeURIComponent(
-          route.substring(
-            "tickets/phone/".length,
+      const phone =
+        normalizePhone(
+          decodeURIComponent(
+            route.substring(
+              "tickets/phone/".length,
+            ),
           ),
-        ),
-      );
+        );
 
       if (!phone) {
         return res.status(400).json({
           ok: false,
-          error: "Téléphone requis.",
+          error:
+            "Téléphone requis.",
         });
       }
 
       const result = await sql`
         SELECT
-          id,
-          "ticketNumber",
-          name,
-          email,
-          phone,
-          quantity,
-          status,
-          "createdAt",
-          "updatedAt"
+          ${sql.unsafe(ticketColumns())}
         FROM "Ticket"
-        WHERE phone = ${phone}
+        WHERE "phone" = ${phone}
         ORDER BY "createdAt" DESC
       `;
 
@@ -1425,17 +1471,18 @@ export default async function handler(
     }
 
     /* =====================================================
-       TICKETS — DELETE
-       /api/tickets/:ticketNumber
+       DELETE
+       DELETE /api/tickets/:ticketNumber
     ===================================================== */
 
     if (
       route.startsWith("tickets/") &&
       req.method === "DELETE"
     ) {
-      const suffix = route.substring(
-        "tickets/".length,
-      );
+      const suffix =
+        route.substring(
+          "tickets/".length,
+        );
 
       if (
         suffix &&
@@ -1450,18 +1497,11 @@ export default async function handler(
           DELETE FROM "Ticket"
           WHERE "ticketNumber" = ${ticketNumber}
           RETURNING
-            id,
-            "ticketNumber",
-            name,
-            email,
-            phone,
-            quantity,
-            status,
-            "createdAt",
-            "updatedAt"
+            ${sql.unsafe(ticketColumns())}
         `;
 
-        const ticket = result[0];
+        const ticket =
+          result[0] as TicketRow | undefined;
 
         if (!ticket) {
           return res.status(404).json({
@@ -1481,7 +1521,8 @@ export default async function handler(
     }
 
     /* =====================================================
-       TICKETS — GET /api/tickets
+       GET TOUS LES BILLETS
+       GET /api/tickets
     ===================================================== */
 
     if (
@@ -1490,15 +1531,7 @@ export default async function handler(
     ) {
       const result = await sql`
         SELECT
-          id,
-          "ticketNumber",
-          name,
-          email,
-          phone,
-          quantity,
-          status,
-          "createdAt",
-          "updatedAt"
+          ${sql.unsafe(ticketColumns())}
         FROM "Ticket"
         ORDER BY "createdAt" DESC
       `;
@@ -1510,41 +1543,135 @@ export default async function handler(
     }
 
     /* =====================================================
-       TICKETS — POST /api/tickets
+       POST — CRÉATION D'UN BILLET
+       POST /api/tickets
     ===================================================== */
 
     if (
       route === "tickets" &&
       req.method === "POST"
     ) {
-      const name = String(
-        req.body?.name ?? "",
+      /* ---------------------------------------------------
+         IDENTITÉ
+      --------------------------------------------------- */
+
+      const firstName = String(
+        req.body?.firstName ?? "",
       ).trim();
 
-      const email = normalizeEmail(
-        req.body?.email,
-      );
+      const lastName = String(
+        req.body?.lastName ?? "",
+      ).trim();
 
-      const phone = normalizePhone(
-        req.body?.phone,
-      );
+      const participantName =
+        String(
+          req.body?.participantName ??
+            `${firstName} ${lastName}`.trim(),
+        ).trim();
+
+      /* ---------------------------------------------------
+         CONTACT
+      --------------------------------------------------- */
+
+      const email =
+        normalizeEmail(
+          req.body?.email,
+        );
+
+      const phone =
+        normalizePhone(
+          req.body?.phone,
+        );
+
+      /* ---------------------------------------------------
+         RÉSERVATION
+      --------------------------------------------------- */
+
+      const reservationId =
+        req.body?.reservationId
+          ? String(
+              req.body.reservationId,
+            ).trim()
+          : null;
+
+      const eventId =
+        req.body?.eventId
+          ? String(
+              req.body.eventId,
+            ).trim()
+          : null;
+
+      const eventTitle = String(
+        req.body?.eventTitle ?? "",
+      ).trim();
+
+      const dateLabel = String(
+        req.body?.dateLabel ?? "",
+      ).trim();
+
+      const time = String(
+        req.body?.time ?? "",
+      ).trim();
+
+      const duration =
+        req.body?.duration
+          ? String(
+              req.body.duration,
+            ).trim()
+          : null;
+
+      const venue = String(
+        req.body?.venue ?? "",
+      ).trim();
+
+      const city = String(
+        req.body?.city ?? "",
+      ).trim();
 
       const quantity =
         calculateQuantity(
           req.body?.quantity,
         );
 
-      if (!name) {
+      const childrenUnder12 =
+        calculateChildren(
+          req.body?.childrenUnder12,
+        );
+
+      const children12Plus =
+        calculateChildren(
+          req.body?.children12Plus,
+        );
+
+      /* ---------------------------------------------------
+         VALIDATION
+      --------------------------------------------------- */
+
+      if (
+        !firstName &&
+        !lastName &&
+        !participantName
+      ) {
         return res.status(400).json({
           ok: false,
-          error: "Nom requis.",
+          error:
+            "Nom du participant requis.",
+        });
+      }
+
+      if (!participantName) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Nom du participant requis.",
         });
       }
 
       if (!email) {
         return res.status(400).json({
           ok: false,
-          error: "Email requis.",
+          error:
+            "Email requis.",
         });
       }
 
@@ -1556,44 +1683,116 @@ export default async function handler(
         });
       }
 
-      /* -----------------------------------------
-         Vérification capacité
-      ----------------------------------------- */
+      if (!eventTitle) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Titre de l'événement requis.",
+        });
+      }
+
+      if (!dateLabel) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Date de l'événement requise.",
+        });
+      }
+
+      if (!time) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Heure de l'événement requise.",
+        });
+      }
+
+      if (!venue) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Lieu de l'événement requis.",
+        });
+      }
+
+      if (!city) {
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Ville de l'événement requise.",
+        });
+      }
+
+      /* ---------------------------------------------------
+         COHÉRENCE QUANTITÉ / ENFANTS
+         
+         quantity représente le nombre total de places
+         consommées.
+         
+         Si le frontend ne l'envoie pas correctement,
+         on recalcule au minimum à partir des enfants 12+.
+      --------------------------------------------------- */
+
+      const calculatedMinimumQuantity =
+        Math.max(
+          1,
+          1 + children12Plus,
+        );
+
+      const finalQuantity =
+        Math.max(
+          quantity,
+          calculatedMinimumQuantity,
+        );
+
+      /* ---------------------------------------------------
+         VÉRIFICATION CAPACITÉ
+      --------------------------------------------------- */
 
       const stats =
         await getStats(sql);
 
       if (
-        stats.reserved + quantity >
+        stats.reserved +
+          finalQuantity >
         MAX_TICKETS
       ) {
         return res.status(409).json({
           ok: false,
           error:
             "La capacité maximale de l'événement est atteinte.",
-          capacity: MAX_TICKETS,
-          reserved: stats.reserved,
-          remaining: stats.remaining,
+          capacity:
+            MAX_TICKETS,
+          reserved:
+            stats.reserved,
+          remaining:
+            stats.remaining,
         });
       }
 
-      /* -----------------------------------------
-         Vérification doublon email
-      ----------------------------------------- */
+      /* ---------------------------------------------------
+         DOUBLON EMAIL
+         
+         VALID + USED = participation existante.
+         CANCELLED = possibilité de refaire une
+         réservation.
+      --------------------------------------------------- */
 
       const existingEmail =
         await sql`
           SELECT
-            id,
+            "id",
             "ticketNumber",
-            status
+            "status"
           FROM "Ticket"
-          WHERE LOWER(email) = ${email}
-            AND status IN ('VALID', 'USED')
+          WHERE LOWER("email") = ${email}
+            AND "status" IN ('VALID', 'USED')
           LIMIT 1
         `;
 
-      if (existingEmail.length > 0) {
+      if (
+        existingEmail.length > 0
+      ) {
         return res.status(409).json({
           ok: false,
           error:
@@ -1603,23 +1802,25 @@ export default async function handler(
         });
       }
 
-      /* -----------------------------------------
-         Vérification doublon téléphone
-      ----------------------------------------- */
+      /* ---------------------------------------------------
+         DOUBLON TÉLÉPHONE
+      --------------------------------------------------- */
 
       const existingPhone =
         await sql`
           SELECT
-            id,
+            "id",
             "ticketNumber",
-            status
+            "status"
           FROM "Ticket"
-          WHERE phone = ${phone}
-            AND status IN ('VALID', 'USED')
+          WHERE "phone" = ${phone}
+            AND "status" IN ('VALID', 'USED')
           LIMIT 1
         `;
 
-      if (existingPhone.length > 0) {
+      if (
+        existingPhone.length > 0
+      ) {
         return res.status(409).json({
           ok: false,
           error:
@@ -1629,9 +1830,38 @@ export default async function handler(
         });
       }
 
-      /* -----------------------------------------
-         Génération du billet
-      ----------------------------------------- */
+      /* ---------------------------------------------------
+         DOUBLON RESERVATION ID
+      --------------------------------------------------- */
+
+      if (reservationId) {
+        const existingReservation =
+          await sql`
+            SELECT
+              "id",
+              "ticketNumber",
+              "status"
+            FROM "Ticket"
+            WHERE "reservationId" = ${reservationId}
+            LIMIT 1
+          `;
+
+        if (
+          existingReservation.length > 0
+        ) {
+          return res.status(409).json({
+            ok: false,
+            error:
+              "Cette réservation existe déjà.",
+            ticket:
+              existingReservation[0],
+          });
+        }
+      }
+
+      /* ---------------------------------------------------
+         GÉNÉRATION
+      --------------------------------------------------- */
 
       const ticketNumber =
         generateTicketNumber();
@@ -1639,39 +1869,66 @@ export default async function handler(
       const verificationToken =
         generateVerificationToken();
 
+      /* ---------------------------------------------------
+         INSERTION
+         
+         IMPORTANT :
+         Aucun champ "name".
+         Aucun champ "updatedAt".
+         
+         Les champs correspondent directement
+         au modèle Prisma fourni.
+      --------------------------------------------------- */
+
       const result = await sql`
         INSERT INTO "Ticket" (
           "ticketNumber",
-          name,
-          email,
-          phone,
-          quantity,
-          status,
-          "verificationToken"
+          "verificationToken",
+          "firstName",
+          "lastName",
+          "participantName",
+          "email",
+          "phone",
+          "reservationId",
+          "eventId",
+          "eventTitle",
+          "dateLabel",
+          "time",
+          "duration",
+          "venue",
+          "city",
+          "quantity",
+          "childrenUnder12",
+          "children12Plus",
+          "status"
         )
         VALUES (
           ${ticketNumber},
-          ${name},
+          ${verificationToken},
+          ${firstName || null},
+          ${lastName || null},
+          ${participantName},
           ${email},
-          ${phone},
-          ${quantity},
-          'VALID',
-          ${verificationToken}
+          ${phone || null},
+          ${reservationId},
+          ${eventId},
+          ${eventTitle},
+          ${dateLabel},
+          ${time},
+          ${duration},
+          ${venue},
+          ${city},
+          ${finalQuantity},
+          ${childrenUnder12},
+          ${children12Plus},
+          'VALID'
         )
         RETURNING
-          id,
-          "ticketNumber",
-          name,
-          email,
-          phone,
-          quantity,
-          status,
-          "verificationToken",
-          "createdAt",
-          "updatedAt"
+          ${sql.unsafe(ticketColumns())}
       `;
 
-      const ticket = result[0];
+      const ticket =
+        result[0] as TicketRow | undefined;
 
       if (!ticket) {
         return res.status(500).json({
@@ -1680,6 +1937,10 @@ export default async function handler(
             "Impossible de créer le billet.",
         });
       }
+
+      /* ---------------------------------------------------
+         RÉPONSE
+      --------------------------------------------------- */
 
       return res.status(201).json({
         ok: true,
@@ -1695,7 +1956,8 @@ export default async function handler(
 
     return res.status(404).json({
       ok: false,
-      error: "Route API introuvable.",
+      error:
+        "Route API introuvable.",
       route,
     });
   } catch (error: any) {
