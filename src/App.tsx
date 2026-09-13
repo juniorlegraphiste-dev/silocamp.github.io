@@ -28,7 +28,6 @@ import TicketVerify from "@/pages/TicketVerify";
 
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminTickets from "@/pages/admin/AdminTickets";
-import AdminScanner from "@/pages/admin/AdminScanner";
 import AdminStatistics from "@/pages/admin/AdminStatistics";
 import AdminSettings from "./pages/admin/AdminSettings";
 
