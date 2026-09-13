@@ -1,6 +1,6 @@
 generator client {
-  provider   = "prisma-client"
-  output     = "../generated/prisma"
+  provider = "prisma-client"
+  output = "../generated/prisma"
   engineType = "client"
 }
 
@@ -28,7 +28,6 @@ model Ticket {
   phone String?
 
   reservationId String? @unique
-
   eventId String?
   eventTitle String
   dateLabel String
@@ -38,7 +37,6 @@ model Ticket {
   city String
 
   quantity Int @default(1)
-
   childrenUnder12 Int @default(0)
   children12Plus Int @default(0)
 
