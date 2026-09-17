@@ -20,9 +20,8 @@ const faqs = [
       "Non. Vous pouvez simplement présenter votre e-billet sur votre téléphone. Le QR Code sera scanné à votre arrivée.",
   },
   {
-    question: "Puis-je modifier ou annuler ma réservation ?",
-    answer:
-      "Oui. Contactez notre équipe avant le début de l'événement afin que nous puissions mettre à jour ou annuler votre réservation.",
+    question: "Comment puis-je annuler mon billet?",
+    answer: "Cliquez sur le lien d’annulation (lien), puis confirmez avec le numéro de votre billet.",
   },
   {
     question: "Que faire si je ne reçois pas mon e-mail ?",

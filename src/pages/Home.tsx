@@ -825,7 +825,7 @@ function Faq() {
   const qa = [
     {
       q: "Comment reçois-je mon billet ?",
-      a: "Dès la confirmation de votre réservation, votre e-billet avec son QR Code est disponible immédiatement au téléchargement. Il est également envoyé par e-mail et via WhatsApp pour un accès rapide.",
+      a: "Dès la confirmation de votre réservation, votre e-billet avec son QR Code est disponible immédiatement au téléchargement. Il est également envoyé par e-mail pour un accès rapide.",
     },
     {
       q: "Puis-je m'inscrire plusieurs fois ?",
@@ -834,6 +834,22 @@ function Faq() {
     {
       q: "Que faire le jour de l'événement ?",
       a: "Le jour de l'événement, présentez votre e-billet avec son QR Code sur votre téléphone ou en version imprimée. Un simple scan suffit pour accéder rapidement au site.",
+    },
+    {
+      q: "Jusqu’à quel âge puis-je inscrire mes enfants ?",
+      a: "Jusqu’à 16 ans. À partir de 17 ans, chaque personne doit s’inscrire individuellement avec sa propre adresse e-mail.",
+    },
+    {
+      q: "Puis-je venir avec mes enfants ?",
+      a: "Oui. Les enfants de moins de 12 ans sont pris en charge par des monitrices. Ceux de 12 à 16 ans restent avec vous dans la grande salle, s’ils sont inscrits.",
+    },
+    {
+      q: "Y aura-t-il des stands de restauration",
+      a: "Oui, des stands de restauration payants seront disponibles. Pensez à prévoir votre budget en conséquence.",
+    },
+    {
+      q: "Comment puis-je annuler mon billet?",
+      a: "Cliquez sur le lien d’annulation (lien), puis confirmez avec le numéro de votre billet.",
     },
   ];
 
