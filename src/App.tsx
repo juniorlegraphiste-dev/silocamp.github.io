@@ -1,6 +1,5 @@
 import {
   BrowserRouter,
-  Navigate,
   Route,
   Routes,
   useLocation,
@@ -49,6 +48,18 @@ const pageVariants = {
   },
 };
 
+/**
+ * ============================================================
+ * ROUTES PUBLIQUES
+ * ============================================================
+ *
+ * Navbar + contenu + Footer
+ *
+ * IMPORTANT :
+ * /scanner n'est PAS placé ici.
+ * Cela permet de ne pas afficher la Navbar ni le Footer
+ * sur l'espace de contrôle des billets.
+ */
 function PublicRoutes() {
   const location = useLocation();
 
@@ -70,73 +81,57 @@ function PublicRoutes() {
             }}
           >
             <Routes location={location}>
-              {/* ================================================
+              {/* =========================
                   ACCUEIL
-              ================================================= */}
-
+              ========================= */}
               <Route
                 path="/"
                 element={<Home />}
               />
 
-              {/* ================================================
-                  ÉVÉNEMENT
-              ================================================= */}
-
+              {/* =========================
+                  DÉTAIL ÉVÉNEMENT
+              ========================= */}
               <Route
                 path="/evenement/:id"
                 element={<EventDetail />}
               />
 
-              {/* ================================================
+              {/* =========================
                   BILLETTERIE
-              ================================================= */}
-
+              ========================= */}
               <Route
                 path="/billetterie"
                 element={<Checkout />}
               />
 
-              {/* ================================================
+              {/* =========================
                   CONFIRMATION
-              ================================================= */}
-
+              ========================= */}
               <Route
                 path="/confirmation"
                 element={<Confirmation />}
               />
 
-              {/* ================================================
-                  VÉRIFICATION PUBLIQUE DU BILLET
-              ================================================= */}
-
+              {/* =========================
+                  VÉRIFICATION PUBLIQUE
+              ========================= */}
               <Route
                 path="/ticket/verify"
                 element={<TicketVerify />}
               />
 
-              {/* ================================================
-                  SCANNER
-              ================================================= */}
-
-              <Route
-                path="/scanner"
-                element={<ScanTicket />}
-              />
-
-              {/* ================================================
+              {/* =========================
                   CONTACT
-              ================================================= */}
-
+              ========================= */}
               <Route
                 path="/contact"
                 element={<Contact />}
               />
 
-              {/* ================================================
-                  ROUTE INCONNUE
-              ================================================= */}
-
+              {/* =========================
+                  ROUTE PAR DÉFAUT
+              ========================= */}
               <Route
                 path="*"
                 element={<Home />}
@@ -151,6 +146,31 @@ function PublicRoutes() {
   );
 }
 
+/**
+ * ============================================================
+ * ROUTE SCANNER
+ * ============================================================
+ *
+ * Cette route est volontairement séparée de PublicRoutes.
+ *
+ * Résultat :
+ * /scanner
+ *
+ * affiche uniquement :
+ * ScanTicket
+ *
+ * Pas de Navbar.
+ * Pas de Footer.
+ */
+function ScannerRoute() {
+  return <ScanTicket />;
+}
+
+/**
+ * ============================================================
+ * ROUTES ADMIN + SITE
+ * ============================================================
+ */
 function AppRoutes() {
   return (
     <Routes>
@@ -162,21 +182,6 @@ function AppRoutes() {
         path="/admin"
         element={<AdminLayout />}
       >
-        {/* 
-          IMPORTANT :
-          /admin redirige automatiquement vers
-          /admin/dashboard
-        */}
-        <Route
-          index
-          element={
-            <Navigate
-              to="/admin/dashboard"
-              replace
-            />
-          }
-        />
-
         <Route
           path="dashboard"
           element={<AdminDashboard />}
@@ -199,6 +204,15 @@ function AppRoutes() {
       </Route>
 
       {/* =====================================================
+          SCANNER
+      ===================================================== */}
+
+      <Route
+        path="/scanner"
+        element={<ScannerRoute />}
+      />
+
+      {/* =====================================================
           SITE PUBLIC
       ===================================================== */}
 
@@ -210,6 +224,11 @@ function AppRoutes() {
   );
 }
 
+/**
+ * ============================================================
+ * APPLICATION
+ * ============================================================
+ */
 export default function App() {
   return (
     <CartProvider>
