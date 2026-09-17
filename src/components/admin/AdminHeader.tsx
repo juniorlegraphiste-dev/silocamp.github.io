@@ -1,829 +1,431 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import {
   Bell,
+  CalendarDays,
   ChevronDown,
   LogOut,
-  Menu,
+  Search,
   Settings,
-  ShieldCheck,
   User,
   X,
+  ExternalLink,
+  ShieldCheck,
 } from "lucide-react";
 
-interface AdminHeaderProps {
-  onMenuClick?: () => void;
-  sidebarOpen?: boolean;
-  username?: string;
-  notificationCount?: number;
-}
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
+
+type AdminHeaderProps = {
+  title?: string;
+  subtitle?: string;
+};
+
+type UserMenuProps = {
+  onLogout: () => void;
+  loggingOut: boolean;
+};
 
 export default function AdminHeader({
-  onMenuClick,
-  sidebarOpen = false,
-  username = "Administrateur",
-  notificationCount = 0,
+  title,
+  subtitle,
 }: AdminHeaderProps) {
   const navigate = useNavigate();
-
-  const [profileOpen, setProfileOpen] =
-    useState(false);
 
   const [notificationOpen, setNotificationOpen] =
     useState(false);
 
-  const profileRef =
-    useRef<HTMLDivElement | null>(null);
+  const [userMenuOpen, setUserMenuOpen] =
+    useState(false);
+
+  const [searchOpen, setSearchOpen] =
+    useState(false);
+
+  const [searchValue, setSearchValue] =
+    useState("");
+
+  const [loggingOut, setLoggingOut] =
+    useState(false);
 
   const notificationRef =
     useRef<HTMLDivElement | null>(null);
 
+  const userMenuRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const searchInputRef =
+    useRef<HTMLInputElement | null>(null);
+
   /**
-   * Fermer les menus lorsqu'on clique
-   * en dehors.
+   * Date actuelle
+   */
+  const today = new Intl.DateTimeFormat(
+    "fr-FR",
+    {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    },
+  ).format(new Date());
+
+  /**
+   * Fermer les menus en cliquant
+   * en dehors de leur zone.
    */
   useEffect(() => {
-    function handleClickOutside(
+    const handleOutsideClick = (
       event: MouseEvent,
-    ) {
-      const target = event.target as Node;
-
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(target)
-      ) {
-        setProfileOpen(false);
-      }
+    ) => {
+      const target =
+        event.target as Node;
 
       if (
         notificationRef.current &&
-        !notificationRef.current.contains(target)
+        !notificationRef.current.contains(
+          target,
+        )
       ) {
         setNotificationOpen(false);
       }
-    }
+
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(
+          target,
+        )
+      ) {
+        setUserMenuOpen(false);
+      }
+    };
 
     document.addEventListener(
       "mousedown",
-      handleClickOutside,
+      handleOutsideClick,
     );
 
     return () => {
       document.removeEventListener(
         "mousedown",
-        handleClickOutside,
+        handleOutsideClick,
       );
     };
   }, []);
 
   /**
-   * Déconnexion.
-   *
-   * On utilise l'endpoint existant.
-   * Même si le serveur rencontre une erreur,
-   * on retourne vers l'accueil.
+   * Gestion de la touche Escape.
    */
-  async function handleLogout() {
-    setProfileOpen(false);
+  useEffect(() => {
+    const handleKeyDown = (
+      event: KeyboardEvent,
+    ) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setNotificationOpen(false);
+      setUserMenuOpen(false);
+      setSearchOpen(false);
+    };
+
+    document.addEventListener(
+      "keydown",
+      handleKeyDown,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown,
+      );
+    };
+  }, []);
+
+  /**
+   * Focus automatique sur la recherche.
+   */
+  useEffect(() => {
+    if (searchOpen) {
+      window.setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [searchOpen]);
+
+  /**
+   * Déconnexion administrateur.
+   */
+  const handleLogout = async () => {
+    if (loggingOut) {
+      return;
+    }
+
+    setLoggingOut(true);
 
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-        cache: "no-store",
-        headers: {
-          Accept: "application/json",
+      await fetch(
+        "/api/auth/logout",
+        {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            Accept:
+              "application/json",
+          },
         },
-      });
+      );
     } catch (error) {
       console.error(
         "[SiloCamp Admin Logout]",
         error,
       );
     } finally {
-      navigate("/");
+      setLoggingOut(false);
+      setUserMenuOpen(false);
+
+      navigate("/admin", {
+        replace: true,
+      });
     }
-  }
+  };
 
-  function handleNotificationClick() {
-    setNotificationOpen(
-      !notificationOpen,
+  /**
+   * Recherche rapide.
+   *
+   * Pour le moment elle sert d'interface.
+   * Elle peut ensuite être connectée à
+   * la page Participants.
+   */
+  const handleSearchSubmit = (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    const value =
+      searchValue.trim();
+
+    if (!value) {
+      return;
+    }
+
+    setSearchOpen(false);
+
+    navigate(
+      `/admin/tickets?search=${encodeURIComponent(
+        value,
+      )}`,
     );
-
-    setProfileOpen(false);
-  }
-
-  function handleProfileClick() {
-    setProfileOpen(!profileOpen);
-    setNotificationOpen(false);
-  }
+  };
 
   return (
-    <header
-      className="
-        sticky
-        top-0
-        z-40
-        h-[76px]
-        border-b
-        border-[#2a251b]
-        bg-[#090908]/95
-        backdrop-blur-xl
-      "
-    >
-      <div className="flex h-full items-center justify-between px-4 sm:px-6 lg:px-8">
-
+    <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#080807]/95 backdrop-blur-xl">
+      <div className="flex min-h-[78px] items-center justify-between gap-4 px-5 md:px-8 lg:px-10">
         {/* =====================================================
-            LEFT
+            GAUCHE
         ====================================================== */}
+        <div className="min-w-0">
+          {title ? (
+            <>
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-lg font-black tracking-tight text-[#F5F1E8] md:text-xl">
+                  {title}
+                </h1>
+              </div>
 
-        <div className="flex min-w-0 items-center gap-3">
-
-          {/* Mobile menu */}
-          {onMenuClick && (
-            <button
-              type="button"
-              onClick={onMenuClick}
-              aria-label={
-                sidebarOpen
-                  ? "Fermer le menu"
-                  : "Ouvrir le menu"
-              }
-              className="
-                flex
-                h-10
-                w-10
-                items-center
-                justify-center
-                rounded-xl
-                border
-                border-[#302a1d]
-                bg-[#12110e]
-                text-[#e8d7ad]
-                transition
-                hover:border-[#806a32]
-                hover:bg-[#1a1813]
-                lg:hidden
-              "
-            >
-              {sidebarOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
+              {subtitle && (
+                <p className="mt-1 hidden truncate text-xs font-medium text-[#A8A297] sm:block">
+                  {subtitle}
+                </p>
               )}
-            </button>
-          )}
-
-          {/* Logo / title */}
-          <div className="flex min-w-0 items-center gap-3">
-
-            <div
-              className="
-                hidden
-                h-10
-                w-10
-                items-center
-                justify-center
-                rounded-xl
-                border
-                border-[#4a3c20]
-                bg-[#17140e]
-                sm:flex
-              "
-            >
-              <ShieldCheck
-                className="
-                  h-5
-                  w-5
-                  text-[#d8b968]
-                "
-              />
-            </div>
-
-            <div className="min-w-0">
-
-              <p
-                className="
-                  truncate
-                  text-sm
-                  font-black
-                  tracking-tight
-                  text-[#f5f0e5]
-                  sm:text-base
-                "
-              >
+            </>
+          ) : (
+            <>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#C8A45D]">
                 Administration
               </p>
 
-              <p
-                className="
-                  hidden
-                  text-[11px]
-                  font-medium
-                  tracking-wide
-                  text-[#8c8068]
-                  sm:block
-                "
-              >
-                Gestion du Camp International Silo
+              <p className="mt-1 text-sm font-semibold text-[#F5F1E8]">
+                Gestion de l'événement
               </p>
-
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         {/* =====================================================
-            RIGHT
+            DROITE
         ====================================================== */}
+        <div className="flex shrink-0 items-center gap-2">
+          {/* DATE */}
+          <div className="hidden items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2.5 xl:flex">
+            <CalendarDays className="h-4 w-4 text-[#C8A45D]" />
 
-        <div className="flex items-center gap-2 sm:gap-3">
-
-          {/* -------------------------------------------------
-              STATUS
-          -------------------------------------------------- */}
-
-          <div
-            className="
-              hidden
-              items-center
-              gap-2
-              rounded-full
-              border
-              border-emerald-900/60
-              bg-emerald-950/30
-              px-3
-              py-2
-              md:flex
-            "
-          >
-            <span className="relative flex h-2 w-2">
-
-              <span
-                className="
-                  absolute
-                  inline-flex
-                  h-full
-                  w-full
-                  animate-ping
-                  rounded-full
-                  bg-emerald-400
-                  opacity-60
-                "
-              />
-
-              <span
-                className="
-                  relative
-                  inline-flex
-                  h-2
-                  w-2
-                  rounded-full
-                  bg-emerald-400
-                "
-              />
-            </span>
-
-            <span
-              className="
-                text-[11px]
-                font-bold
-                text-emerald-300
-              "
-            >
-              Système opérationnel
+            <span className="text-xs font-semibold capitalize text-[#A8A297]">
+              {today}
             </span>
           </div>
 
-          {/* -------------------------------------------------
-              NOTIFICATIONS
-          -------------------------------------------------- */}
+          {/* RECHERCHE */}
+          <div className="relative">
+            {searchOpen ? (
+              <form
+                onSubmit={
+                  handleSearchSubmit
+                }
+                className="absolute right-0 top-0 z-50 flex w-[280px] items-center gap-2 rounded-xl border border-[#C8A45D]/30 bg-[#11100E] p-2 shadow-2xl shadow-black/40 sm:w-[320px]"
+              >
+                <Search className="ml-2 h-4 w-4 shrink-0 text-[#C8A45D]" />
 
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={searchValue}
+                  onChange={(event) =>
+                    setSearchValue(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Rechercher un participant..."
+                  className="h-9 min-w-0 flex-1 bg-transparent px-1 text-sm font-medium text-[#F5F1E8] outline-none placeholder:text-[#68635B]"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchValue("");
+                    setSearchOpen(false);
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#8E897F] transition hover:bg-white/5 hover:text-white"
+                  aria-label="Fermer la recherche"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setNotificationOpen(
+                    false,
+                  );
+                  setUserMenuOpen(false);
+                  setSearchOpen(true);
+                }}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.025] text-[#A8A297] transition hover:border-[#C8A45D]/30 hover:bg-[#C8A45D]/5 hover:text-[#C8A45D]"
+                aria-label="Rechercher"
+              >
+                <Search className="h-[18px] w-[18px]" />
+              </button>
+            )}
+          </div>
+
+          {/* NOTIFICATIONS */}
           <div
             ref={notificationRef}
             className="relative"
           >
             <button
               type="button"
-              onClick={
-                handleNotificationClick
-              }
+              onClick={() => {
+                setNotificationOpen(
+                  (current) =>
+                    !current,
+                );
+
+                setUserMenuOpen(false);
+                setSearchOpen(false);
+              }}
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.025] text-[#A8A297] transition hover:border-[#C8A45D]/30 hover:bg-[#C8A45D]/5 hover:text-[#C8A45D]"
               aria-label="Notifications"
-              className="
-                relative
-                flex
-                h-10
-                w-10
-                items-center
-                justify-center
-                rounded-xl
-                border
-                border-[#2e291f]
-                bg-[#11100e]
-                text-[#b8ad97]
-                transition
-                hover:border-[#6b572b]
-                hover:bg-[#191711]
-                hover:text-[#e8d7ad]
-              "
+              aria-expanded={
+                notificationOpen
+              }
             >
               <Bell className="h-[18px] w-[18px]" />
 
-              {notificationCount > 0 && (
-                <span
-                  className="
-                    absolute
-                    right-1
-                    top-1
-                    flex
-                    h-4
-                    min-w-4
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-[#c9a85b]
-                    px-1
-                    text-[9px]
-                    font-black
-                    text-[#0a0907]
-                  "
-                >
-                  {notificationCount > 9
-                    ? "9+"
-                    : notificationCount}
-                </span>
-              )}
+              {/* Badge */}
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#C8A45D] ring-2 ring-[#080807]" />
             </button>
 
             {notificationOpen && (
-              <div
-                className="
-                  absolute
-                  right-0
-                  top-[52px]
-                  w-[320px]
-                  overflow-hidden
-                  rounded-2xl
-                  border
-                  border-[#30291d]
-                  bg-[#11100e]
-                  shadow-2xl
-                  shadow-black/50
-                "
-              >
-                <div
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    border-b
-                    border-[#29241b]
-                    px-4
-                    py-4
-                  "
-                >
-                  <div>
-                    <p
-                      className="
-                        text-sm
-                        font-black
-                        text-[#f4eee1]
-                      "
-                    >
-                      Notifications
-                    </p>
-
-                    <p
-                      className="
-                        mt-0.5
-                        text-[11px]
-                        text-[#766e5e]
-                      "
-                    >
-                      Activité récente
-                    </p>
-                  </div>
-
-                  {notificationCount > 0 && (
-                    <span
-                      className="
-                        rounded-full
-                        bg-[#2a2111]
-                        px-2
-                        py-1
-                        text-[10px]
-                        font-black
-                        text-[#d7b865]
-                      "
-                    >
-                      {notificationCount} nouvelle
-                      {notificationCount > 1
-                        ? "s"
-                        : ""}
-                    </span>
-                  )}
-                </div>
-
-                <div className="p-4">
-
-                  {notificationCount > 0 ? (
-                    <div
-                      className="
-                        rounded-xl
-                        border
-                        border-[#332b1e]
-                        bg-[#17140f]
-                        p-4
-                      "
-                    >
-                      <div className="flex gap-3">
-
-                        <div
-                          className="
-                            flex
-                            h-9
-                            w-9
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-lg
-                            bg-[#241d10]
-                            text-[#d7b865]
-                          "
-                        >
-                          <Bell className="h-4 w-4" />
-                        </div>
-
-                        <div>
-                          <p
-                            className="
-                              text-xs
-                              font-bold
-                              text-[#eee7d8]
-                            "
-                          >
-                            Nouvelles activités
-                          </p>
-
-                          <p
-                            className="
-                              mt-1
-                              text-[11px]
-                              leading-5
-                              text-[#807765]
-                            "
-                          >
-                            Consultez les inscriptions
-                            récentes dans la section
-                            Participants.
-                          </p>
-                        </div>
-
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className="
-                        py-6
-                        text-center
-                      "
-                    >
-                      <div
-                        className="
-                          mx-auto
-                          flex
-                          h-10
-                          w-10
-                          items-center
-                          justify-center
-                          rounded-full
-                          bg-[#181611]
-                        "
-                      >
-                        <Bell
-                          className="
-                            h-4
-                            w-4
-                            text-[#655e50]
-                          "
-                        />
-                      </div>
-
-                      <p
-                        className="
-                          mt-3
-                          text-xs
-                          font-bold
-                          text-[#a59b89]
-                        "
-                      >
-                        Aucune notification
-                      </p>
-
-                      <p
-                        className="
-                          mt-1
-                          text-[11px]
-                          text-[#625c50]
-                        "
-                      >
-                        Tout est à jour.
-                      </p>
-                    </div>
-                  )}
-
-                </div>
-              </div>
+              <NotificationPanel
+                onClose={() =>
+                  setNotificationOpen(
+                    false,
+                  )
+                }
+              />
             )}
           </div>
 
-          {/* -------------------------------------------------
-              SEPARATOR
-          -------------------------------------------------- */}
+          {/* SEPARATEUR */}
+          <div className="mx-1 hidden h-8 w-px bg-white/[0.08] sm:block" />
 
+          {/* PROFIL */}
           <div
-            className="
-              hidden
-              h-8
-              w-px
-              bg-[#29251d]
-              sm:block
-            "
-          />
-
-          {/* -------------------------------------------------
-              USER
-          -------------------------------------------------- */}
-
-          <div
-            ref={profileRef}
+            ref={userMenuRef}
             className="relative"
           >
             <button
               type="button"
-              onClick={handleProfileClick}
-              className="
-                flex
-                min-h-10
-                items-center
-                gap-2
-                rounded-xl
-                border
-                border-transparent
-                px-1
-                py-1
-                transition
-                hover:border-[#30291d]
-                hover:bg-[#11100e]
-              "
-            >
+              onClick={() => {
+                setUserMenuOpen(
+                  (current) =>
+                    !current,
+                );
 
-              {/* Avatar */}
-              <div
-                className="
-                  flex
-                  h-9
-                  w-9
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-gradient-to-br
-                  from-[#d9bc73]
-                  to-[#806327]
-                  text-sm
-                  font-black
-                  text-[#17130b]
-                  shadow-lg
-                "
-              >
-                {getInitials(username)}
+                setNotificationOpen(
+                  false,
+                );
+
+                setSearchOpen(false);
+              }}
+              className="group flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] p-1.5 pr-2.5 transition hover:border-[#C8A45D]/30 hover:bg-[#C8A45D]/5"
+              aria-label="Menu administrateur"
+              aria-expanded={
+                userMenuOpen
+              }
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#C8A45D] to-[#8F6E2D] text-[#0B0A08] shadow-lg shadow-[#C8A45D]/10">
+                <User className="h-4 w-4 stroke-[2.5]" />
               </div>
 
-              {/* Name */}
-              <div
-                className="
-                  hidden
-                  min-w-0
-                  text-left
-                  sm:block
-                "
-              >
-                <p
-                  className="
-                    max-w-[130px]
-                    truncate
-                    text-xs
-                    font-black
-                    text-[#eee7d8]
-                  "
-                >
-                  {username}
+              <div className="hidden min-w-0 text-left sm:block">
+                <p className="truncate text-xs font-black text-[#F5F1E8]">
+                  Administrateur
                 </p>
 
-                <p
-                  className="
-                    text-[10px]
-                    font-medium
-                    text-[#766f60]
-                  "
-                >
-                  Administrateur
+                <p className="text-[10px] font-medium text-[#8E897F]">
+                  SiloCamp
                 </p>
               </div>
 
               <ChevronDown
-                className={`
-                  hidden
-                  h-4
-                  w-4
-                  text-[#776e5d]
-                  transition
-                  sm:block
-                  ${
-                    profileOpen
-                      ? "rotate-180"
-                      : ""
-                  }
-                `}
+                className={`hidden h-4 w-4 text-[#8E897F] transition sm:block ${
+                  userMenuOpen
+                    ? "rotate-180"
+                    : ""
+                }`}
               />
-
             </button>
 
-            {/* -------------------------------------------------
-                PROFILE DROPDOWN
-            -------------------------------------------------- */}
-
-            {profileOpen && (
-              <div
-                className="
-                  absolute
-                  right-0
-                  top-[52px]
-                  w-[250px]
-                  overflow-hidden
-                  rounded-2xl
-                  border
-                  border-[#30291d]
-                  bg-[#11100e]
-                  shadow-2xl
-                  shadow-black/60
-                "
-              >
-
-                {/* User identity */}
-                <div
-                  className="
-                    border-b
-                    border-[#29241b]
-                    p-4
-                  "
-                >
-                  <div className="flex items-center gap-3">
-
-                    <div
-                      className="
-                        flex
-                        h-11
-                        w-11
-                        shrink-0
-                        items-center
-                        justify-center
-                        rounded-xl
-                        bg-gradient-to-br
-                        from-[#d9bc73]
-                        to-[#806327]
-                        font-black
-                        text-[#17130b]
-                      "
-                    >
-                      {getInitials(username)}
-                    </div>
-
-                    <div className="min-w-0">
-
-                      <p
-                        className="
-                          truncate
-                          text-sm
-                          font-black
-                          text-[#f3ecde]
-                        "
-                      >
-                        {username}
-                      </p>
-
-                      <p
-                        className="
-                          mt-0.5
-                          text-[11px]
-                          text-[#756d5d]
-                        "
-                      >
-                        Administrateur SiloCamp
-                      </p>
-
-                    </div>
-
-                  </div>
-                </div>
-
-                {/* Menu */}
-                <div className="p-2">
-
-                  <Link
-                    to="/admin/settings"
-                    onClick={() =>
-                      setProfileOpen(false)
-                    }
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                      rounded-xl
-                      px-3
-                      py-3
-                      text-xs
-                      font-bold
-                      text-[#b9af9c]
-                      transition
-                      hover:bg-[#1a1712]
-                      hover:text-[#eee5d3]
-                    "
-                  >
-                    <Settings className="h-4 w-4" />
-
-                    <span>
-                      Paramètres
-                    </span>
-                  </Link>
-
-                  <Link
-                    to="/"
-                    onClick={() =>
-                      setProfileOpen(false)
-                    }
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                      rounded-xl
-                      px-3
-                      py-3
-                      text-xs
-                      font-bold
-                      text-[#b9af9c]
-                      transition
-                      hover:bg-[#1a1712]
-                      hover:text-[#eee5d3]
-                    "
-                  >
-                    <User className="h-4 w-4" />
-
-                    <span>
-                      Voir le site
-                    </span>
-                  </Link>
-
-                  <div
-                    className="
-                      my-2
-                      h-px
-                      bg-[#29241b]
-                    "
-                  />
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="
-                      flex
-                      w-full
-                      items-center
-                      gap-3
-                      rounded-xl
-                      px-3
-                      py-3
-                      text-left
-                      text-xs
-                      font-bold
-                      text-red-400
-                      transition
-                      hover:bg-red-500/10
-                      hover:text-red-300
-                    "
-                  >
-                    <LogOut className="h-4 w-4" />
-
-                    <span>
-                      Se déconnecter
-                    </span>
-                  </button>
-
-                </div>
-              </div>
+            {userMenuOpen && (
+              <UserMenu
+                onLogout={
+                  handleLogout
+                }
+                loggingOut={
+                  loggingOut
+                }
+              />
             )}
           </div>
-
         </div>
       </div>
     </header>
@@ -831,30 +433,194 @@ export default function AdminHeader({
 }
 
 /* ============================================================
-   HELPERS
+   NOTIFICATION PANEL
 ============================================================ */
 
-function getInitials(
-  name: string,
-): string {
-  const value = name.trim();
-
-  if (!value) {
-    return "A";
-  }
-
-  const parts = value
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 1) {
-    return parts[0]
-      .slice(0, 2)
-      .toUpperCase();
-  }
-
+function NotificationPanel({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
   return (
-    parts[0][0] +
-    parts[parts.length - 1][0]
-  ).toUpperCase();
+    <div className="absolute right-0 top-[52px] z-50 w-[320px] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#11100E] shadow-2xl shadow-black/50">
+      <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-4">
+        <div>
+          <h3 className="text-sm font-black text-[#F5F1E8]">
+            Notifications
+          </h3>
+
+          <p className="mt-0.5 text-[11px] font-medium text-[#777269]">
+            Informations SiloCamp
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#777269] transition hover:bg-white/5 hover:text-white"
+          aria-label="Fermer"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="p-2">
+        <NotificationItem
+          icon={
+            <ShieldCheck className="h-4 w-4" />
+          }
+          title="Système opérationnel"
+          description="La plateforme SiloCamp fonctionne normalement."
+          time="Maintenant"
+          active
+        />
+
+        <NotificationItem
+          icon={
+            <CalendarDays className="h-4 w-4" />
+          }
+          title="Camp International Silo 2026"
+          description="Les inscriptions sont actuellement ouvertes."
+          time="Aujourd'hui"
+        />
+      </div>
+
+      <div className="border-t border-white/[0.07] p-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full rounded-xl px-3 py-2 text-xs font-bold text-[#C8A45D] transition hover:bg-[#C8A45D]/5"
+        >
+          Fermer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   NOTIFICATION ITEM
+============================================================ */
+
+function NotificationItem({
+  icon,
+  title,
+  description,
+  time,
+  active = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  time: string;
+  active?: boolean;
+}) {
+  return (
+    <div className="flex gap-3 rounded-xl p-3 transition hover:bg-white/[0.025]">
+      <div
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+          active
+            ? "bg-emerald-500/10 text-emerald-400"
+            : "bg-[#C8A45D]/10 text-[#C8A45D]"
+        }`}
+      >
+        {icon}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs font-black text-[#E9E3D8]">
+            {title}
+          </p>
+
+          {active && (
+            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A45D]" />
+          )}
+        </div>
+
+        <p className="mt-1 text-[11px] leading-5 text-[#777269]">
+          {description}
+        </p>
+
+        <p className="mt-1.5 text-[10px] font-semibold text-[#555149]">
+          {time}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   USER MENU
+============================================================ */
+
+function UserMenu({
+  onLogout,
+  loggingOut,
+}: UserMenuProps) {
+  return (
+    <div className="absolute right-0 top-[52px] z-50 w-[250px] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#11100E] shadow-2xl shadow-black/50">
+      {/* PROFILE */}
+      <div className="border-b border-white/[0.07] p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#C8A45D] to-[#8F6E2D] text-[#0B0A08]">
+            <User className="h-5 w-5 stroke-[2.5]" />
+          </div>
+
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-[#F5F1E8]">
+              Administrateur
+            </p>
+
+            <p className="mt-0.5 truncate text-[11px] font-medium text-[#777269]">
+              Gestionnaire SiloCamp
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* MENU */}
+      <div className="p-2">
+        <Link
+          to="/admin/settings"
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-bold text-[#B8B1A6] transition hover:bg-white/[0.04] hover:text-[#F5F1E8]"
+        >
+          <Settings className="h-4 w-4 text-[#8E897F]" />
+
+          <span>
+            Paramètres
+          </span>
+        </Link>
+
+        <Link
+          to="/"
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-bold text-[#B8B1A6] transition hover:bg-white/[0.04] hover:text-[#F5F1E8]"
+        >
+          <ExternalLink className="h-4 w-4 text-[#8E897F]" />
+
+          <span>
+            Retour au site
+          </span>
+        </Link>
+      </div>
+
+      {/* LOGOUT */}
+      <div className="border-t border-white/[0.07] p-2">
+        <button
+          type="button"
+          onClick={onLogout}
+          disabled={loggingOut}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <LogOut className="h-4 w-4" />
+
+          <span>
+            {loggingOut
+              ? "Déconnexion..."
+              : "Se déconnecter"}
+          </span>
+        </button>
+      </div>
+    </div>
+  );
 }
