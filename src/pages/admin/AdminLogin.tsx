@@ -1,44 +1,67 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { LockKeyhole, ShieldCheck, Loader2 } from "lucide-react";
+import {
+  LockKeyhole,
+  ShieldCheck,
+  Loader2,
+} from "lucide-react";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
-
   const [authenticated, setAuthenticated] = useState(false);
 
-  /*
+  /**
    * Vérifie si l'administrateur possède déjà une session.
    */
-  useState(() => {
+  useEffect(() => {
+    let mounted = true;
+
     fetch("/api/auth/me", {
       method: "GET",
       credentials: "include",
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+      },
     })
       .then(async (response) => {
-        if (!response.ok) return;
+        const data = await response
+          .json()
+          .catch(() => null);
 
-        const data = await response.json();
-
-        if (data?.authenticated === true) {
+        if (
+          mounted &&
+          response.ok &&
+          data?.authenticated === true
+        ) {
           setAuthenticated(true);
         }
       })
       .catch(() => {
-        // Pas de session : on reste sur la page de connexion.
+        // Pas de session :
+        // on reste sur la page de connexion.
       })
       .finally(() => {
-        setChecking(false);
+        if (mounted) {
+          setChecking(false);
+        }
       });
-  });
 
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  /**
+   * Écran de chargement pendant la vérification
+   * de la session existante.
+   */
   if (checking) {
     return (
       <div className="min-h-screen bg-[#080807] flex items-center justify-center text-cream">
@@ -50,38 +73,68 @@ export default function AdminLogin() {
     );
   }
 
+  /**
+   * Si l'administrateur est déjà connecté,
+   * redirection vers le dashboard.
+   */
   if (authenticated) {
-    return <Navigate to="/admin/dashboard" replace />;
+    return (
+      <Navigate
+        to="/admin/dashboard"
+        replace
+      />
+    );
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  /**
+   * Connexion administrateur.
+   */
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     setError("");
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          password,
-        }),
-      });
+      const response = await fetch(
+        "/api/auth/login",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            login: username.trim(),
+            password,
+          }),
+        }
+      );
 
-      const data = await response.json();
+      const data = await response
+        .json()
+        .catch(() => null);
 
-      if (!response.ok || data?.authenticated !== true) {
+      if (
+        !response.ok ||
+        data?.authenticated !== true
+      ) {
         throw new Error(
           data?.message ||
             data?.error ||
-            "Identifiants incorrects."
+            "Identifiant ou mot de passe incorrect."
         );
       }
+
+      /**
+       * Connexion réussie.
+       * On vide le mot de passe du formulaire
+       * avant la navigation.
+       */
+      setPassword("");
 
       navigate("/admin/dashboard", {
         replace: true,
@@ -125,13 +178,15 @@ export default function AdminLogin() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-cream/50">
-              Connectez-vous pour accéder au tableau de bord
-              SiloCamp.
+              Connectez-vous pour accéder au
+              tableau de bord SiloCamp.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+          >
             {/* Identifiant */}
             <div>
               <label
