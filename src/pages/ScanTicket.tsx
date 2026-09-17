@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   Clock3,
   Loader2,
-
   LogOut,
   Mail,
   MapPin,
