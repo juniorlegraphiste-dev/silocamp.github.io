@@ -952,8 +952,7 @@ async function cancelTicket(
 
       SET
         "status" = 'CANCELLED',
-        "cancelledAt" = NOW(),
-        "updatedAt" = NOW()
+        "cancelledAt" = NOW()
 
       WHERE
         "ticketNumber" = ${ticketNumber}
@@ -1313,13 +1312,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           SET
             "status" = 'USED',
-            "usedAt" = NOW(),
-            "updatedAt" = NOW()
+            "usedAt" = NOW()
 
           WHERE
             "verificationToken" = ${token}
 
-            AND "status" = 'VALID'
+          AND "status" = 'VALID'
 
           RETURNING
             ${sql.unsafe(ticketColumns())}
@@ -1330,13 +1328,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           SET
             "status" = 'USED',
-            "usedAt" = NOW(),
-            "updatedAt" = NOW()
+            "usedAt" = NOW()
 
           WHERE
             "ticketNumber" = ${ticketNumber}
 
-            AND "status" = 'VALID'
+          AND "status" = 'VALID'
 
           RETURNING
             ${sql.unsafe(ticketColumns())}
