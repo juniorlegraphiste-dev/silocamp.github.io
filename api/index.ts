@@ -13,7 +13,7 @@ const COOKIE_NAME = "silocamp_scan_session";
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
 
 const SITE_URL =
-  process.env.SITE_URL || "https://silocamp-github-io.vercel.app/";
+  process.env.SITE_URL || "https://silocamp-github-io.vercel.app";
 
 /* =========================================================
    TYPES
@@ -94,7 +94,7 @@ function calculateChildren(value: unknown): number {
 }
 
 /* =========================================================
-   GÉNÉRATION ID
+   GÉNÉRATION DES IDENTIFIANTS
 ========================================================= */
 
 /**
@@ -103,8 +103,11 @@ function calculateChildren(value: unknown): number {
  *
  * On génère donc nous-mêmes l'ID.
  */
-function generateId(): string {
-  return `c${Date.now().toString(36)}` + crypto.randomBytes(8).toString("hex");
+function generateId(prefix = "c"): string {
+  return (
+    `${prefix}${Date.now().toString(36)}` +
+    crypto.randomBytes(8).toString("hex")
+  );
 }
 
 function generateReservationId(): string {
@@ -168,7 +171,11 @@ function getRoute(req: VercelRequest): string {
       ? `https://${req.headers.host}`
       : "http://localhost";
 
-    pathname = new URL(rawUrl, base).pathname;
+    try {
+      pathname = new URL(rawUrl, base).pathname;
+    } catch {
+      pathname = rawUrl;
+    }
   }
 
   pathname = pathname
@@ -514,7 +521,7 @@ async function getStats(sql: any) {
 }
 
 /* =========================================================
-   SELECT TICKET
+   COLONNES TICKET
 ========================================================= */
 
 function ticketColumns(): string {
@@ -631,8 +638,7 @@ async function sendTicketEmail(
 
       FROM "Ticket"
 
-      WHERE "ticketNumber" =
-        ${ticketNumber}
+      WHERE "ticketNumber" = ${ticketNumber}
 
       LIMIT 1
     `;
@@ -900,6 +906,247 @@ async function sendTicketEmail(
 }
 
 /* =========================================================
+   ANNULATION DE BILLET
+========================================================= */
+
+async function cancelTicket(
+  sql: any,
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<boolean> {
+  if (req.method !== "POST") {
+    res.status(405).json({
+      ok: false,
+      error: "Méthode non autorisée.",
+    });
+
+    return true;
+  }
+
+  try {
+    const ticketNumber = String(req.body?.ticketNumber ?? "").trim();
+
+    const email = normalizeEmail(req.body?.email);
+
+    if (!ticketNumber || !email) {
+      res.status(400).json({
+        ok: false,
+        error: "Le numéro du billet et l'adresse email sont requis.",
+      });
+
+      return true;
+    }
+
+    /*
+     * IMPORTANT :
+     * La table Ticket utilise "participantName"
+     * et non "name".
+     *
+     * L'email est également vérifié pendant
+     * l'annulation afin d'éviter qu'une personne
+     * annule le billet d'un autre participant.
+     */
+
+    const result = await sql`
+      UPDATE "Ticket"
+
+      SET
+        "status" = 'CANCELLED',
+        "cancelledAt" = NOW(),
+        "updatedAt" = NOW()
+
+      WHERE
+        "ticketNumber" = ${ticketNumber}
+
+        AND LOWER("email") = ${email}
+
+        AND "status" = 'VALID'
+
+      RETURNING
+        "id",
+        "ticketNumber",
+        "verificationToken",
+        "firstName",
+        "lastName",
+        "participantName",
+        "email",
+        "phone",
+        "reservationId",
+        "eventId",
+        "eventTitle",
+        "dateLabel",
+        "time",
+        "duration",
+        "venue",
+        "city",
+        "quantity",
+        "childrenUnder12",
+        "children12Plus",
+        "status",
+        "createdAt",
+        "usedAt",
+        "cancelledAt"
+    `;
+
+    const ticket = result[0] as TicketRow | undefined;
+
+    /* -------------------------------------------------------
+   ANNULATION RÉUSSIE
+------------------------------------------------------- */
+
+    if (ticket) {
+      let notificationCreated = false;
+
+      try {
+        const notificationId = generateId("notif_");
+
+        const participantName =
+          String(ticket.participantName ?? "").trim() || "Un participant";
+
+        await sql`
+      INSERT INTO "Notification" (
+        "id",
+        "type",
+        "title",
+        "message",
+        "ticketId",
+        "read",
+        "createdAt"
+      )
+      VALUES (
+        ${notificationId},
+        'TICKET_CANCELLED',
+        'Billet annulé',
+        ${`${participantName} a annulé le billet ${ticket.ticketNumber}.`},
+        ${ticket.id},
+        false,
+        NOW()
+      )
+    `;
+
+        notificationCreated = true;
+      } catch (notificationError) {
+        console.error("[SiloCamp Notification]", notificationError);
+      }
+
+      res.status(200).json({
+        ok: true,
+        message: "Billet annulé avec succès.",
+        ticket,
+        notificationCreated,
+      });
+
+      return true;
+    }
+
+    /* -------------------------------------------------------
+   BILLET NON ANNULÉ
+   On recherche la raison.
+------------------------------------------------------- */
+
+    const existingResult = await sql`
+  SELECT
+    "id",
+    "ticketNumber",
+    "participantName",
+    "email",
+    "phone",
+    "quantity",
+    "status",
+    "createdAt",
+    "usedAt",
+    "cancelledAt"
+
+  FROM "Ticket"
+
+  WHERE
+    "ticketNumber" = ${ticketNumber}
+
+  LIMIT 1
+`;
+
+    const existingTicket = existingResult[0];
+
+    /* -------------------------------------------------------
+   BILLET INEXISTANT
+------------------------------------------------------- */
+
+    if (!existingTicket) {
+      res.status(404).json({
+        ok: false,
+        error: "Billet introuvable.",
+      });
+
+      return true;
+    }
+
+    /* -------------------------------------------------------
+   EMAIL INCORRECT
+------------------------------------------------------- */
+
+    const existingEmail = normalizeEmail(existingTicket.email);
+
+    if (existingEmail !== email) {
+      res.status(403).json({
+        ok: false,
+        error: "L'adresse email ne correspond pas au billet.",
+      });
+
+      return true;
+    }
+
+    /* -------------------------------------------------------
+   BILLET DÉJÀ UTILISÉ
+------------------------------------------------------- */
+
+    if (existingTicket.status === "USED") {
+      res.status(409).json({
+        ok: false,
+        error: "Un billet déjà utilisé ne peut pas être annulé.",
+        ticket: existingTicket,
+      });
+
+      return true;
+    }
+
+    /* -------------------------------------------------------
+   BILLET DÉJÀ ANNULÉ
+------------------------------------------------------- */
+
+    if (existingTicket.status === "CANCELLED") {
+      res.status(409).json({
+        ok: false,
+        error: "Ce billet est déjà annulé.",
+        ticket: existingTicket,
+      });
+
+      return true;
+    }
+
+    /* -------------------------------------------------------
+   AUTRE CAS
+------------------------------------------------------- */
+
+    res.status(409).json({
+      ok: false,
+      error: "Impossible d'annuler ce billet.",
+      ticket: existingTicket,
+    });
+
+    return true;
+  } catch (error: any) {
+    console.error("[SiloCamp Ticket Cancel]", error);
+
+    res.status(500).json({
+      ok: false,
+      error: error?.message || "Erreur lors de l'annulation du billet.",
+    });
+
+    return true;
+  }
+}
+
+/* =========================================================
    HANDLER PRINCIPAL
 ========================================================= */
 
@@ -990,20 +1237,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         result = await sql`
           SELECT
             ${sql.unsafe(ticketColumns())}
+
           FROM "Ticket"
+
           WHERE
-            "verificationToken" =
-              ${token}
+            "verificationToken" = ${token}
+
           LIMIT 1
         `;
       } else {
         result = await sql`
           SELECT
             ${sql.unsafe(ticketColumns())}
+
           FROM "Ticket"
+
           WHERE
-            "ticketNumber" =
-              ${ticketNumber}
+            "ticketNumber" = ${ticketNumber}
+
           LIMIT 1
         `;
       }
@@ -1061,14 +1312,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           UPDATE "Ticket"
 
           SET
-            status = 'USED',
-            "usedAt" = NOW()
+            "status" = 'USED',
+            "usedAt" = NOW(),
+            "updatedAt" = NOW()
 
           WHERE
-            "verificationToken" =
-              ${token}
+            "verificationToken" = ${token}
 
-            AND status = 'VALID'
+            AND "status" = 'VALID'
 
           RETURNING
             ${sql.unsafe(ticketColumns())}
@@ -1078,14 +1329,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           UPDATE "Ticket"
 
           SET
-            status = 'USED',
-            "usedAt" = NOW()
+            "status" = 'USED',
+            "usedAt" = NOW(),
+            "updatedAt" = NOW()
 
           WHERE
-            "ticketNumber" =
-              ${ticketNumber}
+            "ticketNumber" = ${ticketNumber}
 
-            AND status = 'VALID'
+            AND "status" = 'VALID'
 
           RETURNING
             ${sql.unsafe(ticketColumns())}
@@ -1104,7 +1355,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       /* ---------------------------------------------------
-         Recherche du billet existant
+         RECHERCHE DU BILLET EXISTANT
       --------------------------------------------------- */
 
       let existing;
@@ -1113,11 +1364,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         existing = await sql`
           SELECT
             ${sql.unsafe(ticketColumns())}
+
           FROM "Ticket"
 
           WHERE
-            "verificationToken" =
-              ${token}
+            "verificationToken" = ${token}
 
           LIMIT 1
         `;
@@ -1125,11 +1376,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         existing = await sql`
           SELECT
             ${sql.unsafe(ticketColumns())}
+
           FROM "Ticket"
 
           WHERE
-            "ticketNumber" =
-              ${ticketNumber}
+            "ticketNumber" = ${ticketNumber}
 
           LIMIT 1
         `;
@@ -1172,138 +1423,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     /* =====================================================
-   TICKETS — CANCEL
-===================================================== */
+       TICKETS — CANCEL
+       POST /api/tickets/cancel
+    ===================================================== */
 
-    if (route === "tickets/cancel" && req.method === "POST") {
-      const ticketNumber = String(req.body?.ticketNumber ?? "").trim();
-
-      if (!ticketNumber) {
-        return res.status(400).json({
-          ok: false,
-          error: "ticketNumber requis.",
-        });
-      }
-
-      // Recherche et annulation du billet
-      const result = await sql`
-    UPDATE "Ticket"
-    SET
-      status = 'CANCELLED',
-      "updatedAt" = NOW()
-    WHERE
-      "ticketNumber" = ${ticketNumber}
-      AND status = 'VALID'
-    RETURNING
-      id,
-      "ticketNumber",
-      name,
-      email,
-      phone,
-      quantity,
-      status,
-      "createdAt",
-      "updatedAt"
-  `;
-
-      const ticket = result[0];
-
-      if (ticket) {
-        try {
-          // Création de la notification dans le Dashboard
-          await sql`
-        INSERT INTO "Notification" (
-          "id",
-          "type",
-          "title",
-          "message",
-          "ticketId",
-          "read",
-          "createdAt"
-        )
-        VALUES (
-          ${`notif_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`},
-          'TICKET_CANCELLED',
-          'Billet annulé',
-          ${`${ticket.name} a annulé le billet ${ticket.ticketNumber}.`},
-          ${ticket.id},
-          false,
-          NOW()
-        )
-      `;
-
-          return res.status(200).json({
-            ok: true,
-            message: "Billet annulé avec succès.",
-            ticket,
-            notificationCreated: true,
-          });
-        } catch (notificationError) {
-          console.error("Erreur création notification :", notificationError);
-
-          // Le billet est annulé, mais la notification a échoué
-          return res.status(200).json({
-            ok: true,
-            message: "Billet annulé avec succès.",
-            ticket,
-            notificationCreated: false,
-            warning: "La notification n'a pas pu être créée.",
-          });
-        }
-      }
-
-      // Recherche du billet pour afficher l'erreur appropriée
-      const existing = await sql`
-    SELECT
-      id,
-      "ticketNumber",
-      name,
-      email,
-      phone,
-      quantity,
-      status,
-      "createdAt",
-      "updatedAt"
-    FROM "Ticket"
-    WHERE "ticketNumber" = ${ticketNumber}
-    LIMIT 1
-  `;
-
-      const existingTicket = existing[0];
-
-      if (!existingTicket) {
-        return res.status(404).json({
-          ok: false,
-          error: "Billet introuvable.",
-        });
-      }
-
-      if (existingTicket.status === "USED") {
-        return res.status(409).json({
-          ok: false,
-          error: "Un billet déjà utilisé ne peut pas être annulé.",
-          ticket: existingTicket,
-        });
-      }
-
-      if (existingTicket.status === "CANCELLED") {
-        return res.status(409).json({
-          ok: false,
-          error: "Ce billet est déjà annulé.",
-          ticket: existingTicket,
-        });
-      }
-
-      return res.status(409).json({
-        ok: false,
-        error: "Impossible d'annuler ce billet.",
-        ticket: existingTicket,
-      });
+    if (route === "tickets/cancel") {
+      return await cancelTicket(sql, req, res);
     }
 
     /* =====================================================
        GET TICKET BY NUMBER
-       /api/tickets/number/SILO-...
+       GET /api/tickets/number/SILO-...
     ===================================================== */
 
     if (route.startsWith("tickets/number/") && req.method === "GET") {
@@ -1319,16 +1449,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const result = await sql`
-          SELECT
-            ${sql.unsafe(ticketColumns())}
-          FROM "Ticket"
+        SELECT
+          ${sql.unsafe(ticketColumns())}
 
-          WHERE
-            "ticketNumber" =
-              ${ticketNumber}
+        FROM "Ticket"
 
-          LIMIT 1
-        `;
+        WHERE
+          "ticketNumber" = ${ticketNumber}
+
+        LIMIT 1
+      `;
 
       const ticket = result[0];
 
@@ -1347,7 +1477,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     /* =====================================================
        GET TICKETS BY EMAIL
-       /api/tickets/email/:email
+       GET /api/tickets/email/:email
     ===================================================== */
 
     if (route.startsWith("tickets/email/") && req.method === "GET") {
@@ -1363,17 +1493,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const result = await sql`
-          SELECT
-            ${sql.unsafe(ticketColumns())}
-          FROM "Ticket"
+        SELECT
+          ${sql.unsafe(ticketColumns())}
 
-          WHERE
-            LOWER("email") =
-              ${email}
+        FROM "Ticket"
 
-          ORDER BY
-            "createdAt" DESC
-        `;
+        WHERE
+          LOWER("email") = ${email}
+
+        ORDER BY
+          "createdAt" DESC
+      `;
 
       return res.status(200).json({
         ok: true,
@@ -1383,7 +1513,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     /* =====================================================
        GET TICKETS BY PHONE
-       /api/tickets/phone/:phone
+       GET /api/tickets/phone/:phone
     ===================================================== */
 
     if (route.startsWith("tickets/phone/") && req.method === "GET") {
@@ -1399,17 +1529,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const result = await sql`
-          SELECT
-            ${sql.unsafe(ticketColumns())}
-          FROM "Ticket"
+        SELECT
+          ${sql.unsafe(ticketColumns())}
 
-          WHERE
-            "phone" =
-              ${phone}
+        FROM "Ticket"
 
-          ORDER BY
-            "createdAt" DESC
-        `;
+        WHERE
+          "phone" = ${phone}
+
+        ORDER BY
+          "createdAt" DESC
+      `;
 
       return res.status(200).json({
         ok: true,
@@ -1429,15 +1559,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const ticketNumber = decodeURIComponent(suffix).trim();
 
         const result = await sql`
-            DELETE FROM "Ticket"
+          DELETE FROM "Ticket"
 
-            WHERE
-              "ticketNumber" =
-                ${ticketNumber}
+          WHERE
+            "ticketNumber" = ${ticketNumber}
 
-            RETURNING
-              ${sql.unsafe(ticketColumns())}
-          `;
+          RETURNING
+            ${sql.unsafe(ticketColumns())}
+        `;
 
         const ticket = result[0];
 
@@ -1463,13 +1592,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (route === "tickets" && req.method === "GET") {
       const result = await sql`
-          SELECT
-            ${sql.unsafe(ticketColumns())}
-          FROM "Ticket"
+        SELECT
+          ${sql.unsafe(ticketColumns())}
 
-          ORDER BY
-            "createdAt" DESC
-        `;
+        FROM "Ticket"
+
+        ORDER BY
+          "createdAt" DESC
+      `;
 
       return res.status(200).json({
         ok: true,
@@ -1530,9 +1660,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       /*
        * 1 participant = au minimum 1 place.
        *
-       * Si des enfants de 12 ans ou plus
-       * sont déclarés, ils occupent également
-       * une place.
+       * Les enfants de 12 ans ou plus
+       * occupent également une place.
        */
 
       const calculatedMinimumQuantity = Math.max(1, 1 + children12Plus);
@@ -1640,8 +1769,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           FROM "Ticket"
 
           WHERE
-            LOWER("email") =
-              ${email}
+            LOWER("email") = ${email}
 
             AND "status" IN (
               'VALID',
@@ -1677,8 +1805,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           FROM "Ticket"
 
           WHERE
-            "phone" =
-              ${phone}
+            "phone" = ${phone}
 
             AND "status" IN (
               'VALID',
@@ -1703,11 +1830,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       --------------------------------------------------- */
 
       let reservationId = reservationIdInput || generateReservationId();
-
-      /*
-       * Protection supplémentaire contre
-       * une collision extrêmement improbable.
-       */
 
       let reservationExists = await sql`
           SELECT
