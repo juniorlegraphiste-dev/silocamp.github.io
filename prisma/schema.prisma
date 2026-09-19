@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client"
-  output = "../generated/prisma"
+  provider   = "prisma-client"
+  output     = "../generated/prisma"
   engineType = "client"
 }
 
@@ -17,38 +17,51 @@ enum TicketStatus {
 model Ticket {
   id String @id @default(cuid())
 
-  ticketNumber String @unique
+  ticketNumber      String @unique
   verificationToken String @unique
 
-  firstName String?
-  lastName String?
+  firstName       String?
+  lastName        String?
   participantName String
 
   email String
   phone String?
 
   reservationId String? @unique
-  eventId String?
-  eventTitle String
-  dateLabel String
-  time String
-  duration String?
-  venue String
-  city String
+  eventId       String?
+  eventTitle    String
+  dateLabel     String
+  time          String
+  duration      String?
+  venue         String
+  city          String
 
-  quantity Int @default(1)
+  quantity        Int @default(1)
   childrenUnder12 Int @default(0)
-  children12Plus Int @default(0)
+  children12Plus  Int @default(0)
 
   status TicketStatus @default(VALID)
 
-  createdAt DateTime @default(now())
-  usedAt DateTime?
+  createdAt   DateTime  @default(now())
+  usedAt      DateTime?
   cancelledAt DateTime?
 
   @@index([email])
   @@index([phone])
   @@index([eventId])
   @@index([status])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  ticketId  String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([read])
   @@index([createdAt])
 }

@@ -22,3 +22,8 @@ export * from './enums.ts';
  * 
  */
 export type Ticket = Prisma.TicketModel
+/**
+ * Model Notification
+ * 
+ */
+export type Notification = Prisma.NotificationModel

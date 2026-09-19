@@ -9,4 +9,5 @@
  * 🟢 You can import this file directly.
  */
 export type * from './models/Ticket.ts'
+export type * from './models/Notification.ts'
 export type * from './commonInputTypes.ts'
