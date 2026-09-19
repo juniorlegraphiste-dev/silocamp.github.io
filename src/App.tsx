@@ -1,3 +1,22 @@
+/**
+ * =========================================================
+ * APP — SILOCAMP
+ * =========================================================
+ *
+ * Routage principal de l'application.
+ *
+ * Sections :
+ * - Site public
+ * - Billetterie
+ * - Confirmation
+ * - Annulation
+ * - Vérification des billets
+ * - Scanner
+ * - Administration
+ *
+ * =========================================================
+ */
+
 import {
   BrowserRouter,
   Route,
@@ -22,8 +41,8 @@ import Home from "@/pages/Home";
 import EventDetail from "@/pages/EventDetail";
 import Checkout from "@/pages/Checkout";
 import Confirmation from "@/pages/Confirmation";
+import Annulation from "@/pages/Annulation";
 import Contact from "@/pages/Contact";
-
 import ScanTicket from "@/pages/ScanTicket";
 import TicketVerify from "@/pages/TicketVerify";
 
@@ -32,6 +51,10 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminTickets from "@/pages/admin/AdminTickets";
 import AdminStatistics from "@/pages/admin/AdminStatistics";
 import AdminSettings from "@/pages/admin/AdminSettings";
+
+/* =========================================================
+   ANIMATION DES PAGES
+========================================================= */
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -51,7 +74,6 @@ const pageVariants = {
     y: -10,
   },
 };
-
 
 /* =========================================================
    SITE PUBLIC
@@ -78,42 +100,77 @@ function PublicRoutes() {
             }}
           >
             <Routes location={location}>
+              {/* =================================================
+                  ACCUEIL
+              ================================================= */}
 
               <Route
                 path="/"
                 element={<Home />}
               />
 
+              {/* =================================================
+                  ÉVÉNEMENT
+              ================================================= */}
+
               <Route
                 path="/evenement/:id"
                 element={<EventDetail />}
               />
+
+              {/* =================================================
+                  BILLETTERIE
+              ================================================= */}
 
               <Route
                 path="/billetterie"
                 element={<Checkout />}
               />
 
+              {/* =================================================
+                  CONFIRMATION
+              ================================================= */}
+
               <Route
                 path="/confirmation"
                 element={<Confirmation />}
               />
+
+              {/* =================================================
+                  ANNULATION DE BILLET
+              ================================================= */}
+
+              <Route
+                path="/annulation"
+                element={<Annulation />}
+              />
+
+              {/* =================================================
+                  VÉRIFICATION DE BILLET
+              ================================================= */}
 
               <Route
                 path="/ticket/verify"
                 element={<TicketVerify />}
               />
 
+              {/* =================================================
+                  CONTACT
+              ================================================= */}
+
               <Route
                 path="/contact"
                 element={<Contact />}
               />
 
+              {/* =================================================
+                  ROUTE PAR DÉFAUT
+              ================================================= */}
+
               <Route
                 path="*"
                 element={<Home />}
               />
-
             </Routes>
           </motion.main>
         </AnimatePresence>
@@ -124,7 +181,6 @@ function PublicRoutes() {
   );
 }
 
-
 /* =========================================================
    SCANNER
    Pas de Navbar / Footer
@@ -134,7 +190,6 @@ function ScannerRoute() {
   return <ScanTicket />;
 }
 
-
 /* =========================================================
    ROUTES ADMIN
 ========================================================= */
@@ -142,14 +197,19 @@ function ScannerRoute() {
 function AdminRoutes() {
   return (
     <Routes>
+      {/* =================================================
+          CONNEXION ADMIN
+      ================================================= */}
 
-      {/* PAGE DE CONNEXION */}
       <Route
         path="/admin"
         element={<AdminLogin />}
       />
 
-      {/* ESPACE ADMIN PROTÉGÉ */}
+      {/* =================================================
+          ESPACE ADMIN PROTÉGÉ
+      ================================================= */}
+
       <Route
         path="/admin"
         element={<AdminLayout />}
@@ -174,11 +234,9 @@ function AdminRoutes() {
           element={<AdminSettings />}
         />
       </Route>
-
     </Routes>
   );
 }
-
 
 /* =========================================================
    ROUTEUR PRINCIPAL
@@ -187,22 +245,21 @@ function AdminRoutes() {
 function AppRoutes() {
   return (
     <Routes>
-
       {/* =================================================
-          ADMIN
+          ADMINISTRATION
       ================================================= */}
 
       <Route path="/admin">
-
         {/* /admin = connexion */}
+
         <Route
           index
           element={<AdminLogin />}
         />
 
         {/* /admin/* = espace protégé */}
-        <Route element={<AdminLayout />}>
 
+        <Route element={<AdminLayout />}>
           <Route
             path="dashboard"
             element={<AdminDashboard />}
@@ -222,10 +279,8 @@ function AppRoutes() {
             path="settings"
             element={<AdminSettings />}
           />
-
         </Route>
       </Route>
-
 
       {/* =================================================
           SCANNER
@@ -236,7 +291,6 @@ function AppRoutes() {
         element={<ScannerRoute />}
       />
 
-
       {/* =================================================
           SITE PUBLIC
       ================================================= */}
@@ -245,26 +299,23 @@ function AppRoutes() {
         path="*"
         element={<PublicRoutes />}
       />
-
     </Routes>
   );
 }
 
 /* =========================================================
-   APP
+   APPLICATION
 ========================================================= */
 
 export default function App() {
   return (
     <CartProvider>
       <BrowserRouter>
-
         <ScrollToTop />
 
         <div className="flex min-h-screen flex-col">
           <AppRoutes />
         </div>
-
       </BrowserRouter>
     </CartProvider>
   );
