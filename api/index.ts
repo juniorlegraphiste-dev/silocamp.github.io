@@ -1,7 +1,4 @@
-import type {
-  VercelRequest,
-  VercelResponse,
-} from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import { neon } from "@neondatabase/serverless";
 import crypto from "node:crypto";
@@ -14,21 +11,16 @@ const MAX_TICKETS = 1200;
 
 const COOKIE_NAME = "silocamp_scan_session";
 
-const SESSION_DURATION_MS =
-  8 * 60 * 60 * 1000;
+const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
 
 const SITE_URL =
-  process.env.SITE_URL ||
-  "https://silocamp-github-io.vercel.app";
+  process.env.SITE_URL || "https://silocamp-github-io.vercel.app";
 
 /* =========================================================
    TYPES
 ========================================================= */
 
-type TicketStatus =
-  | "VALID"
-  | "USED"
-  | "CANCELLED";
+type TicketStatus = "VALID" | "USED" | "CANCELLED";
 
 type TicketRow = {
   id: string;
@@ -78,26 +70,19 @@ type NotificationRow = {
    UTILITAIRES
 ========================================================= */
 
-function normalizeEmail(
-  value: unknown,
-): string {
+function normalizeEmail(value: unknown): string {
   return String(value ?? "")
     .trim()
     .toLowerCase();
 }
 
-function normalizePhone(
-  value: unknown,
-): string {
+function normalizePhone(value: unknown): string {
   return String(value ?? "")
     .trim()
     .replace(/[^\d+]/g, "");
 }
 
-function normalizeInteger(
-  value: unknown,
-  fallback = 0,
-): number {
+function normalizeInteger(value: unknown, fallback = 0): number {
   const number = Number(value);
 
   if (!Number.isFinite(number)) {
@@ -107,77 +92,49 @@ function normalizeInteger(
   return Math.floor(number);
 }
 
-function calculateQuantity(
-  value: unknown,
-): number {
-  return Math.max(
-    1,
-    normalizeInteger(value, 1),
-  );
+function calculateQuantity(value: unknown): number {
+  return Math.max(1, normalizeInteger(value, 1));
 }
 
-function calculateChildren(
-  value: unknown,
-): number {
-  return Math.max(
-    0,
-    normalizeInteger(value, 0),
-  );
+function calculateChildren(value: unknown): number {
+  return Math.max(0, normalizeInteger(value, 0));
 }
 
 /* =========================================================
    GÉNÉRATION DES IDENTIFIANTS
 ========================================================= */
 
-function generateId(
-  prefix = "c",
-): string {
+function generateId(prefix = "c"): string {
   return (
-    prefix +
-    Date.now().toString(36) +
-    crypto.randomBytes(8).toString("hex")
+    prefix + Date.now().toString(36) + crypto.randomBytes(8).toString("hex")
   );
 }
 
 function generateReservationId(): string {
-  const year =
-    new Date().getFullYear();
+  const year = new Date().getFullYear();
 
-  const randomPart =
-    crypto
-      .randomBytes(6)
-      .toString("hex")
-      .toUpperCase();
+  const randomPart = crypto.randomBytes(6).toString("hex").toUpperCase();
 
   return `RES-${year}-${randomPart}`;
 }
 
 function generateTicketNumber(): string {
-  const year =
-    new Date().getFullYear();
+  const year = new Date().getFullYear();
 
-  const randomPart =
-    crypto
-      .randomBytes(5)
-      .toString("hex")
-      .toUpperCase();
+  const randomPart = crypto.randomBytes(5).toString("hex").toUpperCase();
 
   return `SILO-${year}-${randomPart}`;
 }
 
 function generateVerificationToken(): string {
-  return crypto
-    .randomBytes(32)
-    .toString("hex");
+  return crypto.randomBytes(32).toString("hex");
 }
 
 /* =========================================================
    DATABASE
 ========================================================= */
 
-function getDatabaseUrl():
-  | string
-  | undefined {
+function getDatabaseUrl(): string | undefined {
   return process.env.DATABASE_URL;
 }
 
@@ -185,32 +142,22 @@ function getDatabaseUrl():
    ROUTING
 ========================================================= */
 
-function getRoute(
-  req: VercelRequest,
-): string {
-  const queryPath =
-    req.query?.path;
+function getRoute(req: VercelRequest): string {
+  const queryPath = req.query?.path;
 
-  let pathname = Array.isArray(
-    queryPath,
-  )
+  let pathname = Array.isArray(queryPath)
     ? queryPath.join("/")
     : String(queryPath ?? "");
 
   if (!pathname) {
-    const rawUrl =
-      req.url || "/";
+    const rawUrl = req.url || "/";
 
-    const base =
-      req.headers.host
-        ? `https://${req.headers.host}`
-        : "http://localhost";
+    const base = req.headers.host
+      ? `https://${req.headers.host}`
+      : "http://localhost";
 
     try {
-      pathname = new URL(
-        rawUrl,
-        base,
-      ).pathname;
+      pathname = new URL(rawUrl, base).pathname;
     } catch {
       pathname = rawUrl;
     }
@@ -228,160 +175,102 @@ function getRoute(
    AUTHENTIFICATION
 ========================================================= */
 
-function createSession(
-  username: string,
-  secret: string,
-): string {
-  const payload =
-    Buffer.from(
-      JSON.stringify({
-        username,
-        exp:
-          Date.now() +
-          SESSION_DURATION_MS,
-      }),
-      "utf8",
-    )
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/g, "");
+function createSession(username: string, secret: string): string {
+  const payload = Buffer.from(
+    JSON.stringify({
+      username,
+      exp: Date.now() + SESSION_DURATION_MS,
+    }),
+    "utf8",
+  )
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 
-  const signature =
-    crypto
-      .createHmac(
-        "sha256",
-        secret,
-      )
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(payload)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+  return `${payload}.${signature}`;
+}
+
+function getSession(req: VercelRequest): {
+  username: string;
+  exp: number;
+} | null {
+  try {
+    const cookieHeader = req.headers.cookie || "";
+
+    const cookie = cookieHeader
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(`${COOKIE_NAME}=`));
+
+    if (!cookie) {
+      return null;
+    }
+
+    const session = decodeURIComponent(
+      cookie.substring(COOKIE_NAME.length + 1),
+    );
+
+    const parts = session.split(".");
+
+    if (parts.length !== 2) {
+      return null;
+    }
+
+    const [payload, signature] = parts;
+
+    if (!payload || !signature) {
+      return null;
+    }
+
+    const secret = process.env.SCANNER_SESSION_SECRET;
+
+    if (!secret) {
+      return null;
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
       .update(payload)
       .digest("base64")
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/g, "");
 
-  return `${payload}.${signature}`;
-}
+    const signatureBuffer = Buffer.from(signature);
 
-function getSession(
-  req: VercelRequest,
-): {
-  username: string;
-  exp: number;
-} | null {
-  try {
-    const cookieHeader =
-      req.headers.cookie || "";
+    const expectedBuffer = Buffer.from(expectedSignature);
 
-    const cookie =
-      cookieHeader
-        .split(";")
-        .map((item) =>
-          item.trim(),
-        )
-        .find((item) =>
-          item.startsWith(
-            `${COOKIE_NAME}=`,
-          ),
-        );
-
-    if (!cookie) {
+    if (signatureBuffer.length !== expectedBuffer.length) {
       return null;
     }
 
-    const session =
-      decodeURIComponent(
-        cookie.substring(
-          COOKIE_NAME.length + 1,
-        ),
-      );
-
-    const parts =
-      session.split(".");
-
-    if (parts.length !== 2) {
+    if (!crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
       return null;
     }
 
-    const [
-      payload,
-      signature,
-    ] = parts;
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
 
-    if (!payload || !signature) {
+    const data = JSON.parse(
+      Buffer.from(normalizedPayload, "base64").toString("utf8"),
+    ) as {
+      username?: string;
+      exp?: number;
+    };
+
+    if (typeof data.username !== "string" || typeof data.exp !== "number") {
       return null;
     }
 
-    const secret =
-      process.env
-        .SCANNER_SESSION_SECRET;
-
-    if (!secret) {
-      return null;
-    }
-
-    const expectedSignature =
-      crypto
-        .createHmac(
-          "sha256",
-          secret,
-        )
-        .update(payload)
-        .digest("base64")
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=+$/g, "");
-
-    const signatureBuffer =
-      Buffer.from(signature);
-
-    const expectedBuffer =
-      Buffer.from(
-        expectedSignature,
-      );
-
-    if (
-      signatureBuffer.length !==
-      expectedBuffer.length
-    ) {
-      return null;
-    }
-
-    if (
-      !crypto.timingSafeEqual(
-        signatureBuffer,
-        expectedBuffer,
-      )
-    ) {
-      return null;
-    }
-
-    const normalizedPayload =
-      payload
-        .replace(/-/g, "+")
-        .replace(/_/g, "/");
-
-    const data =
-      JSON.parse(
-        Buffer.from(
-          normalizedPayload,
-          "base64",
-        ).toString("utf8"),
-      ) as {
-        username?: string;
-        exp?: number;
-      };
-
-    if (
-      typeof data.username !==
-        "string" ||
-      typeof data.exp !== "number"
-    ) {
-      return null;
-    }
-
-    if (
-      Date.now() >= data.exp
-    ) {
+    if (Date.now() >= data.exp) {
       return null;
     }
 
@@ -390,28 +279,20 @@ function getSession(
       exp: data.exp,
     };
   } catch (error) {
-    console.error(
-      "[SiloCamp Auth Session]",
-      error,
-    );
+    console.error("[SiloCamp Auth Session]", error);
 
     return null;
   }
 }
 
-function requireSession(
-  req: VercelRequest,
-  res: VercelResponse,
-): boolean {
-  const session =
-    getSession(req);
+function requireSession(req: VercelRequest, res: VercelResponse): boolean {
+  const session = getSession(req);
 
   if (!session) {
     res.status(401).json({
       ok: false,
       authenticated: false,
-      error:
-        "Authentification requise.",
+      error: "Authentification requise.",
     });
 
     return false;
@@ -434,79 +315,49 @@ async function handleAuth(
       res.status(405).json({
         ok: false,
         authenticated: false,
-        message:
-          "Méthode non autorisée.",
+        message: "Méthode non autorisée.",
       });
 
       return true;
     }
 
     try {
-      const login =
-        String(
-          req.body?.login ?? "",
-        ).trim();
+      const login = String(req.body?.login ?? "").trim();
 
-      const password =
-        String(
-          req.body?.password ?? "",
-        );
+      const password = String(req.body?.password ?? "");
 
-      const expectedLogin =
-        process.env
-          .SCANNER_USERNAME;
+      const expectedLogin = process.env.SCANNER_USERNAME;
 
-      const expectedPassword =
-        process.env
-          .SCANNER_PASSWORD;
+      const expectedPassword = process.env.SCANNER_PASSWORD;
 
-      const sessionSecret =
-        process.env
-          .SCANNER_SESSION_SECRET;
+      const sessionSecret = process.env.SCANNER_SESSION_SECRET;
 
-      if (
-        !expectedLogin ||
-        !expectedPassword ||
-        !sessionSecret
-      ) {
-        console.error(
-          "[SiloCamp Auth] Variables d'environnement manquantes.",
-        );
+      if (!expectedLogin || !expectedPassword || !sessionSecret) {
+        console.error("[SiloCamp Auth] Variables d'environnement manquantes.");
 
         res.status(500).json({
           ok: false,
           authenticated: false,
-          message:
-            "Configuration du serveur d'authentification incomplète.",
+          message: "Configuration du serveur d'authentification incomplète.",
         });
 
         return true;
       }
 
-      if (
-        login !== expectedLogin ||
-        password !== expectedPassword
-      ) {
+      if (login !== expectedLogin || password !== expectedPassword) {
         res.status(401).json({
           ok: false,
           authenticated: false,
-          message:
-            "Identifiant ou mot de passe incorrect.",
+          message: "Identifiant ou mot de passe incorrect.",
         });
 
         return true;
       }
 
-      const session =
-        createSession(
-          login,
-          sessionSecret,
-        );
+      const session = createSession(login, sessionSecret);
 
       const cookie = [
-        `${COOKIE_NAME}=${encodeURIComponent(
-          session,
-        )}`,
+        `${COOKIE_NAME}=${encodeURIComponent(session)}`,
         "Path=/",
         "HttpOnly",
         "SameSite=Lax",
@@ -514,30 +365,22 @@ async function handleAuth(
         "Secure",
       ].join("; ");
 
-      res.setHeader(
-        "Set-Cookie",
-        cookie,
-      );
+      res.setHeader("Set-Cookie", cookie);
 
       res.status(200).json({
         ok: true,
         authenticated: true,
-        message:
-          "Authentification réussie.",
+        message: "Authentification réussie.",
       });
 
       return true;
     } catch (error) {
-      console.error(
-        "[SiloCamp Auth Login]",
-        error,
-      );
+      console.error("[SiloCamp Auth Login]", error);
 
       res.status(500).json({
         ok: false,
         authenticated: false,
-        message:
-          "Erreur du serveur d'authentification.",
+        message: "Erreur du serveur d'authentification.",
       });
 
       return true;
@@ -549,8 +392,7 @@ async function handleAuth(
       res.status(405).json({
         ok: false,
         authenticated: false,
-        message:
-          "Méthode non autorisée.",
+        message: "Méthode non autorisée.",
       });
 
       return true;
@@ -571,8 +413,7 @@ async function handleAuth(
     res.status(200).json({
       ok: true,
       authenticated: false,
-      message:
-        "Déconnexion réussie.",
+      message: "Déconnexion réussie.",
     });
 
     return true;
@@ -583,15 +424,13 @@ async function handleAuth(
       res.status(405).json({
         ok: false,
         authenticated: false,
-        message:
-          "Méthode non autorisée.",
+        message: "Méthode non autorisée.",
       });
 
       return true;
     }
 
-    const session =
-      getSession(req);
+    const session = getSession(req);
 
     if (!session) {
       res.status(401).json({
@@ -605,8 +444,7 @@ async function handleAuth(
     res.status(200).json({
       ok: true,
       authenticated: true,
-      username:
-        session.username,
+      username: session.username,
     });
 
     return true;
@@ -619,9 +457,7 @@ async function handleAuth(
    STATISTIQUES
 ========================================================= */
 
-async function getStats(
-  sql: any,
-) {
+async function getStats(sql: any) {
   const result = await sql`
     SELECT
       COUNT(*) FILTER (
@@ -648,33 +484,18 @@ async function getStats(
 
   const row = result[0];
 
-  const validTickets =
-    Number(
-      row?.validTickets ?? 0,
-    );
+  const validTickets = Number(row?.validTickets ?? 0);
 
-  const usedTickets =
-    Number(
-      row?.usedTickets ?? 0,
-    );
+  const usedTickets = Number(row?.usedTickets ?? 0);
 
-  const cancelledTickets =
-    Number(
-      row?.cancelledTickets ?? 0,
-    );
+  const cancelledTickets = Number(row?.cancelledTickets ?? 0);
 
-  const reserved =
-    Number(
-      row?.reserved ?? 0,
-    );
+  const reserved = Number(row?.reserved ?? 0);
 
   return {
     capacity: MAX_TICKETS,
 
-    totalTickets:
-      validTickets +
-      usedTickets +
-      cancelledTickets,
+    totalTickets: validTickets + usedTickets + cancelledTickets,
 
     validTickets,
     usedTickets,
@@ -684,10 +505,7 @@ async function getStats(
 
     used: usedTickets,
 
-    remaining: Math.max(
-      0,
-      MAX_TICKETS - reserved,
-    ),
+    remaining: Math.max(0, MAX_TICKETS - reserved),
   };
 }
 
@@ -735,25 +553,18 @@ async function getNotifications(
   if (req.method !== "GET") {
     res.status(405).json({
       ok: false,
-      error:
-        "Méthode non autorisée.",
+      error: "Méthode non autorisée.",
     });
 
     return true;
   }
 
-  if (
-    !requireSession(
-      req,
-      res,
-    )
-  ) {
+  if (!requireSession(req, res)) {
     return true;
   }
 
   try {
-    const result =
-      await sql`
+    const result = await sql`
         SELECT
           "id",
           "type",
@@ -768,52 +579,30 @@ async function getNotifications(
         LIMIT 50
       `;
 
-    const notifications: NotificationRow[] =
-      result.map(
-        (
-          notification: any,
-        ) => ({
-          id: String(
-            notification.id,
-          ),
+    const notifications: NotificationRow[] = result.map(
+      (notification: any) => ({
+        id: String(notification.id),
 
-          type: String(
-            notification.type ?? "",
-          ),
+        type: String(notification.type ?? ""),
 
-          title: String(
-            notification.title ?? "",
-          ),
+        title: String(notification.title ?? ""),
 
-          message: String(
-            notification.message ?? "",
-          ),
+        message: String(notification.message ?? ""),
 
-          ticketId:
-            notification.ticketId !==
-              null &&
-            notification.ticketId !==
-              undefined
-              ? String(
-                  notification.ticketId,
-                )
-              : null,
+        ticketId:
+          notification.ticketId !== null && notification.ticketId !== undefined
+            ? String(notification.ticketId)
+            : null,
 
-          read:
-            notification.read ===
-            true,
+        read: notification.read === true,
 
-          createdAt:
-            notification.createdAt,
-        }),
-      );
+        createdAt: notification.createdAt,
+      }),
+    );
 
-    const unreadCount =
-      notifications.filter(
-        (
-          notification,
-        ) => !notification.read,
-      ).length;
+    const unreadCount = notifications.filter(
+      (notification) => !notification.read,
+    ).length;
 
     res.status(200).json({
       ok: true,
@@ -823,16 +612,11 @@ async function getNotifications(
 
     return true;
   } catch (error: any) {
-    console.error(
-      "[SiloCamp Notifications GET]",
-      error,
-    );
+    console.error("[SiloCamp Notifications GET]", error);
 
     res.status(500).json({
       ok: false,
-      error:
-        error?.message ||
-        "Impossible de récupérer les notifications.",
+      error: error?.message || "Impossible de récupérer les notifications.",
     });
 
     return true;
@@ -848,73 +632,46 @@ async function markNotificationAsRead(
   if (req.method !== "PATCH") {
     res.status(405).json({
       ok: false,
-      error:
-        "Méthode non autorisée.",
+      error: "Méthode non autorisée.",
     });
 
     return true;
   }
 
-  if (
-    !requireSession(
-      req,
-      res,
-    )
-  ) {
+  if (!requireSession(req, res)) {
     return true;
   }
 
   try {
-    const prefix =
-      "notifications/";
+    const prefix = "notifications/";
 
-    const suffix =
-      "/read";
+    const suffix = "/read";
 
-    let notificationId =
-      route;
+    let notificationId = route;
 
-    if (
-      notificationId.startsWith(
-        prefix,
-      )
-    ) {
-      notificationId =
-        notificationId.substring(
-          prefix.length,
-        );
+    if (notificationId.startsWith(prefix)) {
+      notificationId = notificationId.substring(prefix.length);
     }
 
-    if (
-      notificationId.endsWith(
-        suffix,
-      )
-    ) {
-      notificationId =
-        notificationId.substring(
-          0,
-          notificationId.length -
-            suffix.length,
-        );
+    if (notificationId.endsWith(suffix)) {
+      notificationId = notificationId.substring(
+        0,
+        notificationId.length - suffix.length,
+      );
     }
 
-    notificationId =
-      decodeURIComponent(
-        notificationId,
-      ).trim();
+    notificationId = decodeURIComponent(notificationId).trim();
 
     if (!notificationId) {
       res.status(400).json({
         ok: false,
-        error:
-          "Identifiant de notification requis.",
+        error: "Identifiant de notification requis.",
       });
 
       return true;
     }
 
-    const result =
-      await sql`
+    const result = await sql`
         UPDATE "Notification"
         SET
           "read" = true
@@ -930,13 +687,10 @@ async function markNotificationAsRead(
           "createdAt"
       `;
 
-    if (
-      result.length === 0
-    ) {
+    if (result.length === 0) {
       res.status(404).json({
         ok: false,
-        error:
-          "Notification introuvable.",
+        error: "Notification introuvable.",
       });
 
       return true;
@@ -944,22 +698,16 @@ async function markNotificationAsRead(
 
     res.status(200).json({
       ok: true,
-      notification:
-        result[0],
+      notification: result[0],
     });
 
     return true;
   } catch (error: any) {
-    console.error(
-      "[SiloCamp Notification Read]",
-      error,
-    );
+    console.error("[SiloCamp Notification Read]", error);
 
     res.status(500).json({
       ok: false,
-      error:
-        error?.message ||
-        "Impossible de modifier la notification.",
+      error: error?.message || "Impossible de modifier la notification.",
     });
 
     return true;
@@ -974,25 +722,18 @@ async function markAllNotificationsAsRead(
   if (req.method !== "PATCH") {
     res.status(405).json({
       ok: false,
-      error:
-        "Méthode non autorisée.",
+      error: "Méthode non autorisée.",
     });
 
     return true;
   }
 
-  if (
-    !requireSession(
-      req,
-      res,
-    )
-  ) {
+  if (!requireSession(req, res)) {
     return true;
   }
 
   try {
-    const result =
-      await sql`
+    const result = await sql`
         UPDATE "Notification"
         SET
           "read" = true
@@ -1003,24 +744,17 @@ async function markAllNotificationsAsRead(
 
     res.status(200).json({
       ok: true,
-      message:
-        "Toutes les notifications ont été marquées comme lues.",
-      updatedCount:
-        result.length,
+      message: "Toutes les notifications ont été marquées comme lues.",
+      updatedCount: result.length,
     });
 
     return true;
   } catch (error: any) {
-    console.error(
-      "[SiloCamp Notifications Read All]",
-      error,
-    );
+    console.error("[SiloCamp Notifications Read All]", error);
 
     res.status(500).json({
       ok: false,
-      error:
-        error?.message ||
-        "Impossible de modifier les notifications.",
+      error: error?.message || "Impossible de modifier les notifications.",
     });
 
     return true;
@@ -1039,81 +773,51 @@ async function sendTicketEmail(
   if (req.method !== "POST") {
     res.status(405).json({
       ok: false,
-      error:
-        "Méthode non autorisée.",
+      error: "Méthode non autorisée.",
     });
 
     return true;
   }
 
   try {
-    const ticketNumber =
-      String(
-        req.body?.ticketNumber ??
-          "",
-      ).trim();
+    const ticketNumber = String(req.body?.ticketNumber ?? "").trim();
 
-    const email =
-      normalizeEmail(
-        req.body?.email,
-      );
+    const email = normalizeEmail(req.body?.email);
 
-    const pdfBase64 =
-      String(
-        req.body?.pdfBase64 ??
-          "",
-      ).trim();
+    const pdfBase64 = String(req.body?.pdfBase64 ?? "").trim();
 
-    if (
-      !ticketNumber ||
-      !email ||
-      !pdfBase64
-    ) {
+    if (!ticketNumber || !email || !pdfBase64) {
       res.status(400).json({
         ok: false,
-        error:
-          "ticketNumber, email et pdfBase64 sont requis.",
+        error: "ticketNumber, email et pdfBase64 sont requis.",
       });
 
       return true;
     }
 
-    if (
-      pdfBase64.length >
-      4_500_000
-    ) {
+    if (pdfBase64.length > 4_500_000) {
       res.status(413).json({
         ok: false,
-        error:
-          "Le fichier PDF est trop volumineux.",
+        error: "Le fichier PDF est trop volumineux.",
       });
 
       return true;
     }
 
-    const resendApiKey =
-      process.env
-        .RESEND_API_KEY;
+    const resendApiKey = process.env.RESEND_API_KEY;
 
-    const resendFromEmail =
-      process.env
-        .RESEND_FROM_EMAIL;
+    const resendFromEmail = process.env.RESEND_FROM_EMAIL;
 
-    if (
-      !resendApiKey ||
-      !resendFromEmail
-    ) {
+    if (!resendApiKey || !resendFromEmail) {
       res.status(500).json({
         ok: false,
-        error:
-          "Configuration email incomplète.",
+        error: "Configuration email incomplète.",
       });
 
       return true;
     }
 
-    const result =
-      await sql`
+    const result = await sql`
         SELECT
           "id",
           "ticketNumber",
@@ -1127,56 +831,40 @@ async function sendTicketEmail(
         LIMIT 1
       `;
 
-    const ticket =
-      result[0];
+    const ticket = result[0];
 
     if (!ticket) {
       res.status(404).json({
         ok: false,
-        error:
-          "Billet introuvable.",
+        error: "Billet introuvable.",
       });
 
       return true;
     }
 
-    if (
-      normalizeEmail(
-        ticket.email,
-      ) !== email
-    ) {
+    if (normalizeEmail(ticket.email) !== email) {
       res.status(403).json({
         ok: false,
-        error:
-          "L'adresse email ne correspond pas au billet.",
+        error: "L'adresse email ne correspond pas au billet.",
       });
 
       return true;
     }
 
-    const verificationToken =
-      String(
-        ticket.verificationToken ??
-          "",
-      );
+    const verificationToken = String(ticket.verificationToken ?? "");
 
-    const verificationUrl =
-      verificationToken
-        ? `${SITE_URL}/ticket/verify?token=${encodeURIComponent(
-            verificationToken,
-          )}`
-        : `${SITE_URL}/ticket/verify?ticketNumber=${encodeURIComponent(
-            ticketNumber,
-          )}`;
+    const verificationUrl = verificationToken
+      ? `${SITE_URL}/ticket/verify?token=${encodeURIComponent(
+          verificationToken,
+        )}`
+      : `${SITE_URL}/ticket/verify?ticketNumber=${encodeURIComponent(
+          ticketNumber,
+        )}`;
 
-    const safeName =
-      String(
-        ticket.participantName ??
-          "",
-      ).replace(
-        /[<>&"]/g,
-        "",
-      );
+    const safeName = String(ticket.participantName ?? "").replace(
+      /[<>&"]/g,
+      "",
+    );
 
     const html = `
 <!DOCTYPE html>
@@ -1324,66 +1012,46 @@ async function sendTicketEmail(
 </html>
 `;
 
-    const cleanBase64 =
-      pdfBase64.includes(",")
-        ? pdfBase64
-            .split(",")
-            .pop() || ""
-        : pdfBase64;
+    const cleanBase64 = pdfBase64.includes(",")
+      ? pdfBase64.split(",").pop() || ""
+      : pdfBase64;
 
-    const resendResponse =
-      await fetch(
-        "https://api.resend.com/emails",
-        {
-          method: "POST",
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
 
-          headers: {
-            Authorization:
-              `Bearer ${resendApiKey}`,
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
 
-            "Content-Type":
-              "application/json",
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        from: resendFromEmail,
+
+        to: [email],
+
+        subject: `Votre billet SiloCamp 2026 — ${ticketNumber}`,
+
+        html,
+
+        attachments: [
+          {
+            filename: `${ticketNumber}-SiloCamp-2026.pdf`,
+
+            content: cleanBase64,
           },
+        ],
+      }),
+    });
 
-          body: JSON.stringify({
-            from:
-              resendFromEmail,
+    const resendData = await resendResponse.json();
 
-            to: [email],
-
-            subject:
-              `Votre billet SiloCamp 2026 — ${ticketNumber}`,
-
-            html,
-
-            attachments: [
-              {
-                filename:
-                  `${ticketNumber}-SiloCamp-2026.pdf`,
-
-                content:
-                  cleanBase64,
-              },
-            ],
-          }),
-        },
-      );
-
-    const resendData =
-      await resendResponse.json();
-
-    if (
-      !resendResponse.ok
-    ) {
-      console.error(
-        "[SiloCamp Resend]",
-        resendData,
-      );
+    if (!resendResponse.ok) {
+      console.error("[SiloCamp Resend]", resendData);
 
       res.status(502).json({
         ok: false,
-        error:
-          "Impossible d'envoyer l'email.",
+        error: "Impossible d'envoyer l'email.",
       });
 
       return true;
@@ -1397,16 +1065,11 @@ async function sendTicketEmail(
 
     return true;
   } catch (error: any) {
-    console.error(
-      "[SiloCamp Ticket Email]",
-      error,
-    );
+    console.error("[SiloCamp Ticket Email]", error);
 
     res.status(500).json({
       ok: false,
-      error:
-        error?.message ||
-        "Erreur lors de l'envoi du billet par email.",
+      error: error?.message || "Erreur lors de l'envoi du billet par email.",
     });
 
     return true;
@@ -1425,33 +1088,21 @@ async function cancelTicket(
   if (req.method !== "POST") {
     res.status(405).json({
       ok: false,
-      error:
-        "Méthode non autorisée.",
+      error: "Méthode non autorisée.",
     });
 
     return true;
   }
 
   try {
-    const ticketNumber =
-      String(
-        req.body?.ticketNumber ??
-          "",
-      ).trim();
+    const ticketNumber = String(req.body?.ticketNumber ?? "").trim();
 
-    const email =
-      normalizeEmail(
-        req.body?.email,
-      );
+    const email = normalizeEmail(req.body?.email);
 
-    if (
-      !ticketNumber ||
-      !email
-    ) {
+    if (!ticketNumber || !email) {
       res.status(400).json({
         ok: false,
-        error:
-          "Le numéro du billet et l'adresse email sont requis.",
+        error: "Le numéro du billet et l'adresse email sont requis.",
       });
 
       return true;
@@ -1461,8 +1112,7 @@ async function cancelTicket(
        ANNULATION
     ------------------------------------------------------- */
 
-    const result =
-      await sql`
+    const result = await sql`
         UPDATE "Ticket"
         SET
           "status" = 'CANCELLED',
@@ -1475,36 +1125,23 @@ async function cancelTicket(
           AND "status" = 'VALID'
 
         RETURNING
-          ${sql.unsafe(
-            ticketColumns(),
-          )}
+          ${sql.unsafe(ticketColumns())}
       `;
 
-    const ticket =
-      result[0] as
-        | TicketRow
-        | undefined;
+    const ticket = result[0] as TicketRow | undefined;
 
     /* -------------------------------------------------------
        BILLET ANNULÉ
     ------------------------------------------------------- */
 
     if (ticket) {
-      let notificationCreated =
-        false;
+      let notificationCreated = false;
 
       try {
-        const notificationId =
-          generateId(
-            "notif_",
-          );
+        const notificationId = generateId("notif_");
 
         const participantName =
-          String(
-            ticket.participantName ??
-              "",
-          ).trim() ||
-          "Un participant";
+          String(ticket.participantName ?? "").trim() || "Un participant";
 
         await sql`
           INSERT INTO "Notification" (
@@ -1527,21 +1164,14 @@ async function cancelTicket(
           )
         `;
 
-        notificationCreated =
-          true;
-      } catch (
-        notificationError
-      ) {
-        console.error(
-          "[SiloCamp Notification]",
-          notificationError,
-        );
+        notificationCreated = true;
+      } catch (notificationError) {
+        console.error("[SiloCamp Notification]", notificationError);
       }
 
       res.status(200).json({
         ok: true,
-        message:
-          "Billet annulé avec succès.",
+        message: "Billet annulé avec succès.",
         ticket,
         notificationCreated,
       });
@@ -1553,8 +1183,7 @@ async function cancelTicket(
        RECHERCHE DU BILLET
     ------------------------------------------------------- */
 
-    const existingResult =
-      await sql`
+    const existingResult = await sql`
         SELECT
           "id",
           "ticketNumber",
@@ -1573,61 +1202,43 @@ async function cancelTicket(
         LIMIT 1
       `;
 
-    const existingTicket =
-      existingResult[0];
+    const existingTicket = existingResult[0];
 
     if (!existingTicket) {
       res.status(404).json({
         ok: false,
-        error:
-          "Billet introuvable.",
+        error: "Billet introuvable.",
       });
 
       return true;
     }
 
-    const existingEmail =
-      normalizeEmail(
-        existingTicket.email,
-      );
+    const existingEmail = normalizeEmail(existingTicket.email);
 
-    if (
-      existingEmail !== email
-    ) {
+    if (existingEmail !== email) {
       res.status(403).json({
         ok: false,
-        error:
-          "L'adresse email ne correspond pas au billet.",
+        error: "L'adresse email ne correspond pas au billet.",
       });
 
       return true;
     }
 
-    if (
-      existingTicket.status ===
-      "USED"
-    ) {
+    if (existingTicket.status === "USED") {
       res.status(409).json({
         ok: false,
-        error:
-          "Un billet déjà utilisé ne peut pas être annulé.",
-        ticket:
-          existingTicket,
+        error: "Un billet déjà utilisé ne peut pas être annulé.",
+        ticket: existingTicket,
       });
 
       return true;
     }
 
-    if (
-      existingTicket.status ===
-      "CANCELLED"
-    ) {
+    if (existingTicket.status === "CANCELLED") {
       res.status(409).json({
         ok: false,
-        error:
-          "Ce billet est déjà annulé.",
-        ticket:
-          existingTicket,
+        error: "Ce billet est déjà annulé.",
+        ticket: existingTicket,
       });
 
       return true;
@@ -1635,24 +1246,17 @@ async function cancelTicket(
 
     res.status(409).json({
       ok: false,
-      error:
-        "Impossible d'annuler ce billet.",
-      ticket:
-        existingTicket,
+      error: "Impossible d'annuler ce billet.",
+      ticket: existingTicket,
     });
 
     return true;
   } catch (error: any) {
-    console.error(
-      "[SiloCamp Ticket Cancel]",
-      error,
-    );
+    console.error("[SiloCamp Ticket Cancel]", error);
 
     res.status(500).json({
       ok: false,
-      error:
-        error?.message ||
-        "Erreur lors de l'annulation du billet.",
+      error: error?.message || "Erreur lors de l'annulation du billet.",
     });
 
     return true;
@@ -1663,25 +1267,18 @@ async function cancelTicket(
    HANDLER PRINCIPAL
 ========================================================= */
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse,
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const route =
-      getRoute(req);
+    const route = getRoute(req);
 
     /* =====================================================
        HEALTH
     ===================================================== */
 
-    if (
-      route === "health"
-    ) {
+    if (route === "health") {
       return res.status(200).json({
         ok: true,
-        message:
-          "SiloCamp API fonctionne",
+        message: "SiloCamp API fonctionne",
         route: "health",
       });
     }
@@ -1690,12 +1287,7 @@ export default async function handler(
        AUTH
     ===================================================== */
 
-    const authHandled =
-      await handleAuth(
-        route,
-        req,
-        res,
-      );
+    const authHandled = await handleAuth(route, req, res);
 
     if (authHandled) {
       return;
@@ -1705,19 +1297,16 @@ export default async function handler(
        DATABASE
     ===================================================== */
 
-    const databaseUrl =
-      getDatabaseUrl();
+    const databaseUrl = getDatabaseUrl();
 
     if (!databaseUrl) {
       return res.status(500).json({
         ok: false,
-        error:
-          "DATABASE_URL manquante",
+        error: "DATABASE_URL manquante",
       });
     }
 
-    const sql =
-      neon(databaseUrl);
+    const sql = neon(databaseUrl);
 
     /* =====================================================
        NOTIFICATIONS
@@ -1726,47 +1315,24 @@ export default async function handler(
        read-all AVANT :id/read
     ===================================================== */
 
-    if (
-      route ===
-        "notifications" &&
-      req.method === "GET"
-    ) {
-      await getNotifications(
-        sql,
-        req,
-        res,
-      );
+    if (route === "notifications" && req.method === "GET") {
+      await getNotifications(sql, req, res);
+
+      return;
+    }
+
+    if (route === "notifications/read-all" && req.method === "PATCH") {
+      await markAllNotificationsAsRead(sql, req, res);
 
       return;
     }
 
     if (
-      route ===
-        "notifications/read-all" &&
-      req.method === "PATCH"
-    ) {
-      await markAllNotificationsAsRead(
-        sql,
-        req,
-        res,
-      );
-
-      return;
-    }
-
-    if (
-      route.startsWith(
-        "notifications/",
-      ) &&
+      route.startsWith("notifications/") &&
       route.endsWith("/read") &&
       req.method === "PATCH"
     ) {
-      await markNotificationAsRead(
-        sql,
-        route,
-        req,
-        res,
-      );
+      await markNotificationAsRead(sql, route, req, res);
 
       return;
     }
@@ -1775,15 +1341,8 @@ export default async function handler(
        EMAIL
     ===================================================== */
 
-    if (
-      route ===
-      "tickets/email"
-    ) {
-      await sendTicketEmail(
-        sql,
-        req,
-        res,
-      );
+    if (route === "tickets/email") {
+      await sendTicketEmail(sql, req, res);
 
       return;
     }
@@ -1792,13 +1351,8 @@ export default async function handler(
        STATS
     ===================================================== */
 
-    if (
-      route ===
-        "tickets/stats" &&
-      req.method === "GET"
-    ) {
-      const stats =
-        await getStats(sql);
+    if (route === "tickets/stats" && req.method === "GET") {
+      const stats = await getStats(sql);
 
       return res.status(200).json({
         ok: true,
@@ -1810,44 +1364,25 @@ export default async function handler(
        VERIFY TICKET
     ===================================================== */
 
-    if (
-      route ===
-        "tickets/verify" &&
-      req.method === "POST"
-    ) {
-      const token =
-        String(
-          req.body?.token ??
-            "",
-        ).trim();
+    if (route === "tickets/verify" && req.method === "POST") {
+      const token = String(req.body?.token ?? "").trim();
 
-      const ticketNumber =
-        String(
-          req.body?.ticketNumber ??
-            "",
-        ).trim();
+      const ticketNumber = String(req.body?.ticketNumber ?? "").trim();
 
-      if (
-        !token &&
-        !ticketNumber
-      ) {
+      if (!token && !ticketNumber) {
         return res.status(400).json({
           ok: false,
           valid: false,
-          error:
-            "token ou ticketNumber requis.",
+          error: "token ou ticketNumber requis.",
         });
       }
 
       let result;
 
       if (token) {
-        result =
-          await sql`
+        result = await sql`
             SELECT
-              ${sql.unsafe(
-                ticketColumns(),
-              )}
+              ${sql.unsafe(ticketColumns())}
             FROM "Ticket"
             WHERE
               "verificationToken" =
@@ -1855,12 +1390,9 @@ export default async function handler(
             LIMIT 1
           `;
       } else {
-        result =
-          await sql`
+        result = await sql`
             SELECT
-              ${sql.unsafe(
-                ticketColumns(),
-              )}
+              ${sql.unsafe(ticketColumns())}
             FROM "Ticket"
             WHERE
               "ticketNumber" =
@@ -1869,25 +1401,19 @@ export default async function handler(
           `;
       }
 
-      const ticket =
-        result[0] as
-          | TicketRow
-          | undefined;
+      const ticket = result[0] as TicketRow | undefined;
 
       if (!ticket) {
         return res.status(404).json({
           ok: false,
           valid: false,
-          error:
-            "Billet introuvable.",
+          error: "Billet introuvable.",
         });
       }
 
       return res.status(200).json({
         ok: true,
-        valid:
-          ticket.status ===
-          "VALID",
+        valid: ticket.status === "VALID",
         ticket,
       });
     }
@@ -1896,49 +1422,27 @@ export default async function handler(
        VALIDATE / SCANNER
     ===================================================== */
 
-    if (
-      route ===
-        "tickets/validate" &&
-      req.method === "POST"
-    ) {
-      if (
-        !requireSession(
-          req,
-          res,
-        )
-      ) {
+    if (route === "tickets/validate" && req.method === "POST") {
+      if (!requireSession(req, res)) {
         return;
       }
 
-      const token =
-        String(
-          req.body?.token ??
-            "",
-        ).trim();
+      const token = String(req.body?.token ?? "").trim();
 
-      const ticketNumber =
-        String(
-          req.body?.ticketNumber ??
-            "",
-        ).trim();
+      const ticketNumber = String(req.body?.ticketNumber ?? "").trim();
 
-      if (
-        !token &&
-        !ticketNumber
-      ) {
+      if (!token && !ticketNumber) {
         return res.status(400).json({
           ok: false,
           valid: false,
-          error:
-            "token ou ticketNumber requis.",
+          error: "token ou ticketNumber requis.",
         });
       }
 
       let result;
 
       if (token) {
-        result =
-          await sql`
+        result = await sql`
             UPDATE "Ticket"
             SET
               "status" = 'USED',
@@ -1949,13 +1453,10 @@ export default async function handler(
               AND "status" =
                 'VALID'
             RETURNING
-              ${sql.unsafe(
-                ticketColumns(),
-              )}
+              ${sql.unsafe(ticketColumns())}
           `;
       } else {
-        result =
-          await sql`
+        result = await sql`
             UPDATE "Ticket"
             SET
               "status" = 'USED',
@@ -1966,23 +1467,17 @@ export default async function handler(
               AND "status" =
                 'VALID'
             RETURNING
-              ${sql.unsafe(
-                ticketColumns(),
-              )}
+              ${sql.unsafe(ticketColumns())}
           `;
       }
 
-      const ticket =
-        result[0] as
-          | TicketRow
-          | undefined;
+      const ticket = result[0] as TicketRow | undefined;
 
       if (ticket) {
         return res.status(200).json({
           ok: true,
           valid: true,
-          message:
-            "Billet validé avec succès.",
+          message: "Billet validé avec succès.",
           ticket,
         });
       }
@@ -1990,12 +1485,9 @@ export default async function handler(
       let existing;
 
       if (token) {
-        existing =
-          await sql`
+        existing = await sql`
             SELECT
-              ${sql.unsafe(
-                ticketColumns(),
-              )}
+              ${sql.unsafe(ticketColumns())}
             FROM "Ticket"
             WHERE
               "verificationToken" =
@@ -2003,12 +1495,9 @@ export default async function handler(
             LIMIT 1
           `;
       } else {
-        existing =
-          await sql`
+        existing = await sql`
             SELECT
-              ${sql.unsafe(
-                ticketColumns(),
-              )}
+              ${sql.unsafe(ticketColumns())}
             FROM "Ticket"
             WHERE
               "ticketNumber" =
@@ -2017,55 +1506,39 @@ export default async function handler(
           `;
       }
 
-      const existingTicket =
-        existing[0] as
-          | TicketRow
-          | undefined;
+      const existingTicket = existing[0] as TicketRow | undefined;
 
       if (!existingTicket) {
         return res.status(404).json({
           ok: false,
           valid: false,
-          error:
-            "Billet introuvable.",
+          error: "Billet introuvable.",
         });
       }
 
-      if (
-        existingTicket.status ===
-        "USED"
-      ) {
+      if (existingTicket.status === "USED") {
         return res.status(409).json({
           ok: false,
           valid: false,
-          error:
-            "Ce billet a déjà été utilisé.",
-          ticket:
-            existingTicket,
+          error: "Ce billet a déjà été utilisé.",
+          ticket: existingTicket,
         });
       }
 
-      if (
-        existingTicket.status ===
-        "CANCELLED"
-      ) {
+      if (existingTicket.status === "CANCELLED") {
         return res.status(409).json({
           ok: false,
           valid: false,
-          error:
-            "Ce billet est annulé.",
-          ticket:
-            existingTicket,
+          error: "Ce billet est annulé.",
+          ticket: existingTicket,
         });
       }
 
       return res.status(409).json({
         ok: false,
         valid: false,
-        error:
-          "Impossible de valider ce billet.",
-        ticket:
-          existingTicket,
+        error: "Impossible de valider ce billet.",
+        ticket: existingTicket,
       });
     }
 
@@ -2073,15 +1546,8 @@ export default async function handler(
        CANCEL TICKET
     ===================================================== */
 
-    if (
-      route ===
-      "tickets/cancel"
-    ) {
-      await cancelTicket(
-        sql,
-        req,
-        res,
-      );
+    if (route === "tickets/cancel") {
+      await cancelTicket(sql, req, res);
 
       return;
     }
@@ -2090,34 +1556,21 @@ export default async function handler(
        GET TICKET BY NUMBER
     ===================================================== */
 
-    if (
-      route.startsWith(
-        "tickets/number/",
-      ) &&
-      req.method === "GET"
-    ) {
-      const ticketNumber =
-        decodeURIComponent(
-          route.substring(
-            "tickets/number/"
-              .length,
-          ),
-        ).trim();
+    if (route.startsWith("tickets/number/") && req.method === "GET") {
+      const ticketNumber = decodeURIComponent(
+        route.substring("tickets/number/".length),
+      ).trim();
 
       if (!ticketNumber) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Numéro de billet requis.",
+          error: "Numéro de billet requis.",
         });
       }
 
-      const result =
-        await sql`
+      const result = await sql`
           SELECT
-            ${sql.unsafe(
-              ticketColumns(),
-            )}
+            ${sql.unsafe(ticketColumns())}
           FROM "Ticket"
           WHERE
             "ticketNumber" =
@@ -2125,14 +1578,12 @@ export default async function handler(
           LIMIT 1
         `;
 
-      const ticket =
-        result[0];
+      const ticket = result[0];
 
       if (!ticket) {
         return res.status(404).json({
           ok: false,
-          error:
-            "Billet introuvable.",
+          error: "Billet introuvable.",
         });
       }
 
@@ -2146,36 +1597,21 @@ export default async function handler(
        GET TICKETS BY EMAIL
     ===================================================== */
 
-    if (
-      route.startsWith(
-        "tickets/email/",
-      ) &&
-      req.method === "GET"
-    ) {
-      const email =
-        normalizeEmail(
-          decodeURIComponent(
-            route.substring(
-              "tickets/email/"
-                .length,
-            ),
-          ),
-        );
+    if (route.startsWith("tickets/email/") && req.method === "GET") {
+      const email = normalizeEmail(
+        decodeURIComponent(route.substring("tickets/email/".length)),
+      );
 
       if (!email) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Email requis.",
+          error: "Email requis.",
         });
       }
 
-      const result =
-        await sql`
+      const result = await sql`
           SELECT
-            ${sql.unsafe(
-              ticketColumns(),
-            )}
+            ${sql.unsafe(ticketColumns())}
           FROM "Ticket"
           WHERE
             LOWER("email") =
@@ -2194,36 +1630,21 @@ export default async function handler(
        GET TICKETS BY PHONE
     ===================================================== */
 
-    if (
-      route.startsWith(
-        "tickets/phone/",
-      ) &&
-      req.method === "GET"
-    ) {
-      const phone =
-        normalizePhone(
-          decodeURIComponent(
-            route.substring(
-              "tickets/phone/"
-                .length,
-            ),
-          ),
-        );
+    if (route.startsWith("tickets/phone/") && req.method === "GET") {
+      const phone = normalizePhone(
+        decodeURIComponent(route.substring("tickets/phone/".length)),
+      );
 
       if (!phone) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Téléphone requis.",
+          error: "Téléphone requis.",
         });
       }
 
-      const result =
-        await sql`
+      const result = await sql`
           SELECT
-            ${sql.unsafe(
-              ticketColumns(),
-            )}
+            ${sql.unsafe(ticketColumns())}
           FROM "Ticket"
           WHERE
             "phone" =
@@ -2242,53 +1663,33 @@ export default async function handler(
        DELETE TICKET
     ===================================================== */
 
-    if (
-      route.startsWith(
-        "tickets/",
-      ) &&
-      req.method === "DELETE"
-    ) {
-      const suffix =
-        route.substring(
-          "tickets/".length,
-        );
+    if (route.startsWith("tickets/") && req.method === "DELETE") {
+      const suffix = route.substring("tickets/".length);
 
-      if (
-        suffix &&
-        !suffix.includes("/")
-      ) {
-        const ticketNumber =
-          decodeURIComponent(
-            suffix,
-          ).trim();
+      if (suffix && !suffix.includes("/")) {
+        const ticketNumber = decodeURIComponent(suffix).trim();
 
-        const result =
-          await sql`
+        const result = await sql`
             DELETE FROM "Ticket"
             WHERE
               "ticketNumber" =
                 ${ticketNumber}
             RETURNING
-              ${sql.unsafe(
-                ticketColumns(),
-              )}
+              ${sql.unsafe(ticketColumns())}
           `;
 
-        const ticket =
-          result[0];
+        const ticket = result[0];
 
         if (!ticket) {
           return res.status(404).json({
             ok: false,
-            error:
-              "Billet introuvable.",
+            error: "Billet introuvable.",
           });
         }
 
         return res.status(200).json({
           ok: true,
-          message:
-            "Billet supprimé avec succès.",
+          message: "Billet supprimé avec succès.",
           ticket,
         });
       }
@@ -2298,16 +1699,10 @@ export default async function handler(
        GET ALL TICKETS
     ===================================================== */
 
-    if (
-      route === "tickets" &&
-      req.method === "GET"
-    ) {
-      const result =
-        await sql`
+    if (route === "tickets" && req.method === "GET") {
+      const result = await sql`
           SELECT
-            ${sql.unsafe(
-              ticketColumns(),
-            )}
+            ${sql.unsafe(ticketColumns())}
           FROM "Ticket"
           ORDER BY
             "createdAt" DESC
@@ -2323,119 +1718,47 @@ export default async function handler(
        CREATE TICKET
     ===================================================== */
 
-    if (
-      route === "tickets" &&
-      req.method === "POST"
-    ) {
-      const firstName =
-        String(
-          req.body?.firstName ??
-            "",
-        ).trim();
+    if (route === "tickets" && req.method === "POST") {
+      const firstName = String(req.body?.firstName ?? "").trim();
 
-      const lastName =
-        String(
-          req.body?.lastName ??
-            "",
-        ).trim();
+      const lastName = String(req.body?.lastName ?? "").trim();
 
-      const participantName =
-        String(
-          req.body?.participantName ??
-            "",
-        ).trim();
+      const participantName = String(req.body?.participantName ?? "").trim();
 
-      const email =
-        normalizeEmail(
-          req.body?.email,
-        );
+      const email = normalizeEmail(req.body?.email);
 
-      const phone =
-        normalizePhone(
-          req.body?.phone,
-        );
+      const phone = normalizePhone(req.body?.phone);
 
-      const reservationIdInput =
-        String(
-          req.body?.reservationId ??
-            "",
-        ).trim();
+      const reservationIdInput = String(req.body?.reservationId ?? "").trim();
 
-      const eventId =
-        String(
-          req.body?.eventId ??
-            "",
-        ).trim();
+      const eventId = String(req.body?.eventId ?? "").trim();
 
-      const eventTitle =
-        String(
-          req.body?.eventTitle ??
-            "",
-        ).trim();
+      const eventTitle = String(req.body?.eventTitle ?? "").trim();
 
-      const dateLabel =
-        String(
-          req.body?.dateLabel ??
-            "",
-        ).trim();
+      const dateLabel = String(req.body?.dateLabel ?? "").trim();
 
-      const time =
-        String(
-          req.body?.time ??
-            "",
-        ).trim();
+      const time = String(req.body?.time ?? "").trim();
 
-      const durationRaw =
-        String(
-          req.body?.duration ??
-            "",
-        ).trim();
+      const durationRaw = String(req.body?.duration ?? "").trim();
 
-      const venue =
-        String(
-          req.body?.venue ??
-            "",
-        ).trim();
+      const venue = String(req.body?.venue ?? "").trim();
 
-      const city =
-        String(
-          req.body?.city ??
-            "",
-        ).trim();
+      const city = String(req.body?.city ?? "").trim();
 
-      const quantity =
-        calculateQuantity(
-          req.body?.quantity,
-        );
+      const quantity = calculateQuantity(req.body?.quantity);
 
-      const childrenUnder12 =
-        calculateChildren(
-          req.body?.childrenUnder12,
-        );
+      const childrenUnder12 = calculateChildren(req.body?.childrenUnder12);
 
-      const children12Plus =
-        calculateChildren(
-          req.body?.children12Plus,
-        );
+      const children12Plus = calculateChildren(req.body?.children12Plus);
 
-      const calculatedMinimumQuantity =
-        Math.max(
-          1,
-          1 + children12Plus,
-        );
+      const calculatedMinimumQuantity = Math.max(1, 1 + children12Plus);
 
-      const finalQuantity =
-        Math.max(
-          quantity,
-          calculatedMinimumQuantity,
-        );
+      const finalQuantity = Math.max(quantity, calculatedMinimumQuantity);
 
-      const duration =
-        durationRaw || null;
+      const duration = durationRaw || null;
 
       const finalParticipantName =
-        participantName ||
-        `${firstName} ${lastName}`.trim();
+        participantName || `${firstName} ${lastName}`.trim();
 
       /* ---------------------------------------------------
          VALIDATION
@@ -2444,64 +1767,56 @@ export default async function handler(
       if (!finalParticipantName) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Nom du participant requis.",
+          error: "Nom du participant requis.",
         });
       }
 
       if (!email) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Email requis.",
+          error: "Email requis.",
         });
       }
 
       if (!phone) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Numéro de téléphone requis.",
+          error: "Numéro de téléphone requis.",
         });
       }
 
       if (!eventTitle) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Nom de l'événement requis.",
+          error: "Nom de l'événement requis.",
         });
       }
 
       if (!dateLabel) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Date de l'événement requise.",
+          error: "Date de l'événement requise.",
         });
       }
 
       if (!time) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Heure de l'événement requise.",
+          error: "Heure de l'événement requise.",
         });
       }
 
       if (!venue) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Lieu de l'événement requis.",
+          error: "Lieu de l'événement requis.",
         });
       }
 
       if (!city) {
         return res.status(400).json({
           ok: false,
-          error:
-            "Ville de l'événement requise.",
+          error: "Ville de l'événement requise.",
         });
       }
 
@@ -2509,24 +1824,15 @@ export default async function handler(
          CAPACITÉ
       --------------------------------------------------- */
 
-      const stats =
-        await getStats(sql);
+      const stats = await getStats(sql);
 
-      if (
-        stats.reserved +
-          finalQuantity >
-        MAX_TICKETS
-      ) {
+      if (stats.reserved + finalQuantity > MAX_TICKETS) {
         return res.status(409).json({
           ok: false,
-          error:
-            "La capacité maximale de l'événement est atteinte.",
-          capacity:
-            MAX_TICKETS,
-          reserved:
-            stats.reserved,
-          remaining:
-            stats.remaining,
+          error: "La capacité maximale de l'événement est atteinte.",
+          capacity: MAX_TICKETS,
+          reserved: stats.reserved,
+          remaining: stats.remaining,
         });
       }
 
@@ -2534,8 +1840,7 @@ export default async function handler(
          DOUBLON EMAIL
       --------------------------------------------------- */
 
-      const existingEmail =
-        await sql`
+      const existingEmail = await sql`
           SELECT
             "id",
             "ticketNumber",
@@ -2554,16 +1859,11 @@ export default async function handler(
           LIMIT 1
         `;
 
-      if (
-        existingEmail.length >
-        0
-      ) {
+      if (existingEmail.length > 0) {
         return res.status(409).json({
           ok: false,
-          error:
-            "Une réservation existe déjà pour cette adresse email.",
-          ticket:
-            existingEmail[0],
+          error: "Une réservation existe déjà pour cette adresse email.",
+          ticket: existingEmail[0],
         });
       }
 
@@ -2571,8 +1871,7 @@ export default async function handler(
          DOUBLON TÉLÉPHONE
       --------------------------------------------------- */
 
-      const existingPhone =
-        await sql`
+      const existingPhone = await sql`
           SELECT
             "id",
             "ticketNumber",
@@ -2591,16 +1890,11 @@ export default async function handler(
           LIMIT 1
         `;
 
-      if (
-        existingPhone.length >
-        0
-      ) {
+      if (existingPhone.length > 0) {
         return res.status(409).json({
           ok: false,
-          error:
-            "Une réservation existe déjà pour ce numéro de téléphone.",
-          ticket:
-            existingPhone[0],
+          error: "Une réservation existe déjà pour ce numéro de téléphone.",
+          ticket: existingPhone[0],
         });
       }
 
@@ -2608,12 +1902,9 @@ export default async function handler(
          RESERVATION ID
       --------------------------------------------------- */
 
-      let reservationId =
-        reservationIdInput ||
-        generateReservationId();
+      let reservationId = reservationIdInput || generateReservationId();
 
-      let reservationExists =
-        await sql`
+      let reservationExists = await sql`
           SELECT
             "id"
           FROM "Ticket"
@@ -2623,15 +1914,10 @@ export default async function handler(
           LIMIT 1
         `;
 
-      if (
-        reservationExists.length >
-        0
-      ) {
-        reservationId =
-          generateReservationId();
+      if (reservationExists.length > 0) {
+        reservationId = generateReservationId();
 
-        reservationExists =
-          await sql`
+        reservationExists = await sql`
             SELECT
               "id"
             FROM "Ticket"
@@ -2641,10 +1927,7 @@ export default async function handler(
             LIMIT 1
           `;
 
-        if (
-          reservationExists.length >
-          0
-        ) {
+        if (reservationExists.length > 0) {
           return res.status(500).json({
             ok: false,
             error:
@@ -2657,21 +1940,17 @@ export default async function handler(
          GÉNÉRATION BILLET
       --------------------------------------------------- */
 
-      const id =
-        generateId();
+      const id = generateId();
 
-      const ticketNumber =
-        generateTicketNumber();
+      const ticketNumber = generateTicketNumber();
 
-      const verificationToken =
-        generateVerificationToken();
+      const verificationToken = generateVerificationToken();
 
       /* ---------------------------------------------------
          INSERT TICKET
       --------------------------------------------------- */
 
-      const result =
-        await sql`
+      const result = await sql`
           INSERT INTO "Ticket" (
             "id",
             "ticketNumber",
@@ -2717,29 +1996,58 @@ export default async function handler(
             'VALID'
           )
           RETURNING
-            ${sql.unsafe(
-              ticketColumns(),
-            )}
+            ${sql.unsafe(ticketColumns())}
         `;
 
-      const ticket =
-        result[0] as
-          | TicketRow
-          | undefined;
+      const ticket = result[0] as TicketRow | undefined;
 
       if (!ticket) {
         return res.status(500).json({
           ok: false,
-          error:
-            "Impossible de créer le billet.",
+          error: "Impossible de créer le billet.",
         });
+      }
+
+      // ---------------------------------------------------
+      // NOTIFICATION : NOUVELLE RÉSERVATION
+      // ---------------------------------------------------
+
+      let notificationCreated = false;
+
+      try {
+        const notificationId = generateId("notif_");
+
+        await sql`
+    INSERT INTO "Notification" (
+      "id",
+      "type",
+      "title",
+      "message",
+      "ticketId",
+      "read",
+      "createdAt"
+    )
+    VALUES (
+      ${notificationId},
+      'TICKET_CREATED',
+      'Nouvelle réservation',
+      ${`${ticket.participantName} vient de réserver le billet ${ticket.ticketNumber}.`},
+      ${ticket.id},
+      false,
+      NOW()
+    )
+  `;
+
+        notificationCreated = true;
+      } catch (notificationError) {
+        console.error("[SiloCamp Notification - Création]", notificationError);
       }
 
       return res.status(201).json({
         ok: true,
-        message:
-          "Réservation créée avec succès.",
+        message: "Réservation créée avec succès.",
         ticket,
+        notificationCreated,
       });
     }
 
@@ -2749,21 +2057,15 @@ export default async function handler(
 
     return res.status(404).json({
       ok: false,
-      error:
-        "Route API introuvable.",
+      error: "Route API introuvable.",
       route,
     });
   } catch (error: any) {
-    console.error(
-      "[SiloCamp API]",
-      error,
-    );
+    console.error("[SiloCamp API]", error);
 
     return res.status(500).json({
       ok: false,
-      error:
-        error?.message ||
-        "Erreur interne du serveur.",
+      error: error?.message || "Erreur interne du serveur.",
     });
   }
 }
