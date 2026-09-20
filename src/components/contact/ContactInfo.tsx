@@ -4,7 +4,7 @@ import { Reveal } from "@/components/Reveal";
 const contacts = [
   {
     title: "Téléphone",
-    value: "+212 6 00 00 00 00",
+    value: "+212704240738",
     description: "Disponible du lundi au samedi • 09h00 à 18h00",
     href: "tel:+212600000000",
     icon: <PhoneIcon />,
@@ -13,7 +13,7 @@ const contacts = [
     title: "WhatsApp",
     value: "Discuter avec notre équipe",
     description: "Réponse rapide en quelques minutes.",
-    href: "https://wa.me/212600000000",
+    href: "https://wa.me/212723257663",
     icon: <WhatsappIcon />,
   },
   {
@@ -26,7 +26,7 @@ const contacts = [
   {
     title: "Adresse",
     value: "Camp International Silo",
-    description: "Oasis Center • Casablanca  • Maroc",
+    description: "Carré d'or • Oasis • Casablanca  • Maroc",
     href: "#",
     icon: <LocationIcon />,
   },

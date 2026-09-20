@@ -32,7 +32,7 @@ export function ContactCTA() {
               {/* Boutons */}
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Link
-                  to="/"
+                  to="/evenement/camp-international-silo-2026"
                   className="btn-gold group inline-flex items-center gap-2"
                 >
                   <span>Réserver gratuitement</span>
@@ -40,7 +40,7 @@ export function ContactCTA() {
                 </Link>
 
                 <a
-                  href="https://wa.me/212600000000"
+                  href="https://wa.me/212723257663"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-ghost inline-flex items-center gap-2"

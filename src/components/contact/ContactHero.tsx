@@ -54,7 +54,7 @@ export function ContactHero() {
           <Reveal delay={0.15}>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <a
-                href="https://wa.me/212600000000"
+                href="https://wa.me/212723257663"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-gold inline-flex items-center gap-2"
@@ -63,7 +63,8 @@ export function ContactHero() {
                 <span>Discuter sur WhatsApp</span>
               </a>
               <a
-                href="tel:+212600000000"
+                href="tel:+212704240738
+"
                 className="btn-ghost inline-flex items-center gap-2"
               >
                 <FaPhoneAlt className="text-sm" />

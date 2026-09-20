@@ -12,7 +12,7 @@ const faqs = [
   {
     question: "Comment vais-je recevoir mon e-billet ?",
     answer:
-      "Après la confirmation de votre réservation, votre e-billet est envoyé immédiatement par e-mail. Vous pourrez également le télécharger depuis la page de confirmation.",
+      "Après la confirmation de votre réservation, vous pouvez recevoir votre e-billet immédiatement par e-mail. Vous pourrez également le télécharger depuis la page de confirmation.",
   },
   {
     question: "Dois-je imprimer mon billet ?",
@@ -21,7 +21,18 @@ const faqs = [
   },
   {
     question: "Comment puis-je annuler mon billet?",
-    answer: "Cliquez sur le lien d’annulation (lien), puis confirmez avec le numéro de votre billet.",
+    answer: (
+      <>
+        <a
+          href="https://silocamp-github-io.vercel.app/annulation"
+          className="underline font-semibold hover:opacity-80"
+          style={{ color: "#d4ae63" }}
+        >
+          Cliquez ici
+        </a>
+        , puis confirmez avec le numéro de votre billet et l'adresse e-mail.
+      </>
+    ),
   },
   {
     question: "Que faire si je ne reçois pas mon e-mail ?",
@@ -134,7 +145,7 @@ export function ContactFAQ() {
 
             <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
               <a
-                href="https://wa.me/212600000000"
+                href="https://wa.me/212723257663"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-gold inline-flex items-center gap-2"
