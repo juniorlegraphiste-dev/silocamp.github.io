@@ -849,7 +849,18 @@ function Faq() {
     },
     {
       q: "Comment puis-je annuler mon billet?",
-      a: "Cliquez sur le lien d’annulation (lien), puis confirmez avec le numéro de votre billet.",
+      a: (
+        <>
+          <a
+            href="https://silocamp-github-io.vercel.app/annulation"
+            className="underline font-semibold hover:opacity-80"
+            style={{ color: "#d4ae63" }}
+          >
+            Cliquez ici
+          </a>
+          , puis confirmez avec le numéro de votre billet et l'adresse e-mail.
+        </>
+      ),
     },
   ];
 
