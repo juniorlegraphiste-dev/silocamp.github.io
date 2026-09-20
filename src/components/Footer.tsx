@@ -155,9 +155,7 @@ export function Footer() {
         text-cream-dim
       "
           >
-            Le Camp International Silo rassemble des participants venus de
-            plusieurs pays pour vivre des temps de communion, de prière, de
-            louange, d'enseignement et de transformation spirituelle.
+            Le Camp International Silo est un salon de changement de mentalité et d’attitude dans notre manière de louer, un lieu de réjouissance et de victoire où nous faisons un vœu à l’Éternel, bâtissons un autel et apprenons à entendre Dieu pour nous-mêmes.
           </p>
 
           {/* Réseaux sociaux */}
@@ -205,7 +203,7 @@ export function Footer() {
 
             <FooterLink to="/billetterie">Billetterie</FooterLink>
 
-            <FooterLink to="/evenement/camp-international-silo">
+            <FooterLink to="/evenement/camp-international-silo-2026">
               Le Camp International Silo
             </FooterLink>
 
@@ -233,7 +231,7 @@ export function Footer() {
 
         <div className="min-w-0">
           <FooterCol title="Événements">
-            <FooterLink to="/evenement/camp-international-silo">
+            <FooterLink to="/evenement/camp-international-silo-2026">
               Camp International Silo 2026
             </FooterLink>
           </FooterCol>
