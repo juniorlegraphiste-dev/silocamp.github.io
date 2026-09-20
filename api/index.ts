@@ -1095,6 +1095,10 @@ async function cancelTicket(
   }
 
   try {
+    // -------------------------------------------------------
+    // RÉCUPÉRATION DES DONNÉES
+    // -------------------------------------------------------
+
     const ticketNumber = String(req.body?.ticketNumber ?? "").trim();
 
     const email = normalizeEmail(req.body?.email);
@@ -1108,103 +1112,41 @@ async function cancelTicket(
       return true;
     }
 
-    /* -------------------------------------------------------
-       ANNULATION
-    ------------------------------------------------------- */
+    console.log("[SiloCamp Cancel] Demande reçue :", {
+      ticketNumber,
+      email,
+    });
 
-    const result = await sql`
-        UPDATE "Ticket"
-        SET
-          "status" = 'CANCELLED',
-          "cancelledAt" = NOW()
-        WHERE
-          "ticketNumber" =
-            ${ticketNumber}
-          AND LOWER("email") =
-            ${email}
-          AND "status" = 'VALID'
-
-        RETURNING
-          ${sql.unsafe(ticketColumns())}
-      `;
-
-    const ticket = result[0] as TicketRow | undefined;
-
-    /* -------------------------------------------------------
-       BILLET ANNULÉ
-    ------------------------------------------------------- */
-
-    if (ticket) {
-      let notificationCreated = false;
-
-      try {
-        const notificationId = generateId("notif_");
-
-        const participantName =
-          String(ticket.participantName ?? "").trim() || "Un participant";
-
-        await sql`
-          INSERT INTO "Notification" (
-            "id",
-            "type",
-            "title",
-            "message",
-            "ticketId",
-            "read",
-            "createdAt"
-          )
-          VALUES (
-            ${notificationId},
-            'TICKET_CANCELLED',
-            'Billet annulé',
-            ${`${participantName} a annulé le billet ${ticket.ticketNumber}.`},
-            ${ticket.id},
-            false,
-            NOW()
-          )
-        `;
-
-        notificationCreated = true;
-      } catch (notificationError) {
-        console.error("[SiloCamp Notification]", notificationError);
-      }
-
-      res.status(200).json({
-        ok: true,
-        message: "Billet annulé avec succès.",
-        ticket,
-        notificationCreated,
-      });
-
-      return true;
-    }
-
-    /* -------------------------------------------------------
-       RECHERCHE DU BILLET
-    ------------------------------------------------------- */
+    // -------------------------------------------------------
+    // RECHERCHE DU BILLET
+    // -------------------------------------------------------
+    //
+    // On utilise LOWER + TRIM pour éviter les problèmes :
+    // - SILO-2026-ABC123
+    // - silo-2026-abc123
+    // - espaces accidentels
+    //
+    // -------------------------------------------------------
 
     const existingResult = await sql`
-        SELECT
-          "id",
-          "ticketNumber",
-          "participantName",
-          "email",
-          "phone",
-          "quantity",
-          "status",
-          "createdAt",
-          "usedAt",
-          "cancelledAt"
-        FROM "Ticket"
-        WHERE
-          "ticketNumber" =
-            ${ticketNumber}
-        LIMIT 1
-      `;
+      SELECT
+        ${sql.unsafe(ticketColumns())}
+      FROM "Ticket"
+      WHERE
+        LOWER(TRIM("ticketNumber")) =
+          LOWER(TRIM(${ticketNumber}))
+      LIMIT 1
+    `;
 
-    const existingTicket = existingResult[0];
+    const existingTicket = existingResult[0] as TicketRow | undefined;
+
+    // -------------------------------------------------------
+    // BILLET INTROUVABLE
+    // -------------------------------------------------------
 
     if (!existingTicket) {
+      console.error("[SiloCamp Cancel] Billet introuvable :", ticketNumber);
+
       res.status(404).json({
         ok: false,
         error: "Billet introuvable.",
@@ -1213,9 +1155,19 @@ async function cancelTicket(
       return true;
     }
 
+    // -------------------------------------------------------
+    // VÉRIFICATION EMAIL
+    // -------------------------------------------------------
+
     const existingEmail = normalizeEmail(existingTicket.email);
 
     if (existingEmail !== email) {
+      console.error("[SiloCamp Cancel] Email incorrect :", {
+        ticketNumber,
+        emailReceived: email,
+        emailStored: existingEmail,
+      });
+
       res.status(403).json({
         ok: false,
         error: "L'adresse email ne correspond pas au billet.",
@@ -1223,6 +1175,10 @@ async function cancelTicket(
 
       return true;
     }
+
+    // -------------------------------------------------------
+    // BILLET DÉJÀ UTILISÉ
+    // -------------------------------------------------------
 
     if (existingTicket.status === "USED") {
       res.status(409).json({
@@ -1234,6 +1190,10 @@ async function cancelTicket(
       return true;
     }
 
+    // -------------------------------------------------------
+    // BILLET DÉJÀ ANNULÉ
+    // -------------------------------------------------------
+
     if (existingTicket.status === "CANCELLED") {
       res.status(409).json({
         ok: false,
@@ -1244,10 +1204,96 @@ async function cancelTicket(
       return true;
     }
 
-    res.status(409).json({
-      ok: false,
-      error: "Impossible d'annuler ce billet.",
-      ticket: existingTicket,
+    // -------------------------------------------------------
+    // ANNULATION
+    // -------------------------------------------------------
+
+    const result = await sql`
+      UPDATE "Ticket"
+      SET
+        "status" = 'CANCELLED',
+        "cancelledAt" = NOW()
+      WHERE
+        "id" = ${existingTicket.id}
+        AND "status" = 'VALID'
+      RETURNING
+        ${sql.unsafe(ticketColumns())}
+    `;
+
+    const ticket = result[0] as TicketRow | undefined;
+
+    // -------------------------------------------------------
+    // ÉCHEC DE L'ANNULATION
+    // -------------------------------------------------------
+
+    if (!ticket) {
+      console.error(
+        "[SiloCamp Cancel] Impossible de mettre à jour le billet :",
+        existingTicket.id,
+      );
+
+      res.status(409).json({
+        ok: false,
+        error: "Impossible d'annuler ce billet. Son statut a peut-être changé.",
+      });
+
+      return true;
+    }
+
+    // -------------------------------------------------------
+    // NOTIFICATION ADMIN
+    // -------------------------------------------------------
+
+    let notificationCreated = false;
+
+    try {
+      const notificationId = generateId("notif_");
+
+      const participantName =
+        String(ticket.participantName ?? "").trim() || "Un participant";
+
+      await sql`
+        INSERT INTO "Notification" (
+          "id",
+          "type",
+          "title",
+          "message",
+          "ticketId",
+          "read",
+          "createdAt"
+        )
+        VALUES (
+          ${notificationId},
+          'TICKET_CANCELLED',
+          'Billet annulé',
+          ${`${participantName} a annulé le billet ${ticket.ticketNumber}.`},
+          ${ticket.id},
+          false,
+          NOW()
+        )
+      `;
+
+      notificationCreated = true;
+
+      console.log("[SiloCamp Cancel] Notification créée :", notificationId);
+    } catch (notificationError) {
+      console.error("[SiloCamp Notification - Annulation]", notificationError);
+    }
+
+    // -------------------------------------------------------
+    // RÉPONSE
+    // -------------------------------------------------------
+
+    console.log(
+      "[SiloCamp Cancel] Billet annulé avec succès :",
+      ticket.ticketNumber,
+    );
+
+    res.status(200).json({
+      ok: true,
+      message: "Billet annulé avec succès.",
+      ticket,
+      notificationCreated,
     });
 
     return true;
