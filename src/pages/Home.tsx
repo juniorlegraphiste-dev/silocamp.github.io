@@ -163,20 +163,24 @@ function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
       id="accueil"
       className="relative flex min-h-[90vh] scroll-mt-20 items-center overflow-hidden"
     >
-      {/* Image de fond */}
-
-      <motion.img
-        src={heroImg}
-        alt="Foule en adoration lors du Camp International Silo"
-        fetchPriority="high"
+      {/* Vidéo de fond */}
+      <motion.video
         className="absolute inset-0 h-full w-full object-cover"
-        initial={{ scale: 1.12 }}
+        autoPlay
+        muted
+        loop
+        playsInline
+        poster={heroImg}
+        initial={{ scale: 1.08 }}
         animate={{ scale: 1 }}
         transition={{
           duration: 12,
           ease: "easeOut",
         }}
-      />
+      >
+        <source src="/videos/hero-silocamp.mp4" type="video/mp4" />
+        Votre navigateur ne prend pas en charge les vidéos HTML5.
+      </motion.video>
 
       {/* Voiles */}
 
