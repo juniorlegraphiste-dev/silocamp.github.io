@@ -167,19 +167,14 @@ function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
       <motion.video
         className="absolute inset-0 h-full w-full object-cover"
         autoPlay
-        muted
         loop
         playsInline
         poster={heroImg}
         initial={{ scale: 1.08 }}
         animate={{ scale: 1 }}
-        transition={{
-          duration: 12,
-          ease: "easeOut",
-        }}
+        transition={{ duration: 12, ease: "easeOut" }}
       >
         <source src="/videos/hero-silocamp.mp4" type="video/mp4" />
-        Votre navigateur ne prend pas en charge les vidéos HTML5.
       </motion.video>
 
       {/* Voiles */}
