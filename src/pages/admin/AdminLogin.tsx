@@ -269,7 +269,7 @@ export default function AdminLogin() {
         
 
         <p className="mt-6 text-center font-black text-xs text-cream/30">
-          SiloCamp · Camp International Silo 2026
+          SiloCamp  ·  Camp International Silo 2026
         </p>
       </div>
     </div>
