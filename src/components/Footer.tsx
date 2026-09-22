@@ -12,6 +12,8 @@ export function Footer() {
   const [sent, setSent] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Défile vers une section (gère le cas hors accueil)
   function goSection(id: string) {
@@ -155,7 +157,10 @@ export function Footer() {
         text-cream-dim
       "
           >
-            Le Camp International Silo est un salon de changement de mentalité et d’attitude dans notre manière de louer, un lieu de réjouissance et de victoire où nous faisons un vœu à l’Éternel, bâtissons un autel et apprenons à entendre Dieu pour nous-mêmes.
+            Le Camp International Silo est un salon de changement de mentalité
+            et d’attitude dans notre manière de louer, un lieu de réjouissance
+            et de victoire où nous faisons un vœu à l’Éternel, bâtissons un
+            autel et apprenons à entendre Dieu pour nous-mêmes.
           </p>
 
           {/* Réseaux sociaux */}
@@ -238,30 +243,29 @@ export function Footer() {
         </div>
 
         {/* =======================================================
-      NEWSLETTER
-  ======================================================= */}
-
+    NEWSLETTER
+======================================================= */}
         <div className="min-w-0">
           <h4
             className="
-        text-xs
-        font-medium
-        uppercase
-        tracking-[0.2em]
-        text-gold-300
-      "
+      text-xs
+      font-medium
+      uppercase
+      tracking-[0.2em]
+      text-[#d4ae63]
+    "
           >
             Restez connectés
           </h4>
 
           <p
             className="
-        mt-4
-        max-w-md
-        text-sm
-        leading-6
-        text-cream-dim
-      "
+      mt-4
+      max-w-md
+      text-sm
+      leading-6
+      text-cream-dim
+    "
           >
             Recevez les dernières informations, les annonces importantes et les
             prochaines dates du Camp International Silo.
@@ -269,28 +273,72 @@ export function Footer() {
 
           <form
             className="mt-5 w-full"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
 
-              if (email.trim()) {
+              const normalizedEmail = email.trim().toLowerCase();
+
+              if (!normalizedEmail) return;
+
+              setLoading(true);
+              setSent(false);
+              setError("");
+
+              try {
+                const response = await fetch("/api/newsletter", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    email: normalizedEmail,
+                  }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.ok) {
+                  throw new Error(
+                    data?.error ||
+                      "Impossible de vous inscrire pour le moment.",
+                  );
+                }
+
                 setSent(true);
                 setEmail("");
+
+                window.setTimeout(() => {
+                  setSent(false);
+                }, 5000);
+              } catch (err: any) {
+                console.error("[Newsletter]", err);
+
+                setError(
+                  err?.message ||
+                    "Une erreur est survenue. Veuillez réessayer.",
+                );
+              } finally {
+                setLoading(false);
               }
             }}
           >
             <div
               className="
-          flex
-          w-full
-          flex-col
-          overflow-hidden
-          rounded-2xl
-          border
-          border-gold-400/25
-          bg-ink-950/60
-          sm:flex-row
-          sm:rounded-full
-        "
+      flex
+      w-full
+      flex-col
+      overflow-hidden
+      rounded-2xl
+      border
+      border-[#d4ae63]/25
+      bg-ink-950/60
+      transition-all
+      duration-300
+      focus-within:border-[#d4ae63]/60
+      focus-within:shadow-[0_0_25px_rgba(212,174,99,0.08)]
+      sm:flex-row
+      sm:rounded-full
+    "
             >
               <input
                 type="email"
@@ -299,50 +347,62 @@ export function Footer() {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setSent(false);
+                  setError("");
                 }}
                 placeholder="Votre e-mail"
                 aria-label="Votre adresse e-mail"
+                disabled={loading}
                 className="
-            min-w-0
-            w-full
-            flex-1
-            bg-transparent
-            px-4
-            py-3
-            text-sm
-            text-cream
-            outline-none
-            placeholder:text-cream-faint
-            sm:py-2.5
-          "
+        min-w-0
+        w-full
+        flex-1
+        bg-transparent
+        px-5
+        py-3.5
+        text-sm
+        text-cream
+        outline-none
+        placeholder:text-cream-faint
+        disabled:cursor-not-allowed
+        disabled:opacity-60
+        sm:py-3
+      "
               />
 
               <button
                 type="submit"
+                disabled={loading}
                 className="
-            w-full
-            shrink-0
-            bg-gold-400
-            px-5
-            py-3
-            text-sm
-            font-medium
-            text-ink-950
-            transition-colors
-            hover:bg-gold-300
-            sm:w-auto
-            sm:py-2.5
-          "
+        w-full
+        shrink-0
+        bg-[#d4ae63]
+        px-6
+        py-3.5
+        text-sm
+        font-semibold
+        text-[#0A0A0A]
+        transition-all
+        duration-300
+        hover:bg-[#e5c37d]
+        hover:shadow-[0_0_25px_rgba(212,174,99,0.18)]
+        active:scale-[0.98]
+        disabled:cursor-not-allowed
+        disabled:opacity-60
+        sm:w-auto
+        sm:py-3
+      "
               >
-                Je m'inscris
+                {loading ? "Inscription..." : "Je m'inscris"}
               </button>
             </div>
 
             {sent && (
-              <p className="mt-2 text-xs text-gold-300">
+              <p className="mt-3 text-xs text-[#d4ae63]">
                 Merci ! Vous êtes bien inscrit·e.
               </p>
             )}
+
+            {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
           </form>
         </div>
       </div>

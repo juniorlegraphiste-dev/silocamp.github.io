@@ -1076,6 +1076,104 @@ async function sendTicketEmail(
   }
 }
 
+async function subscribeNewsletter(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<boolean> {
+  if (req.method !== "POST") {
+    res.status(405).json({
+      ok: false,
+      error: "Méthode non autorisée.",
+    });
+
+    return true;
+  }
+
+  try {
+    const email = normalizeEmail(req.body?.email);
+
+    if (!email) {
+      res.status(400).json({
+        ok: false,
+        error: "L'adresse e-mail est requise.",
+      });
+
+      return true;
+    }
+
+    const apiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.RESEND_FROM_EMAIL;
+    const receiverEmail = process.env.CONTACT_RECEIVER_EMAIL;
+
+    if (!apiKey || !fromEmail || !receiverEmail) {
+      console.error("[Newsletter] Variables Resend manquantes.");
+
+      res.status(500).json({
+        ok: false,
+        error: "Configuration email incomplète.",
+      });
+
+      return true;
+    }
+
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [receiverEmail],
+        subject: "[SiloCamp] Nouvelle inscription newsletter",
+        html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+              <h2>Nouvelle inscription à la newsletter SiloCamp</h2>
+
+              <p>
+                Une nouvelle personne souhaite recevoir les
+                informations du Camp International Silo.
+              </p>
+
+              <p>
+                <strong>E-mail :</strong> ${email}
+              </p>
+            </div>
+          `,
+      }),
+    });
+
+    const data = await resendResponse.json();
+
+    if (!resendResponse.ok) {
+      console.error("[Newsletter/Resend]", data);
+
+      res.status(502).json({
+        ok: false,
+        error: "Impossible d'envoyer l'inscription.",
+      });
+
+      return true;
+    }
+
+    res.status(200).json({
+      ok: true,
+      message: "Inscription enregistrée avec succès.",
+    });
+
+    return true;
+  } catch (error: any) {
+    console.error("[Newsletter]", error);
+
+    res.status(500).json({
+      ok: false,
+      error: "Erreur lors de l'inscription.",
+    });
+
+    return true;
+  }
+}
+
 /* =========================================================
    ANNULATION
 ========================================================= */
@@ -1568,6 +1666,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (route === "tickets/email") {
       await sendTicketEmail(sql, req, res);
 
+      return;
+    }
+
+    /* =====================================================
+       SUBSCRIBE NEWSLETTER
+    ===================================================== */
+
+    if (route === "newsletter") {
+      await subscribeNewsletter(req, res);
       return;
     }
 
