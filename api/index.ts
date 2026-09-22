@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-import { neon } from "@neondatabase/serverless";
+import { neon, Pool } from "@neondatabase/serverless";
 import crypto from "node:crypto";
 
 /* =========================================================
@@ -8,7 +8,6 @@ import crypto from "node:crypto";
 ========================================================= */
 
 const DEFAULT_TICKET_CAPACITY = 1200;
-
 const SETTINGS_ID = "default";
 
 const COOKIE_NAME = "silocamp_scan_session";
@@ -140,6 +139,7 @@ function getDatabaseUrl(): string | undefined {
   return process.env.DATABASE_URL;
 }
 
+
 /* =========================================================
    PARAMÈTRES SILOCAMP
 ========================================================= */
@@ -152,53 +152,26 @@ async function ensureSettingsTable(sql: any) {
       "eventDate" TEXT NOT NULL,
       "eventTime" TEXT NOT NULL,
       "eventLocation" TEXT NOT NULL DEFAULT '',
-      "capacity" INTEGER NOT NULL DEFAULT 1200,
+      "capacity" INTEGER NOT NULL DEFAULT ${DEFAULT_TICKET_CAPACITY},
       "registrationsOpen" BOOLEAN NOT NULL DEFAULT TRUE,
       "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `;
-
   await sql`
-    INSERT INTO "SiloCampSettings" (
-      "id",
-      "eventName",
-      "eventDate",
-      "eventTime",
-      "eventLocation",
-      "capacity",
-      "registrationsOpen"
-    )
-    VALUES (
-      ${SETTINGS_ID},
-      'Camp International Silo 2026',
-      '2026-09-22',
-      '09:00',
-      'Casablanca, Maroc',
-      ${DEFAULT_TICKET_CAPACITY},
-      TRUE
-    )
+    INSERT INTO "SiloCampSettings"
+      ("id","eventName","eventDate","eventTime","eventLocation","capacity","registrationsOpen")
+    VALUES
+      (${SETTINGS_ID}, 'Camp International Silo 2026', '2026-09-22', '09:00', 'Casablanca, Maroc', ${DEFAULT_TICKET_CAPACITY}, TRUE)
     ON CONFLICT ("id") DO NOTHING
   `;
 }
 
 async function getSettings(sql: any) {
   await ensureSettingsTable(sql);
-
   const result = await sql`
-    SELECT
-      "id",
-      "eventName",
-      "eventDate",
-      "eventTime",
-      "eventLocation",
-      "capacity",
-      "registrationsOpen",
-      "updatedAt"
-    FROM "SiloCampSettings"
-    WHERE "id" = ${SETTINGS_ID}
-    LIMIT 1
+    SELECT "id","eventName","eventDate","eventTime","eventLocation","capacity","registrationsOpen","updatedAt"
+    FROM "SiloCampSettings" WHERE "id"=${SETTINGS_ID} LIMIT 1
   `;
-
   return result[0] ?? null;
 }
 
@@ -542,13 +515,8 @@ async function getStats(sql: any) {
   const settings = await getSettings(sql);
   const capacity = Number(settings?.capacity ?? DEFAULT_TICKET_CAPACITY);
   return {
-    capacity,
-    totalTickets: validTickets + usedTickets + cancelledTickets,
-    validTickets,
-    usedTickets,
-    cancelledTickets,
-    reserved,
-    used: usedTickets,
+    capacity, totalTickets: validTickets + usedTickets + cancelledTickets,
+    validTickets, usedTickets, cancelledTickets, reserved, used: usedTickets,
     remaining: Math.max(0, capacity - reserved),
     registrationsOpen: Boolean(settings?.registrationsOpen ?? true),
   };
@@ -1121,161 +1089,38 @@ async function sendTicketEmail(
   }
 }
 
+
 /* =========================================================
    NEWSLETTER / CONTACT
 ========================================================= */
 
-async function subscribeNewsletter(
-  req: VercelRequest,
-  res: VercelResponse,
-): Promise<boolean> {
-  if (req.method !== "POST") {
-    res.status(405).json({ ok: false, error: "Méthode non autorisée." });
-    return true;
-  }
+async function subscribeNewsletter(req: VercelRequest, res: VercelResponse): Promise<boolean> {
+  if (req.method !== "POST") { res.status(405).json({ok:false,error:"Méthode non autorisée."}); return true; }
   try {
-    const email = normalizeEmail(req.body?.email);
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      res.status(400).json({ ok: false, error: "Adresse e-mail invalide." });
-      return true;
-    }
-    const apiKey = process.env.RESEND_API_KEY,
-      from = process.env.RESEND_FROM_EMAIL,
-      to = process.env.CONTACT_RECEIVER_EMAIL;
-    if (!apiKey || !from || !to) {
-      res
-        .status(500)
-        .json({ ok: false, error: "Configuration email incomplète." });
-      return true;
-    }
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: "[SiloCamp] Nouvelle inscription newsletter",
-        html: `<p>Nouvelle inscription newsletter SiloCamp :</p><p><strong>${email.replace(/[&<>\"]/g, "")}</strong></p>`,
-      }),
-    });
-    if (!r.ok) {
-      console.error("[Newsletter/Resend]", await r.text());
-      res
-        .status(502)
-        .json({ ok: false, error: "Impossible d'envoyer l'inscription." });
-      return true;
-    }
-    res
-      .status(200)
-      .json({ ok: true, message: "Inscription enregistrée avec succès." });
-    return true;
-  } catch (e: any) {
-    console.error("[Newsletter]", e);
-    res.status(500).json({
-      ok: false,
-      error: e?.message || "Erreur lors de l'inscription.",
-    });
-    return true;
-  }
+    const email=normalizeEmail(req.body?.email);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { res.status(400).json({ok:false,error:"Adresse e-mail invalide."}); return true; }
+    const apiKey=process.env.RESEND_API_KEY, from=process.env.RESEND_FROM_EMAIL, to=process.env.CONTACT_RECEIVER_EMAIL;
+    if (!apiKey || !from || !to) { res.status(500).json({ok:false,error:"Configuration email incomplète."}); return true; }
+    const r=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({from,to:[to],subject:"[SiloCamp] Nouvelle inscription newsletter",html:`<p>Nouvelle inscription newsletter SiloCamp :</p><p><strong>${email.replace(/[&<>\"]/g,"")}</strong></p>`})});
+    if(!r.ok){console.error("[Newsletter/Resend]",await r.text());res.status(502).json({ok:false,error:"Impossible d'envoyer l'inscription."});return true;}
+    res.status(200).json({ok:true,message:"Inscription enregistrée avec succès."}); return true;
+  } catch(e:any){console.error("[Newsletter]",e);res.status(500).json({ok:false,error:e?.message||"Erreur lors de l'inscription."});return true;}
 }
 
-async function sendContactEmail(
-  req: VercelRequest,
-  res: VercelResponse,
-): Promise<boolean> {
-  if (req.method !== "POST") {
-    res.status(405).json({ ok: false, error: "Méthode non autorisée." });
-    return true;
-  }
+async function sendContactEmail(req: VercelRequest, res: VercelResponse): Promise<boolean> {
+  if(req.method!=="POST"){res.status(405).json({ok:false,error:"Méthode non autorisée."});return true;}
   try {
-    const name = String(req.body?.name ?? "").trim(),
-      email = normalizeEmail(req.body?.email),
-      phone = String(req.body?.phone ?? "").trim(),
-      subject = String(req.body?.subject ?? "").trim(),
-      message = String(req.body?.message ?? "").trim();
-    if (
-      !name ||
-      !email ||
-      !subject ||
-      !message ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    ) {
-      res.status(400).json({
-        ok: false,
-        error: "Veuillez remplir correctement les champs obligatoires.",
-      });
-      return true;
-    }
-    if (
-      name.length > 150 ||
-      email.length > 254 ||
-      subject.length > 200 ||
-      message.length > 5000
-    ) {
-      res.status(400).json({
-        ok: false,
-        error: "La longueur d'un ou plusieurs champs est invalide.",
-      });
-      return true;
-    }
-    const apiKey = process.env.RESEND_API_KEY,
-      from = process.env.RESEND_FROM_EMAIL,
-      to = process.env.CONTACT_RECEIVER_EMAIL;
-    if (!apiKey || !from || !to) {
-      res
-        .status(500)
-        .json({ ok: false, error: "Configuration email incomplète." });
-      return true;
-    }
-    const esc = (v: string) =>
-      v.replace(
-        /[&<>"']/g,
-        (c) =>
-          ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#039;",
-          })[c] || c,
-      );
-    const html = `<div style="font-family:Arial,sans-serif"><h2>Nouveau message Contact — SiloCamp 2026</h2><p><strong>Nom :</strong> ${esc(name)}</p><p><strong>Email :</strong> ${esc(email)}</p><p><strong>Téléphone :</strong> ${esc(phone || "Non renseigné")}</p><p><strong>Sujet :</strong> ${esc(subject)}</p><hr/><p>${esc(message).replace(/\n/g, "<br/>")}</p></div>`;
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        reply_to: email,
-        subject: `[SiloCamp Contact] ${subject}`,
-        html,
-      }),
-    });
-    if (!r.ok) {
-      console.error("[Contact/Resend]", await r.text());
-      res
-        .status(502)
-        .json({ ok: false, error: "Impossible d'envoyer le message." });
-      return true;
-    }
-    res
-      .status(200)
-      .json({ ok: true, message: "Votre message a été envoyé avec succès." });
-    return true;
-  } catch (e: any) {
-    console.error("[Contact]", e);
-    res.status(500).json({
-      ok: false,
-      error: e?.message || "Erreur lors de l'envoi du message.",
-    });
-    return true;
-  }
+    const name=String(req.body?.name??"").trim(), email=normalizeEmail(req.body?.email), phone=String(req.body?.phone??"").trim(), subject=String(req.body?.subject??"").trim(), message=String(req.body?.message??"").trim();
+    if(!name||!email||!subject||!message||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {res.status(400).json({ok:false,error:"Veuillez remplir correctement les champs obligatoires."});return true;}
+    if(name.length>150||email.length>254||subject.length>200||message.length>5000){res.status(400).json({ok:false,error:"La longueur d'un ou plusieurs champs est invalide."});return true;}
+    const apiKey=process.env.RESEND_API_KEY, from=process.env.RESEND_FROM_EMAIL, to=process.env.CONTACT_RECEIVER_EMAIL;
+    if(!apiKey||!from||!to){res.status(500).json({ok:false,error:"Configuration email incomplète."});return true;}
+    const esc=(v:string)=>v.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]||c));
+    const html=`<div style="font-family:Arial,sans-serif"><h2>Nouveau message Contact — SiloCamp 2026</h2><p><strong>Nom :</strong> ${esc(name)}</p><p><strong>Email :</strong> ${esc(email)}</p><p><strong>Téléphone :</strong> ${esc(phone||"Non renseigné")}</p><p><strong>Sujet :</strong> ${esc(subject)}</p><hr/><p>${esc(message).replace(/\n/g,"<br/>")}</p></div>`;
+    const r=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({from,to:[to],reply_to:email,subject:`[SiloCamp Contact] ${subject}`,html})});
+    if(!r.ok){console.error("[Contact/Resend]",await r.text());res.status(502).json({ok:false,error:"Impossible d'envoyer le message."});return true;}
+    res.status(200).json({ok:true,message:"Votre message a été envoyé avec succès."});return true;
+  }catch(e:any){console.error("[Contact]",e);res.status(500).json({ok:false,error:e?.message||"Erreur lors de l'envoi du message."});return true;}
 }
 
 /* =========================================================
@@ -1557,33 +1402,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const sql = neon(databaseUrl);
 
     /* =====================================================
-   PARAMÈTRES PUBLICS DE L'ÉVÉNEMENT
-===================================================== */
-
-    if (route === "public/settings" && req.method === "GET") {
-      const settings = await getSettings(sql);
-
-      if (!settings) {
-        return res.status(404).json({
-          ok: false,
-          error: "Paramètres de l'événement introuvables.",
-        });
-      }
-
-      return res.status(200).json({
-        ok: true,
-        settings: {
-          eventName: settings.eventName,
-          eventDate: settings.eventDate,
-          eventTime: settings.eventTime,
-          eventLocation: settings.eventLocation,
-          capacity: Number(settings.capacity),
-          registrationsOpen: Boolean(settings.registrationsOpen),
-        },
-      });
-    }
-
-    /* =====================================================
        SETTINGS
     ===================================================== */
     if (route === "settings" && req.method === "GET") {
@@ -1595,39 +1413,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (route === "settings" && req.method === "PATCH") {
       if (!requireAdminSession(req, res)) return;
       const current = await getSettings(sql);
-      if (!current)
-        return res
-          .status(500)
-          .json({ ok: false, error: "Configuration SiloCamp introuvable." });
+      if (!current) return res.status(500).json({ ok:false, error:"Configuration SiloCamp introuvable." });
       const eventName = String(req.body?.eventName ?? current.eventName).trim();
       const eventDate = String(req.body?.eventDate ?? current.eventDate).trim();
       const eventTime = String(req.body?.eventTime ?? current.eventTime).trim();
-      const eventLocation = String(
-        req.body?.eventLocation ?? current.eventLocation ?? "",
-      ).trim();
+      const eventLocation = String(req.body?.eventLocation ?? current.eventLocation ?? "").trim();
       const capacity = Number(req.body?.capacity ?? current.capacity);
-      const registrationsOpen =
-        req.body?.registrationsOpen === undefined
-          ? Boolean(current.registrationsOpen)
-          : Boolean(req.body.registrationsOpen);
-      if (!eventName || !eventDate || !eventTime)
-        return res.status(400).json({
-          ok: false,
-          error: "Le nom, la date et l'heure de l'événement sont obligatoires.",
-        });
-      if (!Number.isInteger(capacity) || capacity < 1)
-        return res.status(400).json({
-          ok: false,
-          error: "La capacité doit être un nombre entier supérieur à 0.",
-        });
+      const registrationsOpen = req.body?.registrationsOpen === undefined ? Boolean(current.registrationsOpen) : Boolean(req.body.registrationsOpen);
+      if (!eventName || !eventDate || !eventTime) return res.status(400).json({ok:false,error:"Le nom, la date et l'heure de l'événement sont obligatoires."});
+      if (!Number.isInteger(capacity) || capacity < 1) return res.status(400).json({ok:false,error:"La capacité doit être un nombre entier supérieur à 0."});
       const stats = await getStats(sql);
-      if (capacity < stats.reserved)
-        return res.status(409).json({
-          ok: false,
-          error: `La capacité ne peut pas être inférieure aux ${stats.reserved} places déjà réservées.`,
-          capacity,
-          reserved: stats.reserved,
-        });
+      if (capacity < stats.reserved) return res.status(409).json({ok:false,error:`La capacité ne peut pas être inférieure aux ${stats.reserved} places déjà réservées.`,capacity,reserved:stats.reserved});
       const result = await sql`
         UPDATE "SiloCampSettings" SET
           "eventName"=${eventName}, "eventDate"=${eventDate}, "eventTime"=${eventTime},
@@ -1636,21 +1432,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE "id"=${SETTINGS_ID}
         RETURNING "id","eventName","eventDate","eventTime","eventLocation","capacity","registrationsOpen","updatedAt"
       `;
-      return res.status(200).json({
-        ok: true,
-        message: "Paramètres enregistrés avec succès.",
-        settings: result[0],
-      });
+      return res.status(200).json({ok:true,message:"Paramètres enregistrés avec succès.",settings:result[0]});
     }
 
-    if (route === "newsletter") {
-      await subscribeNewsletter(req, res);
-      return;
-    }
-    if (route === "contact") {
-      await sendContactEmail(req, res);
-      return;
-    }
+    if (route === "newsletter") { await subscribeNewsletter(req,res); return; }
+    if (route === "contact") { await sendContactEmail(req,res); return; }
 
     /* =====================================================
        NOTIFICATIONS
@@ -2060,53 +1846,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     /* =====================================================
        CREATE TICKET
+       Transaction + verrou advisory pour protéger la capacité
     ===================================================== */
 
     if (route === "tickets" && req.method === "POST") {
       const firstName = String(req.body?.firstName ?? "").trim();
-
       const lastName = String(req.body?.lastName ?? "").trim();
-
       const participantName = String(req.body?.participantName ?? "").trim();
-
       const email = normalizeEmail(req.body?.email);
-
       const phone = normalizePhone(req.body?.phone);
-
       const reservationIdInput = String(req.body?.reservationId ?? "").trim();
-
       const eventId = String(req.body?.eventId ?? "").trim();
-
       const eventTitle = String(req.body?.eventTitle ?? "").trim();
-
       const dateLabel = String(req.body?.dateLabel ?? "").trim();
-
       const time = String(req.body?.time ?? "").trim();
-
       const durationRaw = String(req.body?.duration ?? "").trim();
-
       const venue = String(req.body?.venue ?? "").trim();
-
       const city = String(req.body?.city ?? "").trim();
-
       const quantity = calculateQuantity(req.body?.quantity);
-
       const childrenUnder12 = calculateChildren(req.body?.childrenUnder12);
-
       const children12Plus = calculateChildren(req.body?.children12Plus);
-
-      const calculatedMinimumQuantity = Math.max(1, 1 + children12Plus);
-
-      const finalQuantity = Math.max(quantity, calculatedMinimumQuantity);
-
+      const finalQuantity = Math.max(quantity, 1 + children12Plus);
       const duration = durationRaw || null;
-
       const finalParticipantName =
         participantName || `${firstName} ${lastName}`.trim();
 
-      /* ---------------------------------------------------
-         VALIDATION
-      --------------------------------------------------- */
+      // ---------------------------------------------------
+      // VALIDATION
+      // ---------------------------------------------------
 
       if (!finalParticipantName) {
         return res.status(400).json({
@@ -2115,10 +1882,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      if (!email) {
+      if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
         return res.status(400).json({
           ok: false,
-          error: "Email requis.",
+          error: "Adresse email invalide.",
         });
       }
 
@@ -2136,223 +1903,338 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      if (!dateLabel) {
+      if (!dateLabel || !time || !venue || !city) {
         return res.status(400).json({
           ok: false,
-          error: "Date de l'événement requise.",
+          error: "Les informations de l'événement sont incomplètes.",
         });
       }
 
-      if (!time) {
+      if (childrenUnder12 < 0 || children12Plus < 0) {
         return res.status(400).json({
           ok: false,
-          error: "Heure de l'événement requise.",
+          error: "Le nombre d'enfants est invalide.",
         });
       }
 
-      if (!venue) {
-        return res.status(400).json({
-          ok: false,
-          error: "Lieu de l'événement requis.",
-        });
-      }
-
-      if (!city) {
-        return res.status(400).json({
-          ok: false,
-          error: "Ville de l'événement requise.",
-        });
-      }
-
-      /* ---------------------------------------------------
-         CAPACITÉ
-      --------------------------------------------------- */
-
-      const stats = await getStats(sql);
+      // S'assure que la table de paramètres existe avant la transaction.
       const settings = await getSettings(sql);
 
-      const capacity = Number(settings?.capacity ?? DEFAULT_TICKET_CAPACITY);
+      let dbPool: Pool | null = null;
+      let dbClient: any = null;
+      let transactionStarted = false;
+      let transactionFinished = false;
+      let ticket: TicketRow | undefined;
 
-      if (stats.reserved + finalQuantity > capacity) {
-        return res.status(409).json({
-          ok: false,
-          error: "La capacité maximale de l'événement est atteinte.",
-          capacity,
-          reserved: stats.reserved,
-          remaining: Math.max(0, capacity - stats.reserved),
+      try {
+        dbPool = new Pool({
+          connectionString: databaseUrl,
+          max: 1,
         });
-      }
 
-      if (!settings?.registrationsOpen) {
-        return res.status(403).json({
-          ok: false,
-          error: "Les inscriptions sont actuellement fermées.",
-        });
-      }
-      /* ---------------------------------------------------
-         DOUBLON EMAIL
-      --------------------------------------------------- */
+        dbClient = await dbPool.connect();
 
-      const existingEmail = await sql`
-          SELECT
-            "id",
-            "ticketNumber",
-            "participantName",
-            "email",
-            "phone",
-            "status"
-          FROM "Ticket"
-          WHERE
-            LOWER("email") =
-              ${email}
-            AND "status" IN (
-              'VALID',
-              'USED'
-            )
-          LIMIT 1
-        `;
+        await dbClient.query("BEGIN");
+        transactionStarted = true;
 
-      if (existingEmail.length > 0) {
-        return res.status(409).json({
-          ok: false,
-          error: "Une réservation existe déjà pour cette adresse email.",
-          ticket: existingEmail[0],
-        });
-      }
+        // Toutes les créations de billets prennent le même verrou.
+        // Cela évite que deux réservations dépassent la capacité simultanément.
+        await dbClient.query(
+          "SELECT pg_advisory_xact_lock(hashtext('silocamp_ticket_capacity'))",
+        );
 
-      /* ---------------------------------------------------
-         DOUBLON TÉLÉPHONE
-      --------------------------------------------------- */
+        // ---------------------------------------------------
+        // PARAMÈTRES ACTUELS
+        // ---------------------------------------------------
 
-      const existingPhone = await sql`
-          SELECT
-            "id",
-            "ticketNumber",
-            "participantName",
-            "email",
-            "phone",
-            "status"
-          FROM "Ticket"
-          WHERE
-            "phone" =
-              ${phone}
-            AND "status" IN (
-              'VALID',
-              'USED'
-            )
-          LIMIT 1
-        `;
-
-      if (existingPhone.length > 0) {
-        return res.status(409).json({
-          ok: false,
-          error: "Une réservation existe déjà pour ce numéro de téléphone.",
-          ticket: existingPhone[0],
-        });
-      }
-
-      /* ---------------------------------------------------
-         RESERVATION ID
-      --------------------------------------------------- */
-
-      let reservationId = reservationIdInput || generateReservationId();
-
-      let reservationExists = await sql`
-          SELECT
-            "id"
-          FROM "Ticket"
-          WHERE
-            "reservationId" =
-              ${reservationId}
-          LIMIT 1
-        `;
-
-      if (reservationExists.length > 0) {
-        reservationId = generateReservationId();
-
-        reservationExists = await sql`
+        const settingsResult = await dbClient.query(
+          `
             SELECT
-              "id"
-            FROM "Ticket"
-            WHERE
-              "reservationId" =
-                ${reservationId}
+              "eventName",
+              "eventDate",
+              "eventTime",
+              "eventLocation",
+              "capacity",
+              "registrationsOpen"
+            FROM "SiloCampSettings"
+            WHERE "id" = $1
             LIMIT 1
-          `;
+          `,
+          [SETTINGS_ID],
+        );
 
-        if (reservationExists.length > 0) {
-          return res.status(500).json({
+        const currentSettings = settingsResult.rows[0] || settings;
+
+        if (!currentSettings || !currentSettings.registrationsOpen) {
+          await dbClient.query("ROLLBACK");
+          transactionFinished = true;
+
+          return res.status(403).json({
             ok: false,
-            error:
-              "Impossible de générer un identifiant de réservation unique.",
+            error: "Les inscriptions sont actuellement fermées.",
           });
         }
+
+        const capacity = Number(
+          currentSettings.capacity ?? DEFAULT_TICKET_CAPACITY,
+        );
+
+        // ---------------------------------------------------
+        // CALCUL CAPACITÉ
+        // ---------------------------------------------------
+
+        const reservedResult = await dbClient.query(
+          `
+            SELECT
+              COALESCE(
+                SUM("quantity") FILTER (
+                  WHERE "status" IN ('VALID', 'USED')
+                ),
+                0
+              )::int AS reserved
+            FROM "Ticket"
+          `,
+        );
+
+        const reserved = Number(
+          reservedResult.rows[0]?.reserved ?? 0,
+        );
+
+        if (reserved + finalQuantity > capacity) {
+          await dbClient.query("ROLLBACK");
+          transactionFinished = true;
+
+          return res.status(409).json({
+            ok: false,
+            error: "La capacité maximale de l'événement est atteinte.",
+            capacity,
+            reserved,
+            remaining: Math.max(0, capacity - reserved),
+          });
+        }
+
+        // ---------------------------------------------------
+        // DOUBLON EMAIL
+        // ---------------------------------------------------
+
+        const existingEmail = await dbClient.query(
+          `
+            SELECT
+              "id",
+              "ticketNumber",
+              "participantName",
+              "email",
+              "phone",
+              "status"
+            FROM "Ticket"
+            WHERE
+              LOWER("email") = LOWER($1)
+              AND "status" IN ('VALID', 'USED')
+            LIMIT 1
+          `,
+          [email],
+        );
+
+        if (existingEmail.rows.length > 0) {
+          await dbClient.query("ROLLBACK");
+          transactionFinished = true;
+
+          return res.status(409).json({
+            ok: false,
+            error: "Une réservation existe déjà pour cette adresse email.",
+            ticket: existingEmail.rows[0],
+          });
+        }
+
+        // ---------------------------------------------------
+        // DOUBLON TÉLÉPHONE
+        // ---------------------------------------------------
+
+        const existingPhone = await dbClient.query(
+          `
+            SELECT
+              "id",
+              "ticketNumber",
+              "participantName",
+              "email",
+              "phone",
+              "status"
+            FROM "Ticket"
+            WHERE
+              "phone" = $1
+              AND "status" IN ('VALID', 'USED')
+            LIMIT 1
+          `,
+          [phone],
+        );
+
+        if (existingPhone.rows.length > 0) {
+          await dbClient.query("ROLLBACK");
+          transactionFinished = true;
+
+          return res.status(409).json({
+            ok: false,
+            error: "Une réservation existe déjà pour ce numéro de téléphone.",
+            ticket: existingPhone.rows[0],
+          });
+        }
+
+        // ---------------------------------------------------
+        // RESERVATION ID
+        // ---------------------------------------------------
+
+        let reservationId =
+          reservationIdInput || generateReservationId();
+
+        let reservationExists = await dbClient.query(
+          `
+            SELECT "id"
+            FROM "Ticket"
+            WHERE "reservationId" = $1
+            LIMIT 1
+          `,
+          [reservationId],
+        );
+
+        if (reservationExists.rows.length > 0) {
+          reservationId = generateReservationId();
+
+          reservationExists = await dbClient.query(
+            `
+              SELECT "id"
+              FROM "Ticket"
+              WHERE "reservationId" = $1
+              LIMIT 1
+            `,
+            [reservationId],
+          );
+
+          if (reservationExists.rows.length > 0) {
+            await dbClient.query("ROLLBACK");
+            transactionFinished = true;
+
+            return res.status(500).json({
+              ok: false,
+              error:
+                "Impossible de générer un identifiant de réservation unique.",
+            });
+          }
+        }
+
+        // ---------------------------------------------------
+        // GÉNÉRATION BILLET
+        // ---------------------------------------------------
+
+        const id = generateId();
+        const ticketNumber = generateTicketNumber();
+        const verificationToken = generateVerificationToken();
+
+        // ---------------------------------------------------
+        // INSERTION DU BILLET
+        // ---------------------------------------------------
+
+        const result = await dbClient.query(
+          `
+            INSERT INTO "Ticket" (
+              "id",
+              "ticketNumber",
+              "verificationToken",
+              "firstName",
+              "lastName",
+              "participantName",
+              "email",
+              "phone",
+              "reservationId",
+              "eventId",
+              "eventTitle",
+              "dateLabel",
+              "time",
+              "duration",
+              "venue",
+              "city",
+              "quantity",
+              "childrenUnder12",
+              "children12Plus",
+              "status"
+            )
+            VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+              $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+            )
+            RETURNING ${ticketColumns()}
+          `,
+          [
+            id,
+            ticketNumber,
+            verificationToken,
+            firstName || null,
+            lastName || null,
+            finalParticipantName,
+            email,
+            phone || null,
+            reservationId,
+            eventId || null,
+            eventTitle,
+            dateLabel,
+            time,
+            duration,
+            venue,
+            city,
+            finalQuantity,
+            childrenUnder12,
+            children12Plus,
+            "VALID",
+          ],
+        );
+
+        ticket = result.rows[0] as TicketRow | undefined;
+
+        if (!ticket) {
+          await dbClient.query("ROLLBACK");
+          transactionFinished = true;
+
+          return res.status(500).json({
+            ok: false,
+            error: "Impossible de créer le billet.",
+          });
+        }
+
+        // ---------------------------------------------------
+        // COMMIT
+        // ---------------------------------------------------
+
+        await dbClient.query("COMMIT");
+        transactionFinished = true;
+      } catch (error) {
+        if (dbClient && transactionStarted && !transactionFinished) {
+          try {
+            await dbClient.query("ROLLBACK");
+          } catch (rollbackError) {
+            console.error(
+              "[SiloCamp Create Ticket Rollback]",
+              rollbackError,
+            );
+          }
+        }
+
+        throw error;
+      } finally {
+        if (dbClient) {
+          try {
+            dbClient.release();
+          } catch (releaseError) {
+            console.error("[SiloCamp DB Release]", releaseError);
+          }
+        }
+
+        if (dbPool) {
+          try {
+            await dbPool.end();
+          } catch (poolError) {
+            console.error("[SiloCamp DB Pool End]", poolError);
+          }
+        }
       }
-
-      /* ---------------------------------------------------
-         GÉNÉRATION BILLET
-      --------------------------------------------------- */
-
-      const id = generateId();
-
-      const ticketNumber = generateTicketNumber();
-
-      const verificationToken = generateVerificationToken();
-
-      /* ---------------------------------------------------
-         INSERT TICKET
-      --------------------------------------------------- */
-
-      const result = await sql`
-          INSERT INTO "Ticket" (
-            "id",
-            "ticketNumber",
-            "verificationToken",
-            "firstName",
-            "lastName",
-            "participantName",
-            "email",
-            "phone",
-            "reservationId",
-            "eventId",
-            "eventTitle",
-            "dateLabel",
-            "time",
-            "duration",
-            "venue",
-            "city",
-            "quantity",
-            "childrenUnder12",
-            "children12Plus",
-            "status"
-          )
-          VALUES (
-            ${id},
-            ${ticketNumber},
-            ${verificationToken},
-            ${firstName || null},
-            ${lastName || null},
-            ${finalParticipantName},
-            ${email},
-            ${phone || null},
-            ${reservationId},
-            ${eventId || null},
-            ${eventTitle},
-            ${dateLabel},
-            ${time},
-            ${duration},
-            ${venue},
-            ${city},
-            ${finalQuantity},
-            ${childrenUnder12},
-            ${children12Plus},
-            'VALID'
-          )
-          RETURNING
-            ${sql.unsafe(ticketColumns())}
-        `;
-
-      const ticket = result[0] as TicketRow | undefined;
 
       if (!ticket) {
         return res.status(500).json({
@@ -2362,7 +2244,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // ---------------------------------------------------
-      // NOTIFICATION : NOUVELLE RÉSERVATION
+      // NOTIFICATION ADMIN
+      // Hors transaction : si elle échoue, le billet reste créé.
       // ---------------------------------------------------
 
       let notificationCreated = false;
@@ -2371,29 +2254,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const notificationId = generateId("notif_");
 
         await sql`
-    INSERT INTO "Notification" (
-      "id",
-      "type",
-      "title",
-      "message",
-      "ticketId",
-      "read",
-      "createdAt"
-    )
-    VALUES (
-      ${notificationId},
-      'TICKET_CREATED',
-      'Nouvelle réservation',
-      ${`${ticket.participantName} vient de réserver le billet ${ticket.ticketNumber}.`},
-      ${ticket.id},
-      false,
-      NOW()
-    )
-  `;
+          INSERT INTO "Notification" (
+            "id",
+            "type",
+            "title",
+            "message",
+            "ticketId",
+            "read",
+            "createdAt"
+          )
+          VALUES (
+            ${notificationId},
+            'TICKET_CREATED',
+            'Nouvelle réservation',
+            ${`${ticket.participantName} vient de réserver le billet ${ticket.ticketNumber}.`},
+            ${ticket.id},
+            false,
+            NOW()
+          )
+        `;
 
         notificationCreated = true;
       } catch (notificationError) {
-        console.error("[SiloCamp Notification - Création]", notificationError);
+        console.error(
+          "[SiloCamp Notification - Création]",
+          notificationError,
+        );
       }
 
       return res.status(201).json({
