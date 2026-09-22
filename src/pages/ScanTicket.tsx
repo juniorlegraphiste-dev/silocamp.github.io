@@ -33,10 +33,7 @@ import {
   type Ticket,
 } from "@/services/ticketService";
 
-import {
-  Html5Qrcode,
-  Html5QrcodeSupportedFormats,
-} from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
 type ScanState =
   | "idle"
@@ -92,19 +89,13 @@ export default function ScanTicket() {
         await scanner.stop();
       }
     } catch (error) {
-      console.warn(
-        "[SiloCamp Scanner] Stop error",
-        error,
-      );
+      console.warn("[SiloCamp Scanner] Stop error", error);
     }
 
     try {
       scanner.clear();
     } catch (error) {
-      console.warn(
-        "[SiloCamp Scanner] Clear error",
-        error,
-      );
+      console.warn("[SiloCamp Scanner] Clear error", error);
     }
   }, []);
 
@@ -137,26 +128,16 @@ export default function ScanTicket() {
         return;
       }
 
-      if (
-        response.ok &&
-        data?.authenticated === true
-      ) {
+      if (response.ok && data?.authenticated === true) {
         setAuthenticated(true);
 
-        setUsername(
-          typeof data.username === "string"
-            ? data.username
-            : "",
-        );
+        setUsername(typeof data.username === "string" ? data.username : "");
       } else {
         setAuthenticated(false);
         setUsername("");
       }
     } catch (error) {
-      console.error(
-        "[SiloCamp Auth Check]",
-        error,
-      );
+      console.error("[SiloCamp Auth Check]", error);
 
       if (
         !mountedRef.current ||
@@ -184,9 +165,7 @@ export default function ScanTicket() {
   }, []);
 
   const handleLogin = useCallback(
-    async (
-      event: FormEvent<HTMLFormElement>,
-    ) => {
+    async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
       if (authBusy) {
@@ -207,36 +186,26 @@ export default function ScanTicket() {
       logoutRef.current = false;
 
       try {
-        const response = await fetch(
-          "/api/auth/login",
-          {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              login: normalizedLogin,
-              password,
-            }),
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
           },
-        );
+          body: JSON.stringify({
+            login: normalizedLogin,
+            password,
+          }),
+        });
 
-        const data = await response
-          .json()
-          .catch(() => null);
+        const data = await response.json().catch(() => null);
 
-        if (
-          response.ok &&
-          data?.authenticated === true
-        ) {
+        if (response.ok && data?.authenticated === true) {
           authRequestRef.current++;
 
           setAuthenticated(true);
           setUsername(
-            typeof data.username === "string"
-              ? data.username
-              : normalizedLogin,
+            typeof data.username === "string" ? data.username : normalizedLogin,
           );
 
           setPassword("");
@@ -254,21 +223,13 @@ export default function ScanTicket() {
 
         setAuthenticated(false);
 
-        setAuthError(
-          data?.message ||
-            "Identifiant ou mot de passe incorrect.",
-        );
+        setAuthError(data?.message || "Identifiant ou mot de passe incorrect.");
       } catch (error) {
-        console.error(
-          "[SiloCamp Auth Login]",
-          error,
-        );
+        console.error("[SiloCamp Auth Login]", error);
 
         setAuthenticated(false);
 
-        setAuthError(
-          "Impossible de contacter le serveur d'authentification.",
-        );
+        setAuthError("Impossible de contacter le serveur d'authentification.");
       } finally {
         if (mountedRef.current) {
           setAuthBusy(false);
@@ -311,10 +272,7 @@ export default function ScanTicket() {
         Accept: "application/json",
       },
     }).catch((error) => {
-      console.error(
-        "[SiloCamp Auth Logout]",
-        error,
-      );
+      console.error("[SiloCamp Auth Logout]", error);
     });
   }, [authBusy, stopScanner]);
 
@@ -350,11 +308,7 @@ export default function ScanTicket() {
 
   const handleQRCode = useCallback(
     async (decodedText: string) => {
-      if (
-        processingRef.current ||
-        !authenticated ||
-        logoutRef.current
-      ) {
+      if (processingRef.current || !authenticated || logoutRef.current) {
         return;
       }
 
@@ -362,10 +316,7 @@ export default function ScanTicket() {
 
       await stopScanner();
 
-      if (
-        !mountedRef.current ||
-        logoutRef.current
-      ) {
+      if (!mountedRef.current || logoutRef.current) {
         processingRef.current = false;
         return;
       }
@@ -375,28 +326,19 @@ export default function ScanTicket() {
       setTicket(null);
 
       try {
-        const token =
-          extractVerificationToken(
-            decodedText,
-          );
+        const token = extractVerificationToken(decodedText);
 
         if (!token) {
           setState("error");
 
-          setMessage(
-            "QR Code invalide.",
-          );
+          setMessage("QR Code invalide.");
 
           return;
         }
 
-        const result =
-          await verifyTicket(token);
+        const result = await verifyTicket(token);
 
-        if (
-          !mountedRef.current ||
-          logoutRef.current
-        ) {
+        if (!mountedRef.current || logoutRef.current) {
           return;
         }
 
@@ -407,10 +349,7 @@ export default function ScanTicket() {
         if (result.valid) {
           setState("valid");
 
-          setMessage(
-            result.message ||
-              "Billet valide.",
-          );
+          setMessage(result.message || "Billet valide.");
 
           return;
         }
@@ -420,10 +359,7 @@ export default function ScanTicket() {
           case "USED":
             setState("used");
 
-            setMessage(
-              result.message ||
-                "Ce billet a déjà été utilisé.",
-            );
+            setMessage(result.message || "Ce billet a déjà été utilisé.");
 
             break;
 
@@ -431,10 +367,7 @@ export default function ScanTicket() {
           case "CANCELLED":
             setState("cancelled");
 
-            setMessage(
-              result.message ||
-                "Ce billet a été annulé.",
-            );
+            setMessage(result.message || "Ce billet a été annulé.");
 
             break;
 
@@ -442,10 +375,7 @@ export default function ScanTicket() {
           case "NOT_FOUND":
             setState("not-found");
 
-            setMessage(
-              result.message ||
-                "Billet introuvable.",
-            );
+            setMessage(result.message || "Billet introuvable.");
 
             break;
 
@@ -456,21 +386,12 @@ export default function ScanTicket() {
           default:
             setState("error");
 
-            setMessage(
-              result.message ||
-                "Impossible de vérifier ce billet.",
-            );
+            setMessage(result.message || "Impossible de vérifier ce billet.");
         }
       } catch (error) {
-        console.error(
-          "[SiloCamp Scanner]",
-          error,
-        );
+        console.error("[SiloCamp Scanner]", error);
 
-        if (
-          !mountedRef.current ||
-          logoutRef.current
-        ) {
+        if (!mountedRef.current || logoutRef.current) {
           return;
         }
 
@@ -485,11 +406,7 @@ export default function ScanTicket() {
         processingRef.current = false;
       }
     },
-    [
-      authenticated,
-      handleSessionExpired,
-      stopScanner,
-    ],
+    [authenticated, handleSessionExpired, stopScanner],
   );
 
   /*
@@ -499,11 +416,7 @@ export default function ScanTicket() {
    */
 
   const startScanner = useCallback(async () => {
-    if (
-      processingRef.current ||
-      !authenticated ||
-      logoutRef.current
-    ) {
+    if (processingRef.current || !authenticated || logoutRef.current) {
       return;
     }
 
@@ -514,24 +427,14 @@ export default function ScanTicket() {
     try {
       await stopScanner();
 
-      if (
-        !mountedRef.current ||
-        !authenticated ||
-        logoutRef.current
-      ) {
+      if (!mountedRef.current || !authenticated || logoutRef.current) {
         return;
       }
 
-      const scanner =
-        new Html5Qrcode(
-          "silocamp-qr-reader",
-          {
-            formatsToSupport: [
-              Html5QrcodeSupportedFormats.QR_CODE,
-            ],
-            verbose: false,
-          },
-        );
+      const scanner = new Html5Qrcode("silocamp-qr-reader", {
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        verbose: false,
+      });
 
       scannerRef.current = scanner;
 
@@ -551,24 +454,16 @@ export default function ScanTicket() {
           disableFlip: false,
         },
         async (decodedText) => {
-          await handleQRCode(
-            decodedText,
-          );
+          await handleQRCode(decodedText);
         },
         () => {},
       );
     } catch (error) {
-      console.error(
-        "[SiloCamp Scanner Start]",
-        error,
-      );
+      console.error("[SiloCamp Scanner Start]", error);
 
       await stopScanner();
 
-      if (
-        !mountedRef.current ||
-        logoutRef.current
-      ) {
+      if (!mountedRef.current || logoutRef.current) {
         return;
       }
 
@@ -578,11 +473,7 @@ export default function ScanTicket() {
         "Impossible d'accéder à la caméra. Autorise l'accès à la caméra dans ton navigateur puis réessaie.",
       );
     }
-  }, [
-    authenticated,
-    handleQRCode,
-    stopScanner,
-  ]);
+  }, [authenticated, handleQRCode, stopScanner]);
 
   /*
    * ---------------------------------------------------------
@@ -605,15 +496,9 @@ export default function ScanTicket() {
     setMessage("");
 
     try {
-      const updatedTicket =
-        await markTicketAsUsed(
-          ticket.ticketNumber,
-        );
+      const updatedTicket = await markTicketAsUsed(ticket.ticketNumber);
 
-      if (
-        !mountedRef.current ||
-        logoutRef.current
-      ) {
+      if (!mountedRef.current || logoutRef.current) {
         return;
       }
 
@@ -624,15 +509,9 @@ export default function ScanTicket() {
         "Le billet a été validé avec succès. Le participant peut entrer.",
       );
     } catch (error) {
-      console.error(
-        "[SiloCamp Validate Ticket]",
-        error,
-      );
+      console.error("[SiloCamp Validate Ticket]", error);
 
-      if (
-        !mountedRef.current ||
-        logoutRef.current
-      ) {
+      if (!mountedRef.current || logoutRef.current) {
         return;
       }
 
@@ -643,11 +522,7 @@ export default function ScanTicket() {
 
       setMessage(errorMessage);
 
-      if (
-        errorMessage
-          .toLowerCase()
-          .includes("déjà été utilisé")
-      ) {
+      if (errorMessage.toLowerCase().includes("déjà été utilisé")) {
         setState("used");
       }
     } finally {
@@ -655,11 +530,7 @@ export default function ScanTicket() {
         setBusy(false);
       }
     }
-  }, [
-    authenticated,
-    busy,
-    ticket,
-  ]);
+  }, [authenticated, busy, ticket]);
 
   /*
    * ---------------------------------------------------------
@@ -672,10 +543,7 @@ export default function ScanTicket() {
 
     processingRef.current = false;
 
-    if (
-      !mountedRef.current ||
-      logoutRef.current
-    ) {
+    if (!mountedRef.current || logoutRef.current) {
       return;
     }
 
@@ -704,10 +572,7 @@ export default function ScanTicket() {
 
       void stopScanner();
     };
-  }, [
-    checkAuthentication,
-    stopScanner,
-  ]);
+  }, [checkAuthentication, stopScanner]);
 
   /*
    * ---------------------------------------------------------
@@ -723,9 +588,7 @@ export default function ScanTicket() {
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
 
-          <h1 className="mt-5 text-xl font-black">
-            SiloCamp
-          </h1>
+          <h1 className="mt-5 text-xl font-black">SiloCamp</h1>
 
           <p className="mt-2 text-sm text-white/50">
             Vérification de votre session...
@@ -764,11 +627,9 @@ export default function ScanTicket() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 pb-16 pt-[110px] sm:px-6 sm:pt-[120px]">
       <div className="mx-auto w-full max-w-xl">
-
         {/* HEADER */}
         <header className="mb-7">
           <div className="flex items-start justify-between gap-4">
-
             <div className="min-w-0">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#d4ae63]/10 ring-1 ring-[#d4ae63]/20">
@@ -796,13 +657,9 @@ export default function ScanTicket() {
             >
               <LogOut className="h-4 w-4 shrink-0" />
 
-              <span className="hidden sm:inline">
-                Déconnexion
-              </span>
+              <span className="hidden sm:inline">Déconnexion</span>
 
-              <span className="sm:hidden">
-                Quitter
-              </span>
+              <span className="sm:hidden">Quitter</span>
             </button>
           </div>
 
@@ -812,23 +669,17 @@ export default function ScanTicket() {
 
               <span>
                 Connecté en tant que{" "}
-                <span className="font-black text-white">
-                  {username}
-                </span>
+                <span className="font-black text-white">{username}</span>
               </span>
             </div>
           )}
         </header>
 
         {/* SCANNER */}
-        {(state === "idle" ||
-          state === "scanning") && (
+        {(state === "idle" || state === "scanning") && (
           <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
-
             <div className="p-5 sm:p-7">
-
               <div className="mb-6 text-center">
-
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#d4ae63]/10">
                   <TicketIcon className="h-7 w-7 text-[#d4ae63]" />
                 </div>
@@ -838,17 +689,14 @@ export default function ScanTicket() {
                 </h2>
 
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                  Placez le QR Code du billet devant la caméra pour vérifier son authenticité.
+                  Placez le QR Code du billet devant la caméra pour vérifier son
+                  authenticité.
                 </p>
               </div>
 
               {/* CAMERA */}
               <div className="relative overflow-hidden rounded-[26px] bg-slate-950">
-
-                <div
-                  id="silocamp-qr-reader"
-                  className="min-h-[320px] w-full"
-                />
+                <div id="silocamp-qr-reader" className="min-h-[320px] w-full" />
 
                 {state === "idle" && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
@@ -860,7 +708,6 @@ export default function ScanTicket() {
                     </div>
                   </div>
                 )}
-
               </div>
 
               {/* CAMERA BUTTON */}
@@ -886,7 +733,6 @@ export default function ScanTicket() {
                 <ShieldCheck className="h-4 w-4 text-[#d4ae63]" />
                 Vérification sécurisée SiloCamp
               </div>
-
             </div>
           </div>
         )}
@@ -894,9 +740,7 @@ export default function ScanTicket() {
         {/* VERIFYING */}
         {state === "verifying" && (
           <StatusCard
-            icon={
-              <Loader2 className="h-11 w-11 animate-spin text-blue-600" />
-            }
+            icon={<Loader2 className="h-11 w-11 animate-spin text-blue-600" />}
             title="Vérification en cours"
             message="Nous vérifions ce billet auprès du serveur SiloCamp."
             background="bg-blue-50"
@@ -904,57 +748,52 @@ export default function ScanTicket() {
         )}
 
         {/* VALID */}
-        {state === "valid" &&
-          ticket && (
-            <TicketResult
-              ticket={ticket}
-              status="valid"
-              message={message}
-              onConfirm={confirmEntry}
-              onReset={resetScanner}
-              busy={busy}
-            />
-          )}
+        {state === "valid" && ticket && (
+          <TicketResult
+            ticket={ticket}
+            status="valid"
+            message={message}
+            onConfirm={confirmEntry}
+            onReset={resetScanner}
+            busy={busy}
+          />
+        )}
 
         {/* CONFIRMED */}
-        {state === "confirmed" &&
-          ticket && (
-            <TicketResult
-              ticket={ticket}
-              status="confirmed"
-              message={message}
-              onReset={resetScanner}
-              busy={false}
-            />
-          )}
+        {state === "confirmed" && ticket && (
+          <TicketResult
+            ticket={ticket}
+            status="confirmed"
+            message={message}
+            onReset={resetScanner}
+            busy={false}
+          />
+        )}
 
         {/* USED */}
-        {state === "used" &&
-          ticket && (
-            <TicketResult
-              ticket={ticket}
-              status="used"
-              message={message}
-              onReset={resetScanner}
-              busy={false}
-            />
-          )}
+        {state === "used" && ticket && (
+          <TicketResult
+            ticket={ticket}
+            status="used"
+            message={message}
+            onReset={resetScanner}
+            busy={false}
+          />
+        )}
 
         {/* CANCELLED */}
-        {state === "cancelled" &&
-          ticket && (
-            <TicketResult
-              ticket={ticket}
-              status="cancelled"
-              message={message}
-              onReset={resetScanner}
-              busy={false}
-            />
-          )}
+        {state === "cancelled" && ticket && (
+          <TicketResult
+            ticket={ticket}
+            status="cancelled"
+            message={message}
+            onReset={resetScanner}
+            busy={false}
+          />
+        )}
 
         {/* ERROR */}
-        {(state === "not-found" ||
-          state === "error") && (
+        {(state === "not-found" || state === "error") && (
           <StatusCard
             icon={
               state === "not-found" ? (
@@ -968,10 +807,7 @@ export default function ScanTicket() {
                 ? "Billet introuvable"
                 : "Une erreur est survenue"
             }
-            message={
-              message ||
-              "Impossible de vérifier ce billet."
-            }
+            message={message || "Impossible de vérifier ce billet."}
             background="bg-red-50"
             action={
               <button
@@ -991,11 +827,8 @@ export default function ScanTicket() {
         {/* ------------------------------------------------ */}
 
         <section className="mt-8 overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.06] shadow-2xl backdrop-blur-xl">
-
           <div className="p-6 sm:p-8">
-
             <div className="mb-6 flex items-center gap-3">
-
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#d4ae63]/10">
                 <TicketIcon className="h-5 w-5 text-[#d4ae63]" />
               </div>
@@ -1012,7 +845,8 @@ export default function ScanTicket() {
             </div>
 
             <p className="text-sm leading-6 text-white/55">
-              Saisissez les informations utilisées lors de votre inscription afin d'annuler votre billet SiloCamp.
+              Saisissez les informations utilisées lors de votre inscription
+              afin d'annuler votre billet SiloCamp.
             </p>
 
             <a
@@ -1020,17 +854,16 @@ export default function ScanTicket() {
               className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#d4ae63] px-5 py-4 text-sm font-black text-slate-950 shadow-lg shadow-[#d4ae63]/10 transition hover:bg-[#e5c37d] active:scale-[0.99]"
             >
               Accéder à l'annulation
-              <span aria-hidden="true">
-                →
-              </span>
+              <span aria-hidden="true">→</span>
             </a>
 
             <div className="mt-5 rounded-2xl border border-red-400/10 bg-red-400/[0.04] p-4">
               <p className="text-xs leading-5 text-white/45">
-                L'annulation de votre billet est définitive. Une réservation annulée ne pourra plus être utilisée pour accéder au Camp International Silo 2026.
+                L'annulation de votre billet est définitive. Une réservation
+                annulée ne pourra plus être utilisée pour accéder au Camp
+                International Silo 2026.
               </p>
             </div>
-
           </div>
         </section>
 
@@ -1039,7 +872,6 @@ export default function ScanTicket() {
         {/* ------------------------------------------------ */}
 
         <footer className="py-10 text-center">
-
           <div className="mx-auto mb-5 h-px w-16 bg-[#d4ae63]/30" />
 
           <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">
@@ -1053,9 +885,7 @@ export default function ScanTicket() {
           <p className="mt-4 text-[11px] font-medium text-white/25">
             SiloCamp · Contrôle sécurisé des billets
           </p>
-
         </footer>
-
       </div>
     </main>
   );
@@ -1082,159 +912,156 @@ function LoginScreen({
   authError: string;
   onLoginChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
-  onSubmit: (
-    event: FormEvent<HTMLFormElement>,
-  ) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <main className="min-h-screen bg-slate-950 px-4 pb-16 pt-28 sm:px-6 sm:pt-32">
-
-      <div className="mx-auto flex w-full max-w-md flex-col justify-center">
-
-        <div className="mb-8 text-center">
-
-          <div className="mb-4 flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#d4ae63]/10 ring-1 ring-[#d4ae63]/20">
-              <ShieldCheck className="h-8 w-8 text-[#d4ae63]" />
+    <main className="min-h-screen bg-slate-950 px-4 py-10 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-md items-center justify-center">
+        <div className="w-full">
+          {/* LOGO / IDENTITÉ */}
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 shadow-xl ring-1 ring-white/10">
+              <TicketIcon className="h-8 w-8 text-white" />
             </div>
-          </div>
 
-          <h1 className="text-2xl font-black tracking-tight text-white">
-            SiloCamp
-          </h1>
+            <h1 className="text-3xl font-black tracking-tight text-white">
+              SiloCamp
+            </h1>
 
-          <p className="mt-1 text-sm font-black text-[#d4ae63]">
-            des billets
-          </p>
-
-          <p className="mt-2 text-sm font-semibold text-white/60">
-            Contrôle sécurisé des billets
-          </p>
-
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl sm:p-8">
-
-          <div className="mb-6">
-            <h2 className="text-xl font-black text-white">
-              Connexion
-            </h2>
-
-            <p className="mt-1 text-sm text-white/50">
-              Accès réservé au contrôle des entrées
+            <p className="mt-1 text-sm font-black text-[#d4ae63]">
+              Contrôle des billets
             </p>
           </div>
 
-          <form
-            onSubmit={onSubmit}
-            className="space-y-5"
-          >
+          {/* CARD */}
+          <div className="overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.06] shadow-2xl backdrop-blur-xl">
+            <div className="p-6 sm:p-8">
+              {/* TITRE */}
+              <div className="mb-7">
+                <h2 className="text-xl font-black text-white">
+                  Connexion scanner
+                </h2>
 
-            <div>
-              <label
-                htmlFor="scanner-login"
-                className="mb-2 block text-sm font-bold text-white"
-              >
-                Identifiant
-              </label>
-
-              <input
-                id="scanner-login"
-                type="text"
-                value={login}
-                onChange={(event) =>
-                  onLoginChange(
-                    event.target.value,
-                  )
-                }
-                placeholder="Votre identifiant"
-                autoComplete="username"
-                disabled={authBusy}
-                className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-[#d4ae63]/50 focus:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="scanner-password"
-                className="mb-2 block text-sm font-bold text-white"
-              >
-                Mot de passe
-              </label>
-
-              <input
-                id="scanner-password"
-                type="password"
-                value={password}
-                onChange={(event) =>
-                  onPasswordChange(
-                    event.target.value,
-                  )
-                }
-                placeholder="Votre mot de passe"
-                autoComplete="current-password"
-                disabled={authBusy}
-                className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-[#d4ae63]/50 focus:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
-              />
-            </div>
-
-            {authError && (
-              <div className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-300">
-                {authError}
+                <p className="mt-2 text-sm leading-6 text-white/50">
+                  Connectez-vous pour accéder au scanner des billets.
+                </p>
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={authBusy}
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d4ae63] px-5 text-sm font-black text-slate-950 transition hover:bg-[#e5c37d] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {authBusy
-                ? "Connexion..."
-                : "Se connecter"}
-            </button>
+              {/* FORMULAIRE */}
+              <form onSubmit={onSubmit} className="space-y-5">
+                {/* IDENTIFIANT */}
+                <div>
+                  <label
+                    htmlFor="scanner-login"
+                    className="mb-2 block text-sm font-bold text-white"
+                  >
+                    Identifiant
+                  </label>
 
-          </form>
+                  <input
+                    id="scanner-login"
+                    type="text"
+                    value={login}
+                    onChange={(event) => onLoginChange(event.target.value)}
+                    placeholder="Votre identifiant"
+                    autoComplete="username"
+                    disabled={authBusy}
+                    className="h-13 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none transition placeholder:text-white/30 focus:border-[#d4ae63]/60 focus:bg-white/[0.08] focus:ring-2 focus:ring-[#d4ae63]/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                </div>
+
+                {/* MOT DE PASSE */}
+                <div>
+                  <label
+                    htmlFor="scanner-password"
+                    className="mb-2 block text-sm font-bold text-white"
+                  >
+                    Mot de passe
+                  </label>
+
+                  <input
+                    id="scanner-password"
+                    type="password"
+                    value={password}
+                    onChange={(event) => onPasswordChange(event.target.value)}
+                    placeholder="Votre mot de passe"
+                    autoComplete="current-password"
+                    disabled={authBusy}
+                    className="h-13 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none transition placeholder:text-white/30 focus:border-[#d4ae63]/60 focus:bg-white/[0.08] focus:ring-2 focus:ring-[#d4ae63]/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                </div>
+
+                {/* ERREUR */}
+                {authError && (
+                  <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold leading-5 text-red-300">
+                    {authError}
+                  </div>
+                )}
+
+                {/* BOUTON */}
+                <button
+                  type="submit"
+                  disabled={authBusy}
+                  className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#d4ae63] px-5 text-sm font-black text-slate-950 shadow-lg shadow-[#d4ae63]/10 transition hover:bg-[#e5c37d] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {authBusy ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Connexion...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="h-5 w-5" />
+                      Se connecter
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* SECURITY */}
+            <div className="border-t border-white/10 bg-black/10 px-6 py-4 text-center sm:px-8">
+              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-white/35">
+                <ShieldCheck className="h-4 w-4 text-[#d4ae63]" />
+                Accès sécurisé SiloCamp
+              </div>
+            </div>
+          </div>
+
+          {/* FOOTER */}
+          <div className="mt-7 text-center">
+            <p className="text-xs font-black text-white/45">
+              SiloCamp
+              <span className="mx-2 text-white/20">·</span>
+              Camp International Silo 2026
+            </p>
+          </div>
         </div>
-
-        <div className="mt-6 text-center">
-          <p className="text-xs font-semibold text-white/35">
-            Accès sécurisé SiloCamp
-          </p>
-        </div>
-
       </div>
     </main>
   );
 }
-
 /*
  * =========================================================
  * EXTRACT TOKEN
  * =========================================================
  */
 
-function extractVerificationToken(
-  value: string,
-): string | null {
+function extractVerificationToken(value: string): string | null {
   const text = value.trim();
 
   if (!text) {
     return null;
   }
 
-  if (
-    !text.startsWith("http://") &&
-    !text.startsWith("https://")
-  ) {
+  if (!text.startsWith("http://") && !text.startsWith("https://")) {
     return text;
   }
 
   try {
     const url = new URL(text);
 
-    const token =
-      url.searchParams.get("token");
+    const token = url.searchParams.get("token");
 
     return token?.trim() || null;
   } catch {
@@ -1263,25 +1090,20 @@ function StatusCard({
 }) {
   return (
     <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
-
       <div className="p-8 text-center sm:p-10">
-
         <div
           className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full ${background}`}
         >
           {icon}
         </div>
 
-        <h2 className="mt-6 text-2xl font-black text-slate-900">
-          {title}
-        </h2>
+        <h2 className="mt-6 text-2xl font-black text-slate-900">{title}</h2>
 
         <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
           {message}
         </p>
 
         {action}
-
       </div>
     </div>
   );
@@ -1302,11 +1124,7 @@ function TicketResult({
   busy,
 }: {
   ticket: Ticket;
-  status:
-    | "valid"
-    | "confirmed"
-    | "used"
-    | "cancelled";
+  status: "valid" | "confirmed" | "used" | "cancelled";
   message: string;
   onConfirm?: () => void;
   onReset: () => void;
@@ -1342,11 +1160,7 @@ function TicketResult({
 
   return (
     <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
-
-      <div
-        className={`px-6 py-9 text-center text-white ${statusBackground}`}
-      >
-
+      <div className={`px-6 py-9 text-center text-white ${statusBackground}`}>
         {isConfirmed || isValid ? (
           <CheckCircle2 className="mx-auto h-16 w-16" />
         ) : (
@@ -1358,8 +1172,7 @@ function TicketResult({
         </h2>
 
         <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-white/85">
-          {message ||
-            statusDescription}
+          {message || statusDescription}
         </p>
 
         {isValid && (
@@ -1368,13 +1181,10 @@ function TicketResult({
             Vérification réussie
           </div>
         )}
-
       </div>
 
       <div className="p-5 sm:p-7">
-
         <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center">
-
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
             Numéro du billet
           </p>
@@ -1382,157 +1192,108 @@ function TicketResult({
           <p className="mt-2 break-all font-mono text-xl font-black text-slate-900">
             {ticket.ticketNumber}
           </p>
-
         </div>
 
         <div className="space-y-3">
-
           <InfoRow
-            icon={
-              <User className="h-4 w-4" />
-            }
+            icon={<User className="h-4 w-4" />}
             label="Participant"
             value={
               ticket.participantName ||
-              [
-                ticket.firstName,
-                ticket.lastName,
-              ]
-                .filter(Boolean)
-                .join(" ") ||
+              [ticket.firstName, ticket.lastName].filter(Boolean).join(" ") ||
               "—"
             }
           />
 
           <InfoRow
-            icon={
-              <Mail className="h-4 w-4" />
-            }
+            icon={<Mail className="h-4 w-4" />}
             label="E-mail"
-            value={
-              ticket.email || "—"
-            }
+            value={ticket.email || "—"}
           />
 
           <InfoRow
-            icon={
-              <Phone className="h-4 w-4" />
-            }
+            icon={<Phone className="h-4 w-4" />}
             label="Téléphone"
-            value={
-              ticket.phone || "—"
-            }
+            value={ticket.phone || "—"}
           />
 
           <InfoRow
-            icon={
-              <TicketIcon className="h-4 w-4" />
-            }
+            icon={<TicketIcon className="h-4 w-4" />}
             label="Événement"
-            value={
-              ticket.eventTitle || "—"
-            }
+            value={ticket.eventTitle || "—"}
           />
 
           <InfoRow
-            icon={
-              <CalendarDays className="h-4 w-4" />
-            }
+            icon={<CalendarDays className="h-4 w-4" />}
             label="Date"
-            value={
-              ticket.dateLabel || "—"
-            }
+            value={ticket.dateLabel || "—"}
           />
 
           <InfoRow
-            icon={
-              <Clock3 className="h-4 w-4" />
-            }
+            icon={<Clock3 className="h-4 w-4" />}
             label="Heure"
-            value={
-              ticket.time || "—"
-            }
+            value={ticket.time || "—"}
           />
 
           <InfoRow
-            icon={
-              <MapPin className="h-4 w-4" />
-            }
+            icon={<MapPin className="h-4 w-4" />}
             label="Lieu"
             value={
-              [
-                ticket.venue,
-                ticket.city,
-              ]
-                .filter(Boolean)
-                .join(" — ") || "—"
+              [ticket.venue, ticket.city].filter(Boolean).join(" — ") || "—"
             }
           />
 
           {ticket.reservationId && (
             <InfoRow
-              icon={
-                <ShieldCheck className="h-4 w-4" />
-              }
+              icon={<ShieldCheck className="h-4 w-4" />}
               label="Réservation"
-              value={
-                ticket.reservationId
-              }
+              value={ticket.reservationId}
             />
           )}
-
         </div>
 
         {isValid && (
           <div className="mt-7 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-
             <div className="flex items-start gap-3">
-
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
 
               <div>
-
                 <p className="text-sm font-black text-emerald-900">
                   Prêt pour l'entrée
                 </p>
 
                 <p className="mt-1 text-xs leading-5 text-emerald-700">
-                  Vérifie rapidement les informations du participant avant de confirmer son accès.
+                  Vérifie rapidement les informations du participant avant de
+                  confirmer son accès.
                 </p>
-
               </div>
-
             </div>
           </div>
         )}
 
-        {isValid &&
-          !isConfirmed &&
-          !isUsed &&
-          !isCancelled && (
-            <button
-              type="button"
-              onClick={onConfirm}
-              disabled={busy}
-              className="mt-6 flex min-h-16 w-full touch-manipulation items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-5 py-4 text-base font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {busy ? (
-                <>
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  Validation en cours...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-6 w-6" />
-                  Valider l'entrée
-                </>
-              )}
-            </button>
-          )}
+        {isValid && !isConfirmed && !isUsed && !isCancelled && (
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="mt-6 flex min-h-16 w-full touch-manipulation items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-5 py-4 text-base font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? (
+              <>
+                <Loader2 className="h-6 w-6 animate-spin" />
+                Validation en cours...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-6 w-6" />
+                Valider l'entrée
+              </>
+            )}
+          </button>
+        )}
 
         {isConfirmed && (
           <div className="mt-6 rounded-2xl bg-emerald-50 p-5 text-center">
-
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle2 className="h-7 w-7 text-emerald-600" />
             </div>
@@ -1544,7 +1305,6 @@ function TicketResult({
             <p className="mt-1 text-xs text-emerald-700">
               Le participant peut entrer dans l'événement.
             </p>
-
           </div>
         )}
 
@@ -1557,7 +1317,6 @@ function TicketResult({
           <RotateCcw className="h-5 w-5" />
           Scanner un autre billet
         </button>
-
       </div>
     </div>
   );
@@ -1580,13 +1339,11 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-white p-3">
-
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
         {icon}
       </div>
 
       <div className="min-w-0 flex-1">
-
         <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
           {label}
         </p>
@@ -1594,7 +1351,6 @@ function InfoRow({
         <p className="mt-1 break-words text-sm font-bold text-slate-900">
           {value}
         </p>
-
       </div>
     </div>
   );
