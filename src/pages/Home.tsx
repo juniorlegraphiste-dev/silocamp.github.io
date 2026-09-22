@@ -1,12 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
   Eye,
-  HandHeart,
   MapPin,
   Music,
   QrCode,
@@ -21,22 +20,65 @@ import intimateImg from "@/assets/event-intimate.jpg";
 import { Countdown } from "@/components/Countdown";
 import { SectionHeading } from "@/components/SectionHeading";
 import { EventCard } from "@/components/EventCard";
-import { Reveal, staggerContainer, staggerItem } from "@/components/Reveal";
+import {
+  Reveal,
+  staggerContainer,
+  staggerItem,
+} from "@/components/Reveal";
 
 import { events, featuredEvent } from "@/data/events";
 import { useCart } from "@/context/CartContext";
 import { getTicketsRemaining } from "@/services/ticketService";
+import {
+  getPublicEventSettings,
+  type PublicEventSettings,
+} from "@/services/settingsService";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const MAX_TICKETS = 1200;
+const DEFAULT_CAPACITY = 1200;
 
 /* =========================================================
    HOME
 ========================================================= */
 
 export default function Home() {
-  const [ticketsRemaining, setTicketsRemaining] = useState<number>(MAX_TICKETS);
+  const location = useLocation();
+
+  const [settings, setSettings] =
+    useState<PublicEventSettings | null>(null);
+
+  const [ticketsRemaining, setTicketsRemaining] =
+    useState<number>(DEFAULT_CAPACITY);
+
+  /* ---------------------------------------------------------
+     Charger les paramètres publics de l'événement
+  --------------------------------------------------------- */
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSettings() {
+      try {
+        const data = await getPublicEventSettings();
+
+        if (mounted) {
+          setSettings(data);
+        }
+      } catch (error) {
+        console.error(
+          "[SiloCamp] Erreur lors du chargement des paramètres :",
+          error,
+        );
+      }
+    }
+
+    loadSettings();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   /* ---------------------------------------------------------
      Charger le stock disponible
@@ -50,10 +92,20 @@ export default function Home() {
         const remaining = await getTicketsRemaining();
 
         if (mounted) {
-          setTicketsRemaining(Math.max(0, Math.min(MAX_TICKETS, remaining)));
+          const capacity = settings?.capacity ?? DEFAULT_CAPACITY;
+
+          setTicketsRemaining(
+            Math.max(
+              0,
+              Math.min(capacity, remaining),
+            ),
+          );
         }
       } catch (error) {
-        console.error("Erreur lors du chargement des billets :", error);
+        console.error(
+          "Erreur lors du chargement des billets :",
+          error,
+        );
       }
     }
 
@@ -62,41 +114,85 @@ export default function Home() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [settings?.capacity]);
+
+  /* ---------------------------------------------------------
+     Gestion du scroll depuis la navigation
+  --------------------------------------------------------- */
 
   useEffect(() => {
-    const sectionId = sessionStorage.getItem("silo-scroll-to");
+    const state = location.state as
+      | { scrollTo?: string }
+      | null;
 
-    if (!sectionId) {
+    const id = state?.scrollTo;
+
+    if (!id) {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+
       return;
     }
 
     const timer = window.setTimeout(() => {
-      const element = document.getElementById(sectionId);
+      const element = document.getElementById(id);
 
-      if (!element) {
-        console.warn(`Section #${sectionId} introuvable`);
-        sessionStorage.removeItem("silo-scroll-to");
-        return;
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       }
 
-      const navbarHeight = 80;
-
-      const top =
-        element.getBoundingClientRect().top + window.scrollY - navbarHeight;
-
-      window.scrollTo({
-        top,
-        behavior: "smooth",
-      });
-
-      sessionStorage.removeItem("silo-scroll-to");
-    }, 350);
+      window.history.replaceState(
+        {},
+        document.title,
+      );
+    }, 200);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [location]);
+
+  /* ---------------------------------------------------------
+     Paramètres affichés publiquement
+  --------------------------------------------------------- */
+
+  const eventName =
+    settings?.eventName ||
+    "Camp International Silo 2026";
+
+  const eventDate =
+    settings?.eventDate ||
+    featuredEvent.dateISO.slice(0, 10);
+
+  const eventTime =
+    settings?.eventTime ||
+    featuredEvent.time;
+
+  const eventLocation =
+    settings?.eventLocation ||
+    `${featuredEvent.venue}, ${featuredEvent.city}`;
+
+  const capacity =
+    settings?.capacity ??
+    DEFAULT_CAPACITY;
+
+  const registrationsOpen =
+    settings?.registrationsOpen ??
+    true;
+
+  /* ---------------------------------------------------------
+     Date pour le compte à rebours
+  --------------------------------------------------------- */
+
+  const countdownTarget =
+    settings?.eventDate && settings?.eventTime
+      ? `${settings.eventDate}T${settings.eventTime}:00+01:00`
+      : featuredEvent.dateISO;
 
   return (
     <>
@@ -104,7 +200,15 @@ export default function Home() {
           HERO
       ===================================================== */}
 
-      <Hero ticketsRemaining={ticketsRemaining} />
+      <Hero
+        ticketsRemaining={ticketsRemaining}
+        eventName={eventName}
+        eventDate={eventDate}
+        eventTime={eventTime}
+        eventLocation={eventLocation}
+        countdownTarget={countdownTarget}
+        registrationsOpen={registrationsOpen}
+      />
 
       {/* =====================================================
           BANDEAU
@@ -116,19 +220,32 @@ export default function Home() {
           STATISTIQUES
       ===================================================== */}
 
-      <Stats ticketsRemaining={ticketsRemaining} />
+      <Stats
+        ticketsRemaining={ticketsRemaining}
+        capacity={capacity}
+      />
 
       {/* =====================================================
           EXPÉRIENCE
       ===================================================== */}
 
-      <Experience />
+      <Experience
+        eventName={eventName}
+        capacity={capacity}
+        eventLocation={eventLocation}
+      />
 
       {/* =====================================================
           ÉVÉNEMENT À LA UNE
       ===================================================== */}
 
-      <FeaturedEvent ticketsRemaining={ticketsRemaining} />
+      <FeaturedEvent
+        ticketsRemaining={ticketsRemaining}
+        eventName={eventName}
+        eventDate={eventDate}
+        eventLocation={eventLocation}
+        registrationsOpen={registrationsOpen}
+      />
 
       {/* =====================================================
           PROCHAINS ÉVÉNEMENTS
@@ -155,40 +272,71 @@ export default function Home() {
    HERO
 ========================================================= */
 
-function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
+function Hero({
+  ticketsRemaining,
+  eventName,
+  eventDate,
+  eventTime,
+  eventLocation,
+  countdownTarget,
+  registrationsOpen,
+}: {
+  ticketsRemaining: number;
+  eventName: string;
+  eventDate: string;
+  eventTime: string;
+  eventLocation: string;
+  countdownTarget: string;
+  registrationsOpen: boolean;
+}) {
   const { setEvent } = useCart();
 
   return (
     <section
       id="accueil"
-      className="relative flex min-h-[90vh] scroll-mt-20 items-center overflow-hidden"
+      className="relative flex min-h-[90vh] items-center overflow-hidden"
     >
-      {/* Vidéo de fond */}
-      <motion.video
+      {/* =====================================================
+          VIDÉO DE FOND
+      ===================================================== */}
+
+      <video
         className="absolute inset-0 h-full w-full object-cover"
         autoPlay
         muted
         loop
         playsInline
         poster={heroImg}
-        initial={{ scale: 1.08 }}
+        preload="metadata"
+      >
+        <source
+          src="/videos/hero-silocamp.mp4"
+          type="video/mp4"
+        />
+      </video>
+
+      {/* Image de secours */}
+
+      <motion.img
+        src={heroImg}
+        alt="Foule en adoration lors du Camp International Silo"
+        fetchPriority="high"
+        className="absolute inset-0 -z-10 h-full w-full object-cover"
+        initial={{ scale: 1.12 }}
         animate={{ scale: 1 }}
         transition={{
           duration: 12,
           ease: "easeOut",
         }}
-      >
-        <source src="/videos/hero-silocamp.mp4" type="video/mp4" />
-        Votre navigateur ne prend pas en charge les vidéos HTML5.
-      </motion.video>
+      />
 
       {/* Voiles */}
 
-      <div className="absolute inset-0 bg-black/45" />
+      <div className="absolute inset-0 bg-black/55" />
 
-      <div className="absolute inset-0 bg-gradient-to-r from-ink-950/95 via-ink-950/75 to-ink-950/35" />
+      <div className="absolute inset-0 bg-gradient-to-r from-ink-950/95 via-ink-950/70 to-ink-950/30" />
 
-      <div className="absolute inset-0 bg-gradient-to-t from-ink-950/85 via-ink-950/20 to-ink-950/40" />
+      <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-transparent to-ink-950/40" />
 
       {/* Contenu */}
 
@@ -205,7 +353,9 @@ function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
             <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-gold-400/30 bg-ink-950/40 px-3 py-1.5 text-[10px] tracking-[0.18em] text-gold-200 backdrop-blur sm:px-4 sm:text-xs sm:tracking-[0.25em]">
               <span className="h-1.5 w-1.5 shrink-0 animate-glow rounded-full bg-gold-300" />
 
-              <span>CAMP INTERNATIONAL SILO · 3e ÉDITION · 2026</span>
+              <span>
+                {eventName} · 3e ÉDITION · 2026
+              </span>
             </span>
           </motion.div>
 
@@ -215,8 +365,10 @@ function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
             variants={staggerItem}
             className="mt-6 font-display text-5xl font-medium leading-[0.98] text-cream sm:text-7xl md:text-8xl"
           >
-            Vivez le Feu du Réveil dans{" "}
-            <span className="text-gold-gradient">la Présence de Dieu</span>
+            Vivez le surnaturel dans{" "}
+            <span className="text-gold-gradient">
+              la présence de Dieu
+            </span>
           </motion.h1>
 
           {/* Description */}
@@ -226,18 +378,21 @@ function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
             className="mt-6 max-w-2xl text-base leading-relaxed text-gray-300 sm:text-lg"
           >
             <span className="font-semibold text-cream">
-              Le Camp International Silo
+              {eventName}
             </span>{" "}
-            est un salon de changement de mentalité et d’attitude dans notre
-            manière de louer, un lieu de réjouissance et de victoire où nous
-            faisons un vœu à l’Éternel, bâtissons un autel et apprenons à
-            entendre Dieu pour nous-mêmes.
+            est un rassemblement de réveil qui réunit des
+            adorateurs de plusieurs pays pour vivre des moments
+            puissants de communion, d'enseignement, de prière
+            et de louange dans la présence de Dieu.
           </motion.p>
 
           {/* Compte à rebours */}
 
-          <motion.div variants={staggerItem} className="mt-8 md:mt-9">
-            <Countdown target={featuredEvent.dateISO} />
+          <motion.div
+            variants={staggerItem}
+            className="mt-8 md:mt-9"
+          >
+            <Countdown target={countdownTarget} />
           </motion.div>
 
           {/* CTA */}
@@ -246,29 +401,52 @@ function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
             variants={staggerItem}
             className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
           >
-            <Link
-              to="/billetterie"
-              onClick={() => setEvent(featuredEvent.id)}
-              className="btn-gold inline-flex items-center justify-center gap-2 text-base"
-            >
-              Réserver gratuitement mon billet
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            {registrationsOpen && ticketsRemaining > 0 ? (
+              <Link
+                to="/billetterie"
+                onClick={() =>
+                  setEvent(featuredEvent.id)
+                }
+                className="btn-gold inline-flex items-center justify-center gap-2 text-base"
+              >
+                Réserver gratuitement mon billet
+
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : (
+              <span className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-400/10 px-5 py-3 text-base font-medium text-red-300">
+                {registrationsOpen
+                  ? "Billets épuisés"
+                  : "Inscriptions fermées"}
+              </span>
+            )}
 
             <Link
               to={`/evenement/${featuredEvent.slug}`}
               className="btn-ghost group inline-flex items-center justify-center gap-2 text-base"
             >
               <Eye className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
+
               Découvrir l'événement
             </Link>
           </motion.div>
 
           {/* Stock disponible */}
 
-          <motion.div variants={staggerItem} className="mt-5">
+          <motion.div
+            variants={staggerItem}
+            className="mt-5"
+          >
             <div className="inline-flex items-center gap-2 text-sm text-cream-dim">
-              {ticketsRemaining > 0 ? (
+              {!registrationsOpen ? (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-red-400" />
+
+                  <span className="font-semibold text-red-400">
+                    Inscriptions fermées
+                  </span>
+                </>
+              ) : ticketsRemaining > 0 ? (
                 <>
                   <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
 
@@ -300,23 +478,47 @@ function Hero({ ticketsRemaining }: { ticketsRemaining: number }) {
             className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-cream-dim md:gap-x-8"
           >
             <InfoItem icon={<CalendarDays />}>
-              {featuredEvent.dateLabel} · {featuredEvent.time}
+              {formatEventDate(eventDate)} · {eventTime}
             </InfoItem>
 
             <InfoItem icon={<MapPin />}>
-              {featuredEvent.venue}, {featuredEvent.city}
+              {eventLocation}
             </InfoItem>
 
             <span className="inline-flex items-center gap-2 text-gold-200">
               <span className="h-1.5 w-1.5 rounded-full bg-gold-300" />
 
-              {featuredEvent.status}
+              {registrationsOpen
+                ? featuredEvent.status
+                : "Inscriptions fermées"}
             </span>
           </motion.div>
         </motion.div>
       </div>
     </section>
   );
+}
+
+/* =========================================================
+   FORMAT DATE
+========================================================= */
+
+function formatEventDate(date: string): string {
+  try {
+    const parsed = new Date(`${date}T12:00:00`);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return date;
+    }
+
+    return new Intl.DateTimeFormat("fr-FR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(parsed);
+  } catch {
+    return date;
+  }
 }
 
 /* =========================================================
@@ -332,7 +534,9 @@ function InfoItem({
 }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <span className="text-gold-300">{icon}</span>
+      <span className="text-gold-300">
+        {icon}
+      </span>
 
       {children}
     </span>
@@ -375,16 +579,20 @@ function Marquee() {
           ease: "linear",
         }}
       >
-        {[...words, ...words, ...words].map((word, index) => (
-          <span
-            key={`${word}-${index}`}
-            className="inline-flex items-center gap-10 text-sm uppercase tracking-[0.2em] text-cream-dim"
-          >
-            {word}
+        {[...words, ...words, ...words].map(
+          (word, index) => (
+            <span
+              key={`${word}-${index}`}
+              className="inline-flex items-center gap-10 text-sm uppercase tracking-[0.2em] text-cream-dim"
+            >
+              {word}
 
-            <span className="text-xl text-gold-400">✦</span>
-          </span>
-        ))}
+              <span className="text-xl text-gold-400">
+                ✦
+              </span>
+            </span>
+          ),
+        )}
       </motion.div>
     </section>
   );
@@ -394,7 +602,13 @@ function Marquee() {
    STATISTIQUES
 ========================================================= */
 
-function Stats({ ticketsRemaining }: { ticketsRemaining: number }) {
+function Stats({
+  ticketsRemaining,
+  capacity,
+}: {
+  ticketsRemaining: number;
+  capacity: number;
+}) {
   const stats = [
     {
       value: "1",
@@ -406,7 +620,10 @@ function Stats({ ticketsRemaining }: { ticketsRemaining: number }) {
     },
     {
       value: ticketsRemaining.toString(),
-      label: ticketsRemaining === 1 ? "Place disponible" : "Places disponibles",
+      label:
+        ticketsRemaining === 1
+          ? "Place disponible"
+          : "Places disponibles",
     },
     {
       value: "100%",
@@ -440,7 +657,15 @@ function Stats({ ticketsRemaining }: { ticketsRemaining: number }) {
    EXPÉRIENCE
 ========================================================= */
 
-function Experience() {
+function Experience({
+  eventName,
+  capacity,
+  eventLocation,
+}: {
+  eventName: string;
+  capacity: number;
+  eventLocation: string;
+}) {
   const pillars = [
     {
       title: "Louange",
@@ -455,14 +680,14 @@ function Experience() {
     {
       title: "Prière",
       text: "Des temps profonds de prière et d'intercession dans la présence de Dieu.",
-      icon: <HandHeart className="h-5 w-5" />,
+      icon: <Sparkles className="h-5 w-5" />,
     },
   ];
 
   return (
     <section
       id="experience"
-      className="container-px mx-auto max-w-7xl scroll-mt-20  py-16 md:py-24"
+      className="container-px mx-auto max-w-7xl py-16 md:py-24"
     >
       <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
         {/* Image */}
@@ -474,7 +699,7 @@ function Experience() {
             <div className="relative overflow-hidden rounded-[2rem] border border-gold-400/20 bg-ink-900 shadow-2xl shadow-black/40">
               <img
                 src={intimateImg}
-                alt="Camp International Silo"
+                alt={eventName}
                 loading="lazy"
                 className="aspect-[4/5] w-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
@@ -493,18 +718,19 @@ function Experience() {
 
               <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/10 bg-black/60 p-5 backdrop-blur-xl sm:bottom-6 sm:left-6 sm:right-6 sm:p-6">
                 <h3 className="font-display text-2xl font-semibold text-white sm:text-3xl">
-                  Camp International Silo 2026
+                  {eventName}
                 </h3>
 
                 <p className="mt-2 text-sm leading-relaxed text-gray-200">
-                  Une journée exceptionnelle de prière, de communion, de louange
-                  et d'enseignement dans la présence de Dieu.
+                  Une journée exceptionnelle de
+                  prière, de communion, de louange et
+                  d'enseignement dans la présence de Dieu.
                 </p>
 
                 <div className="mt-5 grid grid-cols-3 gap-3">
                   <div>
                     <p className="font-display text-xl text-gold-gradient sm:text-2xl">
-                      1500
+                      {capacity}
                     </p>
 
                     <p className="text-[9px] uppercase tracking-wider text-gray-300 sm:text-xs">
@@ -528,7 +754,7 @@ function Experience() {
                     </p>
 
                     <p className="text-[9px] uppercase tracking-wider text-gray-300 sm:text-xs">
-                      Casablanca
+                      {eventLocation}
                     </p>
                   </div>
                 </div>
@@ -547,12 +773,13 @@ function Experience() {
               <>
                 Bien plus qu'un CAMP,
                 <br />
-                un <span className="text-gold-gradient">moment surnaturel</span>
+                un{" "}
+                <span className="text-gold-gradient">
+                  moment surnaturel
+                </span>
               </>
             }
-            subtitle="Le Camp International Silo est le jardin d’Éden, un rassemblement de réveil
-             qui réunit des adorateurs de plusieurs pays pour chercher, rencontrer et communier avec
-              l’Époux, à travers des moments puissants d’enseignement, de prière et de louange dans la présence de Dieu."
+            subtitle="Le Camp International Silo est un rassemblement de réveil qui réunit des adorateurs de plusieurs pays pour vivre des moments puissants de communion, d'enseignement, de prière et de louange dans la présence de Dieu."
           />
 
           <motion.div
@@ -597,13 +824,25 @@ function Experience() {
    ÉVÉNEMENT À LA UNE
 ========================================================= */
 
-function FeaturedEvent({ ticketsRemaining }: { ticketsRemaining: number }) {
+function FeaturedEvent({
+  ticketsRemaining,
+  eventName,
+  eventDate,
+  eventLocation,
+  registrationsOpen,
+}: {
+  ticketsRemaining: number;
+  eventName: string;
+  eventDate: string;
+  eventLocation: string;
+  registrationsOpen: boolean;
+}) {
   const { setEvent } = useCart();
 
   return (
     <section
-      id="programme"
-      className="container-px mx-auto max-w-7xl scroll-mt-20 py-16 md:py-24"
+      id="evenement"
+      className="container-px mx-auto max-w-7xl py-16 md:py-24"
     >
       <Reveal>
         <div className="grid overflow-hidden rounded-[2rem] border border-gold-400/15 bg-ink-900/60 shadow-2xl shadow-black/30 lg:grid-cols-2">
@@ -612,7 +851,7 @@ function FeaturedEvent({ ticketsRemaining }: { ticketsRemaining: number }) {
           <div className="relative min-h-[420px] overflow-hidden">
             <img
               src={heroImg}
-              alt="Camp International Silo 2026"
+              alt={eventName}
               loading="lazy"
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 hover:scale-105"
             />
@@ -625,7 +864,7 @@ function FeaturedEvent({ ticketsRemaining }: { ticketsRemaining: number }) {
 
             <div className="absolute bottom-6 left-6">
               <p className="text-sm uppercase tracking-[0.25em] text-gold-300">
-                Camp International Silo
+                {eventName}
               </p>
 
               <h4 className="mt-2 font-display text-2xl text-cream sm:text-3xl">
@@ -638,14 +877,17 @@ function FeaturedEvent({ ticketsRemaining }: { ticketsRemaining: number }) {
 
           <div className="flex flex-col justify-center p-6 sm:p-8 md:p-12">
             <span className="text-xs uppercase tracking-[0.3em] text-gold-300">
-              {featuredEvent.city} · {featuredEvent.dateLabel}
+              {eventLocation} ·{" "}
+              {formatEventDate(eventDate)}
             </span>
 
             <h3 className="mt-3 font-display text-3xl font-medium text-cream sm:text-4xl md:text-5xl">
-              {featuredEvent.title}
+              {eventName}
             </h3>
 
-            <p className="mt-2 text-gold-200">{featuredEvent.venue}</p>
+            <p className="mt-2 text-gold-200">
+              {featuredEvent.venue}
+            </p>
 
             <p className="mt-5 text-sm leading-relaxed text-cream-dim">
               {featuredEvent.shortDesc}
@@ -666,7 +908,9 @@ function FeaturedEvent({ ticketsRemaining }: { ticketsRemaining: number }) {
                     </p>
 
                     <p className="text-xs text-cream-dim">
-                      Réservation gratuite
+                      {registrationsOpen
+                        ? "Réservation gratuite"
+                        : "Inscriptions fermées"}
                     </p>
                   </div>
                 </div>
@@ -680,14 +924,26 @@ function FeaturedEvent({ ticketsRemaining }: { ticketsRemaining: number }) {
             {/* CTA */}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                to="/billetterie"
-                onClick={() => setEvent(featuredEvent.id)}
-                className="btn-gold inline-flex items-center justify-center gap-2"
-              >
-                Réserver gratuitement
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              {registrationsOpen &&
+              ticketsRemaining > 0 ? (
+                <Link
+                  to="/billetterie"
+                  onClick={() =>
+                    setEvent(featuredEvent.id)
+                  }
+                  className="btn-gold inline-flex items-center justify-center gap-2"
+                >
+                  Réserver gratuitement
+
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <span className="inline-flex cursor-not-allowed items-center justify-center rounded-xl border border-red-400/20 bg-red-400/10 px-5 py-3 text-sm font-medium text-red-300">
+                  {registrationsOpen
+                    ? "Billets épuisés"
+                    : "Inscriptions fermées"}
+                </span>
+              )}
 
               <Link
                 to={`/evenement/${featuredEvent.slug}`}
@@ -710,7 +966,7 @@ function FeaturedEvent({ ticketsRemaining }: { ticketsRemaining: number }) {
 function UpcomingEvents() {
   return (
     <section
-      id="evenements"
+      id="programme"
       className="container-px mx-auto max-w-7xl py-16 md:py-24"
     >
       <SectionHeading
@@ -718,7 +974,9 @@ function UpcomingEvents() {
         title={
           <>
             Le programme du{" "}
-            <span className="text-gold-gradient">Camp International Silo</span>
+            <span className="text-gold-gradient">
+              Camp International Silo
+            </span>
           </>
         }
         subtitle="Découvrez les temps forts qui vous attendent durant cette édition exceptionnelle : enseignements, louange, prière, communion fraternelle et bien d'autres moments de grâce."
@@ -735,7 +993,10 @@ function UpcomingEvents() {
         className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
       >
         {events.map((event) => (
-          <motion.div key={event.id} variants={staggerItem}>
+          <motion.div
+            key={event.id}
+            variants={staggerItem}
+          >
             <EventCard event={event} />
           </motion.div>
         ))}
@@ -782,7 +1043,9 @@ function Guarantees() {
         title={
           <>
             Une réservation{" "}
-            <span className="text-gold-gradient">simple & sereine</span>
+            <span className="text-gold-gradient">
+              simple & sereine
+            </span>
           </>
         }
       />
@@ -829,7 +1092,7 @@ function Faq() {
   const qa = [
     {
       q: "Comment reçois-je mon billet ?",
-      a: "Dès la confirmation de votre réservation, votre e-billet avec son QR Code est disponible immédiatement au téléchargement. Il est également envoyé par e-mail pour un accès rapide.",
+      a: "Dès la confirmation de votre réservation, votre e-billet avec son QR Code est disponible immédiatement au téléchargement. Il est également envoyé par e-mail et via WhatsApp pour un accès rapide.",
     },
     {
       q: "Puis-je m'inscrire plusieurs fois ?",
@@ -839,33 +1102,6 @@ function Faq() {
       q: "Que faire le jour de l'événement ?",
       a: "Le jour de l'événement, présentez votre e-billet avec son QR Code sur votre téléphone ou en version imprimée. Un simple scan suffit pour accéder rapidement au site.",
     },
-    {
-      q: "Jusqu’à quel âge puis-je inscrire mes enfants ?",
-      a: "Jusqu’à 16 ans. À partir de 17 ans, chaque personne doit s’inscrire individuellement avec sa propre adresse e-mail.",
-    },
-    {
-      q: "Puis-je venir avec mes enfants ?",
-      a: "Oui. Les enfants de moins de 12 ans sont pris en charge par des monitrices. Ceux de 12 à 16 ans restent avec vous dans la grande salle, s’ils sont inscrits.",
-    },
-    {
-      q: "Y aura-t-il des stands de restauration",
-      a: "Oui, des stands de restauration payants seront disponibles. Pensez à prévoir votre budget en conséquence.",
-    },
-    {
-      q: "Comment puis-je annuler mon billet?",
-      a: (
-        <>
-          <a
-            href="https://silocamp-github-io.vercel.app/annulation"
-            className="underline font-semibold hover:opacity-80"
-            style={{ color: "#d4ae63" }}
-          >
-            Cliquez ici
-          </a>
-          , puis confirmez avec le numéro de votre billet et l'adresse e-mail.
-        </>
-      ),
-    },
   ];
 
   const [open, setOpen] = useState<number>(0);
@@ -873,7 +1109,7 @@ function Faq() {
   return (
     <section
       id="faq"
-      className="container-px mx-auto max-w-4xl scroll-mt-20 py-16 md:py-24"
+      className="container-px mx-auto max-w-4xl py-16 md:py-24"
     >
       <SectionHeading
         eyebrow="FAQ"
@@ -886,11 +1122,18 @@ function Faq() {
           const isOpen = open === index;
 
           return (
-            <Reveal key={item.q} delay={index * 0.05}>
+            <Reveal
+              key={item.q}
+              delay={index * 0.05}
+            >
               <div className="overflow-hidden rounded-2xl border border-gold-400/10 bg-ink-900/40">
                 <button
                   type="button"
-                  onClick={() => setOpen(isOpen ? -1 : index)}
+                  onClick={() =>
+                    setOpen(
+                      isOpen ? -1 : index,
+                    )
+                  }
                   className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-6"
                   aria-expanded={isOpen}
                 >

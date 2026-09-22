@@ -8,6 +8,7 @@ import crypto from "node:crypto";
 ========================================================= */
 
 const DEFAULT_TICKET_CAPACITY = 1200;
+
 const SETTINGS_ID = "default";
 
 const COOKIE_NAME = "silocamp_scan_session";
@@ -2168,24 +2169,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       --------------------------------------------------- */
 
       const stats = await getStats(sql);
+      const settings = await getSettings(sql);
 
-      if (!stats.registrationsOpen) {
+      const capacity = Number(settings?.capacity ?? DEFAULT_TICKET_CAPACITY);
+
+      if (stats.reserved + finalQuantity > capacity) {
+        return res.status(409).json({
+          ok: false,
+          error: "La capacité maximale de l'événement est atteinte.",
+          capacity,
+          reserved: stats.reserved,
+          remaining: Math.max(0, capacity - stats.reserved),
+        });
+      }
+
+      if (!settings?.registrationsOpen) {
         return res.status(403).json({
           ok: false,
           error: "Les inscriptions sont actuellement fermées.",
         });
       }
-
-      if (stats.reserved + finalQuantity > stats.capacity) {
-        return res.status(409).json({
-          ok: false,
-          error: "La capacité maximale de l'événement est atteinte.",
-          capacity: stats.capacity,
-          reserved: stats.reserved,
-          remaining: stats.remaining,
-        });
-      }
-
       /* ---------------------------------------------------
          DOUBLON EMAIL
       --------------------------------------------------- */
