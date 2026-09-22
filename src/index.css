@@ -279,36 +279,105 @@
   }
 }
 
-
-
-
 /* =========================================================
    PHONE INPUT
 ========================================================= */
 
-.phone-wrapper {
+.contact-phone-wrapper {
   width: 100%;
+  height: 56px;
 }
 
-.phone-wrapper .PhoneInput {
+.contact-phone-wrapper .PhoneInput {
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 48px;
+  height: 56px;
+  min-height: 56px;
 
-  background: rgba(10, 9, 20, 0.6);
+  border: 1px solid rgba(212, 174, 99, 0.2);
+  border-radius: 16px;
 
-  border: 1px solid rgba(167, 139, 250, 0.18);
-  border-radius: 12px;
+  background: rgba(10, 10, 10, 0.7);
+
+  padding: 0 16px;
+
+  color: #f5f5f2;
 
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    border-color 300ms ease,
+    box-shadow 300ms ease;
 }
 
-.phone-wrapper .PhoneInput:focus-within {
-  border-color: rgba(167, 139, 250, 0.6);
-  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.08);
+.contact-phone-wrapper .PhoneInput:focus-within {
+  border-color: rgba(212, 174, 99, 0.7);
+  box-shadow: 0 0 0 1px rgba(212, 174, 99, 0.15);
+}
+
+/* Sélecteur de pays */
+.contact-phone-wrapper .PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 0 10px 0 0;
+}
+
+/* Drapeau */
+.contact-phone-wrapper .PhoneInputCountryIcon {
+  width: 24px;
+  height: 18px;
+}
+
+/* Flèche */
+.contact-phone-wrapper .PhoneInputCountrySelectArrow {
+  margin-left: 6px;
+  border-color: #d4ae63;
+}
+
+/* Numéro */
+.contact-phone-wrapper .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+
+  border: 0;
+  outline: 0;
+
+  background: transparent;
+
+  color: #f5f5f2;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Placeholder */
+.contact-phone-wrapper .PhoneInputInput::placeholder {
+  color: #8f8879;
+  opacity: 1;
+}
+
+/* Liste des pays */
+.contact-phone-wrapper .PhoneInputCountrySelect {
+  background: #0a0a0a;
+  color: #f5f5f2;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .contact-phone-wrapper,
+  .contact-phone-wrapper .PhoneInput {
+    height: 56px;
+    min-height: 56px;
+  }
+
+  .contact-phone-wrapper .PhoneInput {
+    padding: 0 14px;
+  }
+
+  .contact-phone-wrapper .PhoneInputCountry {
+    margin-right: 8px;
+  }
 }
 
 /* =========================================================
@@ -425,6 +494,3 @@
   background-color: #24104f;
   color: #ffffff;
 }
-
-
-
