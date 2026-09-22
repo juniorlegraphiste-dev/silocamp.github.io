@@ -151,7 +151,7 @@ async function ensureSettingsTable(sql: any) {
       "eventDate" TEXT NOT NULL,
       "eventTime" TEXT NOT NULL,
       "eventLocation" TEXT NOT NULL DEFAULT '',
-      "capacity" INTEGER NOT NULL DEFAULT ${DEFAULT_TICKET_CAPACITY},
+      "capacity" INTEGER NOT NULL DEFAULT 1200,
       "registrationsOpen" BOOLEAN NOT NULL DEFAULT TRUE,
       "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
