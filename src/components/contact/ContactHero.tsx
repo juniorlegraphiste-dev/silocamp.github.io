@@ -54,7 +54,7 @@ export function ContactHero() {
           <Reveal delay={0.15}>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <a
-                href="https://wa.me/212723257663"
+                href="https://wa.me/212704240738"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-gold inline-flex items-center gap-2"

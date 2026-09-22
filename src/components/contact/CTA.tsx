@@ -40,7 +40,7 @@ export function ContactCTA() {
                 </Link>
 
                 <a
-                  href="https://wa.me/212723257663"
+                  href="https://wa.me/212704240738"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-ghost inline-flex items-center gap-2"

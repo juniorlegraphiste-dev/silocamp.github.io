@@ -13,7 +13,7 @@ const contacts = [
     title: "WhatsApp",
     value: "Discuter avec notre équipe",
     description: "Réponse rapide en quelques minutes.",
-    href: "https://wa.me/212723257663",
+    href: "https://wa.me/212704240738",
     icon: <WhatsappIcon />,
   },
   {
