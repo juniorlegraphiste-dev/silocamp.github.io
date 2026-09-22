@@ -60,6 +60,7 @@ export default function ScanTicket() {
   const [authChecking, setAuthChecking] = useState(true);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
+
   const [username, setUsername] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
@@ -68,6 +69,12 @@ export default function ScanTicket() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+
+  /*
+   * ---------------------------------------------------------
+   * STOP SCANNER
+   * ---------------------------------------------------------
+   */
 
   const stopScanner = useCallback(async () => {
     const scanner = scannerRef.current;
@@ -101,6 +108,12 @@ export default function ScanTicket() {
     }
   }, []);
 
+  /*
+   * ---------------------------------------------------------
+   * AUTHENTICATION
+   * ---------------------------------------------------------
+   */
+
   const checkAuthentication = useCallback(async () => {
     const requestId = ++authRequestRef.current;
 
@@ -129,6 +142,7 @@ export default function ScanTicket() {
         data?.authenticated === true
       ) {
         setAuthenticated(true);
+
         setUsername(
           typeof data.username === "string"
             ? data.username
@@ -219,7 +233,12 @@ export default function ScanTicket() {
           authRequestRef.current++;
 
           setAuthenticated(true);
-          setUsername(normalizedLogin);
+          setUsername(
+            typeof data.username === "string"
+              ? data.username
+              : normalizedLogin,
+          );
+
           setPassword("");
           setAuthError("");
 
@@ -322,6 +341,12 @@ export default function ScanTicket() {
       "Votre session de contrôle a expiré. Veuillez vous reconnecter.",
     );
   }, [stopScanner]);
+
+  /*
+   * ---------------------------------------------------------
+   * QR CODE
+   * ---------------------------------------------------------
+   */
 
   const handleQRCode = useCallback(
     async (decodedText: string) => {
@@ -467,6 +492,12 @@ export default function ScanTicket() {
     ],
   );
 
+  /*
+   * ---------------------------------------------------------
+   * START CAMERA
+   * ---------------------------------------------------------
+   */
+
   const startScanner = useCallback(async () => {
     if (
       processingRef.current ||
@@ -504,12 +535,12 @@ export default function ScanTicket() {
 
       scannerRef.current = scanner;
 
+      const cameraConfig = {
+        facingMode: "environment",
+      };
+
       await scanner.start(
-        {
-          facingMode: {
-            exact: "environment",
-          },
-        },
+        cameraConfig,
         {
           fps: 10,
           qrbox: {
@@ -517,6 +548,7 @@ export default function ScanTicket() {
             height: 260,
           },
           aspectRatio: 1,
+          disableFlip: false,
         },
         async (decodedText) => {
           await handleQRCode(
@@ -543,7 +575,7 @@ export default function ScanTicket() {
       setState("error");
 
       setMessage(
-        "Impossible d'accéder à la caméra. Vérifie les autorisations du navigateur.",
+        "Impossible d'accéder à la caméra. Autorise l'accès à la caméra dans ton navigateur puis réessaie.",
       );
     }
   }, [
@@ -551,6 +583,12 @@ export default function ScanTicket() {
     handleQRCode,
     stopScanner,
   ]);
+
+  /*
+   * ---------------------------------------------------------
+   * CONFIRM ENTRY
+   * ---------------------------------------------------------
+   */
 
   const confirmEntry = useCallback(async () => {
     if (
@@ -623,6 +661,12 @@ export default function ScanTicket() {
     ticket,
   ]);
 
+  /*
+   * ---------------------------------------------------------
+   * RESET
+   * ---------------------------------------------------------
+   */
+
   const resetScanner = useCallback(async () => {
     await stopScanner();
 
@@ -641,6 +685,12 @@ export default function ScanTicket() {
     setState("idle");
   }, [stopScanner]);
 
+  /*
+   * ---------------------------------------------------------
+   * MOUNT
+   * ---------------------------------------------------------
+   */
+
   useEffect(() => {
     mountedRef.current = true;
     logoutRef.current = false;
@@ -651,12 +701,19 @@ export default function ScanTicket() {
       mountedRef.current = false;
       logoutRef.current = true;
       authRequestRef.current++;
+
       void stopScanner();
     };
   }, [
     checkAuthentication,
     stopScanner,
   ]);
+
+  /*
+   * ---------------------------------------------------------
+   * LOADING
+   * ---------------------------------------------------------
+   */
 
   if (authChecking) {
     return (
@@ -678,6 +735,12 @@ export default function ScanTicket() {
     );
   }
 
+  /*
+   * ---------------------------------------------------------
+   * LOGIN
+   * ---------------------------------------------------------
+   */
+
   if (!authenticated) {
     return (
       <LoginScreen
@@ -692,24 +755,35 @@ export default function ScanTicket() {
     );
   }
 
+  /*
+   * ---------------------------------------------------------
+   * MAIN
+   * ---------------------------------------------------------
+   */
+
   return (
-    <main className="min-h-screen bg-slate-950 px-4 pb-12 pt-[120px] sm:px-6 sm:pt-[112px]">
+    <main className="min-h-screen bg-slate-950 px-4 pb-16 pt-[110px] sm:px-6 sm:pt-[120px]">
       <div className="mx-auto w-full max-w-xl">
+
+        {/* HEADER */}
         <header className="mb-7">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3 text-white">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
+          <div className="flex items-start justify-between gap-4">
 
-              <div className="min-w-0">
-                <h1 className="text-xl font-black tracking-tight">
-                  SiloCamp
-                </h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#d4ae63]/10 ring-1 ring-[#d4ae63]/20">
+                  <TicketIcon className="h-6 w-6 text-[#d4ae63]" />
+                </div>
 
-                <p className="text-xs font-medium text-white/50">
-                  Contrôle des billets
-                </p>
+                <div>
+                  <h1 className="text-xl font-black tracking-tight text-white">
+                    SiloCamp
+                  </h1>
+
+                  <p className="text-sm font-semibold text-[#d4ae63]">
+                    des billets
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -746,31 +820,50 @@ export default function ScanTicket() {
           )}
         </header>
 
+        {/* SCANNER */}
         {(state === "idle" ||
           state === "scanning") && (
           <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
+
             <div className="p-5 sm:p-7">
+
               <div className="mb-6 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
-                  <TicketIcon className="h-6 w-6 text-slate-700" />
+
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#d4ae63]/10">
+                  <TicketIcon className="h-7 w-7 text-[#d4ae63]" />
                 </div>
 
-                <h2 className="text-xl font-black text-slate-900">
+                <h2 className="text-2xl font-black tracking-tight text-slate-900">
                   Scanner un billet
                 </h2>
 
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                  Place le QR Code du billet devant la caméra pour vérifier son authenticité.
+                  Placez le QR Code du billet devant la caméra pour vérifier son authenticité.
                 </p>
               </div>
 
-              <div className="overflow-hidden rounded-[26px] bg-slate-950">
+              {/* CAMERA */}
+              <div className="relative overflow-hidden rounded-[26px] bg-slate-950">
+
                 <div
                   id="silocamp-qr-reader"
                   className="min-h-[320px] w-full"
                 />
+
+                {state === "idle" && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
+                    <div className="relative h-[250px] w-[250px] rounded-[28px] border-2 border-[#d4ae63]/70">
+                      <span className="absolute -left-1 -top-1 h-8 w-8 rounded-tl-xl border-l-4 border-t-4 border-[#d4ae63]" />
+                      <span className="absolute -right-1 -top-1 h-8 w-8 rounded-tr-xl border-r-4 border-t-4 border-[#d4ae63]" />
+                      <span className="absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-xl border-b-4 border-l-4 border-[#d4ae63]" />
+                      <span className="absolute -bottom-1 -right-1 h-8 w-8 rounded-br-xl border-b-4 border-r-4 border-[#d4ae63]" />
+                    </div>
+                  </div>
+                )}
+
               </div>
 
+              {/* CAMERA BUTTON */}
               {state === "idle" ? (
                 <button
                   type="button"
@@ -788,14 +881,17 @@ export default function ScanTicket() {
                 </div>
               )}
 
-              <div className="mt-5 flex items-center justify-center gap-2 text-center text-xs text-slate-400">
-                <ShieldCheck className="h-4 w-4" />
+              {/* SECURITY */}
+              <div className="mt-5 flex items-center justify-center gap-2 text-center text-xs font-semibold text-slate-400">
+                <ShieldCheck className="h-4 w-4 text-[#d4ae63]" />
                 Vérification sécurisée SiloCamp
               </div>
+
             </div>
           </div>
         )}
 
+        {/* VERIFYING */}
         {state === "verifying" && (
           <StatusCard
             icon={
@@ -807,6 +903,7 @@ export default function ScanTicket() {
           />
         )}
 
+        {/* VALID */}
         {state === "valid" &&
           ticket && (
             <TicketResult
@@ -819,6 +916,7 @@ export default function ScanTicket() {
             />
           )}
 
+        {/* CONFIRMED */}
         {state === "confirmed" &&
           ticket && (
             <TicketResult
@@ -830,6 +928,7 @@ export default function ScanTicket() {
             />
           )}
 
+        {/* USED */}
         {state === "used" &&
           ticket && (
             <TicketResult
@@ -841,6 +940,7 @@ export default function ScanTicket() {
             />
           )}
 
+        {/* CANCELLED */}
         {state === "cancelled" &&
           ticket && (
             <TicketResult
@@ -852,6 +952,7 @@ export default function ScanTicket() {
             />
           )}
 
+        {/* ERROR */}
         {(state === "not-found" ||
           state === "error") && (
           <StatusCard
@@ -884,10 +985,87 @@ export default function ScanTicket() {
             }
           />
         )}
+
+        {/* ------------------------------------------------ */}
+        {/* GESTION DU BILLET                                */}
+        {/* ------------------------------------------------ */}
+
+        <section className="mt-8 overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.06] shadow-2xl backdrop-blur-xl">
+
+          <div className="p-6 sm:p-8">
+
+            <div className="mb-6 flex items-center gap-3">
+
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#d4ae63]/10">
+                <TicketIcon className="h-5 w-5 text-[#d4ae63]" />
+              </div>
+
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#d4ae63]">
+                  Gestion du billet
+                </p>
+
+                <h2 className="mt-1 text-xl font-black text-white">
+                  Annulez votre réservation
+                </h2>
+              </div>
+            </div>
+
+            <p className="text-sm leading-6 text-white/55">
+              Saisissez les informations utilisées lors de votre inscription afin d'annuler votre billet SiloCamp.
+            </p>
+
+            <a
+              href="/annulation"
+              className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#d4ae63] px-5 py-4 text-sm font-black text-slate-950 shadow-lg shadow-[#d4ae63]/10 transition hover:bg-[#e5c37d] active:scale-[0.99]"
+            >
+              Accéder à l'annulation
+              <span aria-hidden="true">
+                →
+              </span>
+            </a>
+
+            <div className="mt-5 rounded-2xl border border-red-400/10 bg-red-400/[0.04] p-4">
+              <p className="text-xs leading-5 text-white/45">
+                L'annulation de votre billet est définitive. Une réservation annulée ne pourra plus être utilisée pour accéder au Camp International Silo 2026.
+              </p>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ------------------------------------------------ */}
+        {/* FOOTER                                           */}
+        {/* ------------------------------------------------ */}
+
+        <footer className="py-10 text-center">
+
+          <div className="mx-auto mb-5 h-px w-16 bg-[#d4ae63]/30" />
+
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">
+            CAMP INTERNATIONAL SILO 2026
+          </p>
+
+          <p className="mt-2 text-sm font-bold text-[#d4ae63]">
+            Gospel · Adoration · Communion
+          </p>
+
+          <p className="mt-4 text-[11px] font-medium text-white/25">
+            SiloCamp · Contrôle sécurisé des billets
+          </p>
+
+        </footer>
+
       </div>
     </main>
   );
 }
+
+/*
+ * =========================================================
+ * LOGIN SCREEN
+ * =========================================================
+ */
 
 function LoginScreen({
   login,
@@ -904,15 +1082,20 @@ function LoginScreen({
   authError: string;
   onLoginChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (
+    event: FormEvent<HTMLFormElement>,
+  ) => void;
 }) {
   return (
     <main className="min-h-screen bg-slate-950 px-4 pb-16 pt-28 sm:px-6 sm:pt-32">
+
       <div className="mx-auto flex w-full max-w-md flex-col justify-center">
+
         <div className="mb-8 text-center">
+
           <div className="mb-4 flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
-              <ShieldCheck className="h-8 w-8 text-white" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#d4ae63]/10 ring-1 ring-[#d4ae63]/20">
+              <ShieldCheck className="h-8 w-8 text-[#d4ae63]" />
             </div>
           </div>
 
@@ -920,12 +1103,18 @@ function LoginScreen({
             SiloCamp
           </h1>
 
+          <p className="mt-1 text-sm font-black text-[#d4ae63]">
+            des billets
+          </p>
+
           <p className="mt-2 text-sm font-semibold text-white/60">
             Contrôle sécurisé des billets
           </p>
+
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+
           <div className="mb-6">
             <h2 className="text-xl font-black text-white">
               Connexion
@@ -936,7 +1125,11 @@ function LoginScreen({
             </p>
           </div>
 
-          <form onSubmit={onSubmit} className="space-y-5">
+          <form
+            onSubmit={onSubmit}
+            className="space-y-5"
+          >
+
             <div>
               <label
                 htmlFor="scanner-login"
@@ -949,11 +1142,15 @@ function LoginScreen({
                 id="scanner-login"
                 type="text"
                 value={login}
-                onChange={(event) => onLoginChange(event.target.value)}
+                onChange={(event) =>
+                  onLoginChange(
+                    event.target.value,
+                  )
+                }
                 placeholder="Votre identifiant"
                 autoComplete="username"
                 disabled={authBusy}
-                className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-white/30 focus:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-[#d4ae63]/50 focus:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
 
@@ -969,11 +1166,15 @@ function LoginScreen({
                 id="scanner-password"
                 type="password"
                 value={password}
-                onChange={(event) => onPasswordChange(event.target.value)}
+                onChange={(event) =>
+                  onPasswordChange(
+                    event.target.value,
+                  )
+                }
                 placeholder="Votre mot de passe"
                 autoComplete="current-password"
                 disabled={authBusy}
-                className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-white/30 focus:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-[#d4ae63]/50 focus:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
 
@@ -986,10 +1187,13 @@ function LoginScreen({
             <button
               type="submit"
               disabled={authBusy}
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d4ae63] px-5 text-sm font-black text-slate-950 transition hover:bg-[#e5c37d] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {authBusy ? "Connexion..." : "Se connecter"}
+              {authBusy
+                ? "Connexion..."
+                : "Se connecter"}
             </button>
+
           </form>
         </div>
 
@@ -998,10 +1202,17 @@ function LoginScreen({
             Accès sécurisé SiloCamp
           </p>
         </div>
+
       </div>
     </main>
   );
 }
+
+/*
+ * =========================================================
+ * EXTRACT TOKEN
+ * =========================================================
+ */
 
 function extractVerificationToken(
   value: string,
@@ -1031,6 +1242,12 @@ function extractVerificationToken(
   }
 }
 
+/*
+ * =========================================================
+ * STATUS CARD
+ * =========================================================
+ */
+
 function StatusCard({
   icon,
   title,
@@ -1046,7 +1263,9 @@ function StatusCard({
 }) {
   return (
     <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
+
       <div className="p-8 text-center sm:p-10">
+
         <div
           className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full ${background}`}
         >
@@ -1062,10 +1281,17 @@ function StatusCard({
         </p>
 
         {action}
+
       </div>
     </div>
   );
 }
+
+/*
+ * =========================================================
+ * TICKET RESULT
+ * =========================================================
+ */
 
 function TicketResult({
   ticket,
@@ -1116,9 +1342,11 @@ function TicketResult({
 
   return (
     <div className="overflow-hidden rounded-[30px] bg-white shadow-2xl">
+
       <div
         className={`px-6 py-9 text-center text-white ${statusBackground}`}
       >
+
         {isConfirmed || isValid ? (
           <CheckCircle2 className="mx-auto h-16 w-16" />
         ) : (
@@ -1140,10 +1368,13 @@ function TicketResult({
             Vérification réussie
           </div>
         )}
+
       </div>
 
       <div className="p-5 sm:p-7">
+
         <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center">
+
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
             Numéro du billet
           </p>
@@ -1151,9 +1382,11 @@ function TicketResult({
           <p className="mt-2 break-all font-mono text-xl font-black text-slate-900">
             {ticket.ticketNumber}
           </p>
+
         </div>
 
         <div className="space-y-3">
+
           <InfoRow
             icon={
               <User className="h-4 w-4" />
@@ -1176,7 +1409,9 @@ function TicketResult({
               <Mail className="h-4 w-4" />
             }
             label="E-mail"
-            value={ticket.email || "—"}
+            value={
+              ticket.email || "—"
+            }
           />
 
           <InfoRow
@@ -1184,7 +1419,9 @@ function TicketResult({
               <Phone className="h-4 w-4" />
             }
             label="Téléphone"
-            value={ticket.phone || "—"}
+            value={
+              ticket.phone || "—"
+            }
           />
 
           <InfoRow
@@ -1212,7 +1449,9 @@ function TicketResult({
               <Clock3 className="h-4 w-4" />
             }
             label="Heure"
-            value={ticket.time || "—"}
+            value={
+              ticket.time || "—"
+            }
           />
 
           <InfoRow
@@ -1241,14 +1480,18 @@ function TicketResult({
               }
             />
           )}
+
         </div>
 
         {isValid && (
           <div className="mt-7 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+
             <div className="flex items-start gap-3">
+
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
 
               <div>
+
                 <p className="text-sm font-black text-emerald-900">
                   Prêt pour l'entrée
                 </p>
@@ -1256,7 +1499,9 @@ function TicketResult({
                 <p className="mt-1 text-xs leading-5 text-emerald-700">
                   Vérifie rapidement les informations du participant avant de confirmer son accès.
                 </p>
+
               </div>
+
             </div>
           </div>
         )}
@@ -1287,6 +1532,7 @@ function TicketResult({
 
         {isConfirmed && (
           <div className="mt-6 rounded-2xl bg-emerald-50 p-5 text-center">
+
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle2 className="h-7 w-7 text-emerald-600" />
             </div>
@@ -1298,6 +1544,7 @@ function TicketResult({
             <p className="mt-1 text-xs text-emerald-700">
               Le participant peut entrer dans l'événement.
             </p>
+
           </div>
         )}
 
@@ -1310,10 +1557,17 @@ function TicketResult({
           <RotateCcw className="h-5 w-5" />
           Scanner un autre billet
         </button>
+
       </div>
     </div>
   );
 }
+
+/*
+ * =========================================================
+ * INFO ROW
+ * =========================================================
+ */
 
 function InfoRow({
   icon,
@@ -1326,11 +1580,13 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-white p-3">
+
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
         {icon}
       </div>
 
       <div className="min-w-0 flex-1">
+
         <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
           {label}
         </p>
@@ -1338,6 +1594,7 @@ function InfoRow({
         <p className="mt-1 break-words text-sm font-bold text-slate-900">
           {value}
         </p>
+
       </div>
     </div>
   );

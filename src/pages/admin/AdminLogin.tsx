@@ -179,7 +179,7 @@ export default function AdminLogin() {
 
             <p className="mt-2 text-sm leading-6 text-cream/50">
               Connectez-vous pour accéder au
-              tableau de bord SiloCamp.
+              tableau de bord.
             </p>
           </div>
 
