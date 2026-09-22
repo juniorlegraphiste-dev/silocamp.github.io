@@ -139,7 +139,6 @@ function getDatabaseUrl(): string | undefined {
   return process.env.DATABASE_URL;
 }
 
-
 /* =========================================================
    PARAMÈTRES SILOCAMP
 ========================================================= */
@@ -515,8 +514,13 @@ async function getStats(sql: any) {
   const settings = await getSettings(sql);
   const capacity = Number(settings?.capacity ?? DEFAULT_TICKET_CAPACITY);
   return {
-    capacity, totalTickets: validTickets + usedTickets + cancelledTickets,
-    validTickets, usedTickets, cancelledTickets, reserved, used: usedTickets,
+    capacity,
+    totalTickets: validTickets + usedTickets + cancelledTickets,
+    validTickets,
+    usedTickets,
+    cancelledTickets,
+    reserved,
+    used: usedTickets,
     remaining: Math.max(0, capacity - reserved),
     registrationsOpen: Boolean(settings?.registrationsOpen ?? true),
   };
@@ -1089,38 +1093,169 @@ async function sendTicketEmail(
   }
 }
 
-
 /* =========================================================
    NEWSLETTER / CONTACT
 ========================================================= */
 
-async function subscribeNewsletter(req: VercelRequest, res: VercelResponse): Promise<boolean> {
-  if (req.method !== "POST") { res.status(405).json({ok:false,error:"Méthode non autorisée."}); return true; }
+async function subscribeNewsletter(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<boolean> {
+  if (req.method !== "POST") {
+    res.status(405).json({ ok: false, error: "Méthode non autorisée." });
+    return true;
+  }
   try {
-    const email=normalizeEmail(req.body?.email);
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { res.status(400).json({ok:false,error:"Adresse e-mail invalide."}); return true; }
-    const apiKey=process.env.RESEND_API_KEY, from=process.env.RESEND_FROM_EMAIL, to=process.env.CONTACT_RECEIVER_EMAIL;
-    if (!apiKey || !from || !to) { res.status(500).json({ok:false,error:"Configuration email incomplète."}); return true; }
-    const r=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({from,to:[to],subject:"[SiloCamp] Nouvelle inscription newsletter",html:`<p>Nouvelle inscription newsletter SiloCamp :</p><p><strong>${email.replace(/[&<>\"]/g,"")}</strong></p>`})});
-    if(!r.ok){console.error("[Newsletter/Resend]",await r.text());res.status(502).json({ok:false,error:"Impossible d'envoyer l'inscription."});return true;}
-    res.status(200).json({ok:true,message:"Inscription enregistrée avec succès."}); return true;
-  } catch(e:any){console.error("[Newsletter]",e);res.status(500).json({ok:false,error:e?.message||"Erreur lors de l'inscription."});return true;}
+    const email = normalizeEmail(req.body?.email);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ ok: false, error: "Adresse e-mail invalide." });
+      return true;
+    }
+    const apiKey = process.env.RESEND_API_KEY,
+      from = process.env.RESEND_FROM_EMAIL,
+      to = process.env.CONTACT_RECEIVER_EMAIL;
+    if (!apiKey || !from || !to) {
+      res
+        .status(500)
+        .json({ ok: false, error: "Configuration email incomplète." });
+      return true;
+    }
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject: "[SiloCamp] Nouvelle inscription newsletter",
+        html: `<p>Nouvelle inscription newsletter SiloCamp :</p><p><strong>${email.replace(/[&<>\"]/g, "")}</strong></p>`,
+      }),
+    });
+    if (!r.ok) {
+      console.error("[Newsletter/Resend]", await r.text());
+      res
+        .status(502)
+        .json({ ok: false, error: "Impossible d'envoyer l'inscription." });
+      return true;
+    }
+    res
+      .status(200)
+      .json({ ok: true, message: "Inscription enregistrée avec succès." });
+    return true;
+  } catch (e: any) {
+    console.error("[Newsletter]", e);
+    res
+      .status(500)
+      .json({
+        ok: false,
+        error: e?.message || "Erreur lors de l'inscription.",
+      });
+    return true;
+  }
 }
 
-async function sendContactEmail(req: VercelRequest, res: VercelResponse): Promise<boolean> {
-  if(req.method!=="POST"){res.status(405).json({ok:false,error:"Méthode non autorisée."});return true;}
+async function sendContactEmail(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<boolean> {
+  if (req.method !== "POST") {
+    res.status(405).json({ ok: false, error: "Méthode non autorisée." });
+    return true;
+  }
   try {
-    const name=String(req.body?.name??"").trim(), email=normalizeEmail(req.body?.email), phone=String(req.body?.phone??"").trim(), subject=String(req.body?.subject??"").trim(), message=String(req.body?.message??"").trim();
-    if(!name||!email||!subject||!message||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {res.status(400).json({ok:false,error:"Veuillez remplir correctement les champs obligatoires."});return true;}
-    if(name.length>150||email.length>254||subject.length>200||message.length>5000){res.status(400).json({ok:false,error:"La longueur d'un ou plusieurs champs est invalide."});return true;}
-    const apiKey=process.env.RESEND_API_KEY, from=process.env.RESEND_FROM_EMAIL, to=process.env.CONTACT_RECEIVER_EMAIL;
-    if(!apiKey||!from||!to){res.status(500).json({ok:false,error:"Configuration email incomplète."});return true;}
-    const esc=(v:string)=>v.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]||c));
-    const html=`<div style="font-family:Arial,sans-serif"><h2>Nouveau message Contact — SiloCamp 2026</h2><p><strong>Nom :</strong> ${esc(name)}</p><p><strong>Email :</strong> ${esc(email)}</p><p><strong>Téléphone :</strong> ${esc(phone||"Non renseigné")}</p><p><strong>Sujet :</strong> ${esc(subject)}</p><hr/><p>${esc(message).replace(/\n/g,"<br/>")}</p></div>`;
-    const r=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({from,to:[to],reply_to:email,subject:`[SiloCamp Contact] ${subject}`,html})});
-    if(!r.ok){console.error("[Contact/Resend]",await r.text());res.status(502).json({ok:false,error:"Impossible d'envoyer le message."});return true;}
-    res.status(200).json({ok:true,message:"Votre message a été envoyé avec succès."});return true;
-  }catch(e:any){console.error("[Contact]",e);res.status(500).json({ok:false,error:e?.message||"Erreur lors de l'envoi du message."});return true;}
+    const name = String(req.body?.name ?? "").trim(),
+      email = normalizeEmail(req.body?.email),
+      phone = String(req.body?.phone ?? "").trim(),
+      subject = String(req.body?.subject ?? "").trim(),
+      message = String(req.body?.message ?? "").trim();
+    if (
+      !name ||
+      !email ||
+      !subject ||
+      !message ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
+      res
+        .status(400)
+        .json({
+          ok: false,
+          error: "Veuillez remplir correctement les champs obligatoires.",
+        });
+      return true;
+    }
+    if (
+      name.length > 150 ||
+      email.length > 254 ||
+      subject.length > 200 ||
+      message.length > 5000
+    ) {
+      res
+        .status(400)
+        .json({
+          ok: false,
+          error: "La longueur d'un ou plusieurs champs est invalide.",
+        });
+      return true;
+    }
+    const apiKey = process.env.RESEND_API_KEY,
+      from = process.env.RESEND_FROM_EMAIL,
+      to = process.env.CONTACT_RECEIVER_EMAIL;
+    if (!apiKey || !from || !to) {
+      res
+        .status(500)
+        .json({ ok: false, error: "Configuration email incomplète." });
+      return true;
+    }
+    const esc = (v: string) =>
+      v.replace(
+        /[&<>"']/g,
+        (c) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;",
+          })[c] || c,
+      );
+    const html = `<div style="font-family:Arial,sans-serif"><h2>Nouveau message Contact — SiloCamp 2026</h2><p><strong>Nom :</strong> ${esc(name)}</p><p><strong>Email :</strong> ${esc(email)}</p><p><strong>Téléphone :</strong> ${esc(phone || "Non renseigné")}</p><p><strong>Sujet :</strong> ${esc(subject)}</p><hr/><p>${esc(message).replace(/\n/g, "<br/>")}</p></div>`;
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        reply_to: email,
+        subject: `[SiloCamp Contact] ${subject}`,
+        html,
+      }),
+    });
+    if (!r.ok) {
+      console.error("[Contact/Resend]", await r.text());
+      res
+        .status(502)
+        .json({ ok: false, error: "Impossible d'envoyer le message." });
+      return true;
+    }
+    res
+      .status(200)
+      .json({ ok: true, message: "Votre message a été envoyé avec succès." });
+    return true;
+  } catch (e: any) {
+    console.error("[Contact]", e);
+    res
+      .status(500)
+      .json({
+        ok: false,
+        error: e?.message || "Erreur lors de l'envoi du message.",
+      });
+    return true;
+  }
 }
 
 /* =========================================================
@@ -1404,6 +1539,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     /* =====================================================
        SETTINGS
     ===================================================== */
+    if (route === "public/settings" && req.method === "GET") {
+      const settings = await getSettings(sql);
+
+      if (!settings) {
+        return res.status(500).json({
+          ok: false,
+          error: "Configuration SiloCamp introuvable.",
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        settings: {
+          eventName: settings.eventName,
+          eventDate: settings.eventDate,
+          eventTime: settings.eventTime,
+          eventLocation: settings.eventLocation,
+          capacity: Number(settings.capacity),
+          registrationsOpen: Boolean(settings.registrationsOpen),
+        },
+      });
+    }
+
     if (route === "settings" && req.method === "GET") {
       if (!requireAdminSession(req, res)) return;
       const settings = await getSettings(sql);
@@ -1413,17 +1571,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (route === "settings" && req.method === "PATCH") {
       if (!requireAdminSession(req, res)) return;
       const current = await getSettings(sql);
-      if (!current) return res.status(500).json({ ok:false, error:"Configuration SiloCamp introuvable." });
+      if (!current)
+        return res
+          .status(500)
+          .json({ ok: false, error: "Configuration SiloCamp introuvable." });
       const eventName = String(req.body?.eventName ?? current.eventName).trim();
       const eventDate = String(req.body?.eventDate ?? current.eventDate).trim();
       const eventTime = String(req.body?.eventTime ?? current.eventTime).trim();
-      const eventLocation = String(req.body?.eventLocation ?? current.eventLocation ?? "").trim();
+      const eventLocation = String(
+        req.body?.eventLocation ?? current.eventLocation ?? "",
+      ).trim();
       const capacity = Number(req.body?.capacity ?? current.capacity);
-      const registrationsOpen = req.body?.registrationsOpen === undefined ? Boolean(current.registrationsOpen) : Boolean(req.body.registrationsOpen);
-      if (!eventName || !eventDate || !eventTime) return res.status(400).json({ok:false,error:"Le nom, la date et l'heure de l'événement sont obligatoires."});
-      if (!Number.isInteger(capacity) || capacity < 1) return res.status(400).json({ok:false,error:"La capacité doit être un nombre entier supérieur à 0."});
+      const registrationsOpen =
+        req.body?.registrationsOpen === undefined
+          ? Boolean(current.registrationsOpen)
+          : Boolean(req.body.registrationsOpen);
+      if (!eventName || !eventDate || !eventTime)
+        return res
+          .status(400)
+          .json({
+            ok: false,
+            error:
+              "Le nom, la date et l'heure de l'événement sont obligatoires.",
+          });
+      if (!Number.isInteger(capacity) || capacity < 1)
+        return res
+          .status(400)
+          .json({
+            ok: false,
+            error: "La capacité doit être un nombre entier supérieur à 0.",
+          });
       const stats = await getStats(sql);
-      if (capacity < stats.reserved) return res.status(409).json({ok:false,error:`La capacité ne peut pas être inférieure aux ${stats.reserved} places déjà réservées.`,capacity,reserved:stats.reserved});
+      if (capacity < stats.reserved)
+        return res
+          .status(409)
+          .json({
+            ok: false,
+            error: `La capacité ne peut pas être inférieure aux ${stats.reserved} places déjà réservées.`,
+            capacity,
+            reserved: stats.reserved,
+          });
       const result = await sql`
         UPDATE "SiloCampSettings" SET
           "eventName"=${eventName}, "eventDate"=${eventDate}, "eventTime"=${eventTime},
@@ -1432,11 +1619,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE "id"=${SETTINGS_ID}
         RETURNING "id","eventName","eventDate","eventTime","eventLocation","capacity","registrationsOpen","updatedAt"
       `;
-      return res.status(200).json({ok:true,message:"Paramètres enregistrés avec succès.",settings:result[0]});
+      return res
+        .status(200)
+        .json({
+          ok: true,
+          message: "Paramètres enregistrés avec succès.",
+          settings: result[0],
+        });
     }
 
-    if (route === "newsletter") { await subscribeNewsletter(req,res); return; }
-    if (route === "contact") { await sendContactEmail(req,res); return; }
+    if (route === "newsletter") {
+      await subscribeNewsletter(req, res);
+      return;
+    }
+    if (route === "contact") {
+      await sendContactEmail(req, res);
+      return;
+    }
 
     /* =====================================================
        NOTIFICATIONS
@@ -1996,9 +2195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `,
         );
 
-        const reserved = Number(
-          reservedResult.rows[0]?.reserved ?? 0,
-        );
+        const reserved = Number(reservedResult.rows[0]?.reserved ?? 0);
 
         if (reserved + finalQuantity > capacity) {
           await dbClient.query("ROLLBACK");
@@ -2083,8 +2280,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // RESERVATION ID
         // ---------------------------------------------------
 
-        let reservationId =
-          reservationIdInput || generateReservationId();
+        let reservationId = reservationIdInput || generateReservationId();
 
         let reservationExists = await dbClient.query(
           `
@@ -2210,10 +2406,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           try {
             await dbClient.query("ROLLBACK");
           } catch (rollbackError) {
-            console.error(
-              "[SiloCamp Create Ticket Rollback]",
-              rollbackError,
-            );
+            console.error("[SiloCamp Create Ticket Rollback]", rollbackError);
           }
         }
 
@@ -2276,10 +2469,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         notificationCreated = true;
       } catch (notificationError) {
-        console.error(
-          "[SiloCamp Notification - Création]",
-          notificationError,
-        );
+        console.error("[SiloCamp Notification - Création]", notificationError);
       }
 
       return res.status(201).json({
