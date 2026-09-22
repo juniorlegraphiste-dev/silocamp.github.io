@@ -1310,6 +1310,184 @@ async function cancelTicket(
 }
 
 /* =========================================================
+   CONTACT - ENVOI EMAIL
+========================================================= */
+
+async function sendContactEmail(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<boolean> {
+  if (req.method !== "POST") {
+    res.status(405).json({
+      ok: false,
+      error: "Méthode non autorisée.",
+    });
+
+    return true;
+  }
+
+  try {
+    const name = String(req.body?.name ?? "").trim();
+    const email = normalizeEmail(req.body?.email);
+    const phone = String(req.body?.phone ?? "").trim();
+    const subject = String(req.body?.subject ?? "").trim();
+    const message = String(req.body?.message ?? "").trim();
+
+    if (!name || !email || !subject || !message) {
+      res.status(400).json({
+        ok: false,
+        error: "Veuillez remplir tous les champs obligatoires.",
+      });
+
+      return true;
+    }
+
+    if (
+      name.length > 150 ||
+      email.length > 254 ||
+      subject.length > 200 ||
+      message.length > 5000
+    ) {
+      res.status(400).json({
+        ok: false,
+        error: "La longueur d'un ou plusieurs champs est invalide.",
+      });
+
+      return true;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({
+        ok: false,
+        error: "Adresse email invalide.",
+      });
+
+      return true;
+    }
+
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const resendFromEmail = process.env.RESEND_FROM_EMAIL;
+    const contactReceiverEmail = process.env.CONTACT_RECEIVER_EMAIL;
+
+    if (!resendApiKey || !resendFromEmail || !contactReceiverEmail) {
+      console.error("[SiloCamp Contact] Configuration email manquante.");
+
+      res.status(500).json({
+        ok: false,
+        error: "Configuration email incomplète.",
+      });
+
+      return true;
+    }
+
+    const escapeHtml = (value: string): string =>
+      value.replace(
+        /[&<>"']/g,
+        (character) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;",
+          })[character] ?? character,
+      );
+
+    const safeName = escapeHtml(name);
+    const safeEmail = escapeHtml(email);
+    const safePhone = escapeHtml(phone || "Non renseigné");
+    const safeSubject = escapeHtml(subject);
+    const safeMessage = escapeHtml(message).replace(/\n/g, "<br />");
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="fr">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Nouveau message SiloCamp</title>
+        </head>
+
+        <body style="margin:0;padding:30px;background:#f5f1e8;font-family:Arial,Helvetica,sans-serif;">
+          <div style="max-width:620px;margin:0 auto;background:#24104F;border-radius:18px;padding:35px;color:#ffffff;">
+            <h1 style="margin:0 0 10px;font-size:28px;">
+              Nouveau message Contact
+            </h1>
+
+            <p style="color:#C8A45D;font-size:16px;">
+              Camp International Silo 2026
+            </p>
+
+            <div style="margin-top:25px;background:#ffffff;color:#24104F;border-radius:12px;padding:24px;">
+              <p><strong>Nom :</strong> ${safeName}</p>
+              <p><strong>Email :</strong> ${safeEmail}</p>
+              <p><strong>Téléphone :</strong> ${safePhone}</p>
+              <p><strong>Sujet :</strong> ${safeSubject}</p>
+
+              <hr style="border:0;border-top:1px solid #e5e5e5;margin:20px 0;" />
+
+              <p><strong>Message :</strong></p>
+              <p style="line-height:1.7;">${safeMessage}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        from: resendFromEmail,
+        to: [contactReceiverEmail],
+        reply_to: email,
+        subject: `[SiloCamp Contact] ${subject}`,
+        html,
+      }),
+    });
+
+    const resendData = await resendResponse.json();
+
+    if (!resendResponse.ok) {
+      console.error("[SiloCamp Contact Resend]", resendData);
+
+      res.status(502).json({
+        ok: false,
+        error: "Impossible d'envoyer le message.",
+      });
+
+      return true;
+    }
+
+    console.log("[SiloCamp Contact] Message envoyé :", {
+      email,
+      subject,
+    });
+
+    res.status(200).json({
+      ok: true,
+      message: "Votre message a été envoyé avec succès.",
+    });
+
+    return true;
+  } catch (error: any) {
+    console.error("[SiloCamp Contact]", error);
+
+    res.status(500).json({
+      ok: false,
+      error: error?.message || "Erreur lors de l'envoi du message.",
+    });
+
+    return true;
+  }
+}
+
+/* =========================================================
    HANDLER PRINCIPAL
 ========================================================= */
 
@@ -1389,6 +1567,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (route === "tickets/email") {
       await sendTicketEmail(sql, req, res);
+
+      return;
+    }
+
+    /* =====================================================
+   CONTACT
+    ===================================================== */
+
+    if (route === "contact") {
+      await sendContactEmail(req, res);
 
       return;
     }
