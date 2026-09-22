@@ -642,7 +642,7 @@ export default function ScanTicket() {
                   </h1>
 
                   <p className="text-sm font-semibold text-[#d4ae63]">
-                    des billets
+                    Contrôle des billets
                   </p>
                 </div>
               </div>
@@ -839,7 +839,7 @@ export default function ScanTicket() {
                 </p>
 
                 <h2 className="mt-1 text-xl font-black text-white">
-                  Annulez votre réservation
+                  Annulez une réservation
                 </h2>
               </div>
             </div>
@@ -1002,7 +1002,7 @@ function LoginScreen({
                 <button
                   type="submit"
                   disabled={authBusy}
-                  className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#d4ae63] px-5 text-sm font-black text-slate-950 shadow-lg shadow-[#d4ae63]/10 transition hover:bg-[#e5c37d] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#d4ae63] px-5 text-sm font-bold text-slate-950 shadow-lg shadow-[#d4ae63]/10 transition hover:bg-[#e5c37d] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {authBusy ? (
                     <>
@@ -1017,14 +1017,6 @@ function LoginScreen({
                   )}
                 </button>
               </form>
-            </div>
-
-            {/* SECURITY */}
-            <div className="border-t border-white/10 bg-black/10 px-6 py-4 text-center sm:px-8">
-              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-white/35">
-                <ShieldCheck className="h-4 w-4 text-[#d4ae63]" />
-                Accès sécurisé SiloCamp
-              </div>
             </div>
           </div>
 
