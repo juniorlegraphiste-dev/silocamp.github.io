@@ -1146,12 +1146,10 @@ async function subscribeNewsletter(
     return true;
   } catch (e: any) {
     console.error("[Newsletter]", e);
-    res
-      .status(500)
-      .json({
-        ok: false,
-        error: e?.message || "Erreur lors de l'inscription.",
-      });
+    res.status(500).json({
+      ok: false,
+      error: e?.message || "Erreur lors de l'inscription.",
+    });
     return true;
   }
 }
@@ -1177,12 +1175,10 @@ async function sendContactEmail(
       !message ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     ) {
-      res
-        .status(400)
-        .json({
-          ok: false,
-          error: "Veuillez remplir correctement les champs obligatoires.",
-        });
+      res.status(400).json({
+        ok: false,
+        error: "Veuillez remplir correctement les champs obligatoires.",
+      });
       return true;
     }
     if (
@@ -1191,12 +1187,10 @@ async function sendContactEmail(
       subject.length > 200 ||
       message.length > 5000
     ) {
-      res
-        .status(400)
-        .json({
-          ok: false,
-          error: "La longueur d'un ou plusieurs champs est invalide.",
-        });
+      res.status(400).json({
+        ok: false,
+        error: "La longueur d'un ou plusieurs champs est invalide.",
+      });
       return true;
     }
     const apiKey = process.env.RESEND_API_KEY,
@@ -1248,12 +1242,10 @@ async function sendContactEmail(
     return true;
   } catch (e: any) {
     console.error("[Contact]", e);
-    res
-      .status(500)
-      .json({
-        ok: false,
-        error: e?.message || "Erreur lors de l'envoi du message.",
-      });
+    res.status(500).json({
+      ok: false,
+      error: e?.message || "Erreur lors de l'envoi du message.",
+    });
     return true;
   }
 }
@@ -1587,30 +1579,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ? Boolean(current.registrationsOpen)
           : Boolean(req.body.registrationsOpen);
       if (!eventName || !eventDate || !eventTime)
-        return res
-          .status(400)
-          .json({
-            ok: false,
-            error:
-              "Le nom, la date et l'heure de l'événement sont obligatoires.",
-          });
+        return res.status(400).json({
+          ok: false,
+          error: "Le nom, la date et l'heure de l'événement sont obligatoires.",
+        });
       if (!Number.isInteger(capacity) || capacity < 1)
-        return res
-          .status(400)
-          .json({
-            ok: false,
-            error: "La capacité doit être un nombre entier supérieur à 0.",
-          });
+        return res.status(400).json({
+          ok: false,
+          error: "La capacité doit être un nombre entier supérieur à 0.",
+        });
       const stats = await getStats(sql);
       if (capacity < stats.reserved)
-        return res
-          .status(409)
-          .json({
-            ok: false,
-            error: `La capacité ne peut pas être inférieure aux ${stats.reserved} places déjà réservées.`,
-            capacity,
-            reserved: stats.reserved,
-          });
+        return res.status(409).json({
+          ok: false,
+          error: `La capacité ne peut pas être inférieure aux ${stats.reserved} places déjà réservées.`,
+          capacity,
+          reserved: stats.reserved,
+        });
       const result = await sql`
         UPDATE "SiloCampSettings" SET
           "eventName"=${eventName}, "eventDate"=${eventDate}, "eventTime"=${eventTime},
@@ -1619,13 +1604,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE "id"=${SETTINGS_ID}
         RETURNING "id","eventName","eventDate","eventTime","eventLocation","capacity","registrationsOpen","updatedAt"
       `;
-      return res
-        .status(200)
-        .json({
-          ok: true,
-          message: "Paramètres enregistrés avec succès.",
-          settings: result[0],
-        });
+      return res.status(200).json({
+        ok: true,
+        message: "Paramètres enregistrés avec succès.",
+        settings: result[0],
+      });
     }
 
     if (route === "newsletter") {
@@ -2081,7 +2064,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return res.status(400).json({
           ok: false,
           error: "Adresse email invalide.",
