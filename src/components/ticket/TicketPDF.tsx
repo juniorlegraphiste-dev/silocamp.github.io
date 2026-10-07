@@ -11,7 +11,7 @@ import {
 import type { Ticket } from "@/services/ticketService";
 
 // ============================================================
-// FONTS — POPPINS
+// FONTS
 // ============================================================
 
 import PoppinsRegular from "@/assets/fonts/Poppins-Regular.ttf?url";
@@ -60,7 +60,7 @@ export interface TicketPDFProps {
 const COLORS = {
   purple: "#24104F",
   purpleDark: "#180A35",
-  purpleMedium: "#6D3ED1",
+  purpleSoft: "#3A2370",
 
   gold: "#C8A45D",
   goldLight: "#E5CC91",
@@ -85,7 +85,8 @@ const COLORS = {
 };
 
 // ============================================================
-// STYLES — A4 LANDSCAPE
+// STYLES
+// A4 LANDSCAPE
 // ============================================================
 
 const styles = StyleSheet.create({
@@ -94,15 +95,13 @@ const styles = StyleSheet.create({
   // ----------------------------------------------------------
 
   page: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: COLORS.cream,
+    backgroundColor: "#EDE9E1",
     padding: 22,
     fontFamily: "Poppins",
   },
 
   // ----------------------------------------------------------
-  // TICKET
+  // TICKET GLOBAL
   // ----------------------------------------------------------
 
   ticket: {
@@ -111,192 +110,163 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cream,
     borderWidth: 1,
     borderColor: COLORS.gold,
-    borderRadius: 16,
+    borderRadius: 15,
     overflow: "hidden",
     position: "relative",
     flexDirection: "row",
   },
 
   // ----------------------------------------------------------
-  // MAIN CONTENT
+  // LEFT / MAIN SECTION
   // ----------------------------------------------------------
 
   main: {
     flex: 1,
-    backgroundColor: COLORS.cream,
     paddingHorizontal: 22,
-    paddingVertical: 18,
+    paddingVertical: 16,
+    backgroundColor: COLORS.cream,
     justifyContent: "space-between",
   },
 
   // ----------------------------------------------------------
-  // HEADER
+  // TOP HEADER
   // ----------------------------------------------------------
 
-  headerTop: {
+  header: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+
+  brandGroup: {
+    flex: 1,
   },
 
   brand: {
     color: COLORS.purple,
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: 700,
     letterSpacing: 2,
+    lineHeight: 1,
   },
 
-  edition: {
-    color: COLORS.textSoft,
+  brandSub: {
+    color: COLORS.text,
     fontSize: 7,
-    fontWeight: 500,
-    letterSpacing: 1,
+    fontWeight: 600,
+    letterSpacing: 0.7,
+    marginTop: 3,
   },
 
-  headerLine: {
-    height: 1,
-    backgroundColor: COLORS.gold,
-    marginTop: 9,
-    marginBottom: 10,
-  },
-
-  heroRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-  },
-
-  heroText: {
-    flex: 1,
-    paddingRight: 15,
-  },
-
-  heroTitle: {
-    color: COLORS.purple,
-    fontSize: 22,
-    fontWeight: 700,
-    lineHeight: 1.08,
-  },
-
-  heroSubtitle: {
-    color: COLORS.textSoft,
-    fontSize: 7.5,
-    fontWeight: 500,
-    letterSpacing: 1.2,
-    marginTop: 7,
+  themes: {
+    color: COLORS.gold,
+    fontSize: 5.5,
+    fontWeight: 600,
+    letterSpacing: 0.8,
+    marginTop: 4,
   },
 
   // ----------------------------------------------------------
-  // BADGES
+  // FREE BADGE
   // ----------------------------------------------------------
-
-  badges: {
-    alignItems: "flex-end",
-  },
 
   freeBadge: {
     backgroundColor: COLORS.gold,
     borderRadius: 5,
     paddingHorizontal: 10,
     paddingVertical: 5,
+    marginTop: 1,
   },
 
   freeBadgeText: {
     color: COLORS.purpleDark,
     fontSize: 7.5,
     fontWeight: 700,
-    letterSpacing: 0.8,
-  },
-
-  statusBadge: {
-    marginTop: 5,
-    backgroundColor: COLORS.greenSoft,
-    borderRadius: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-
-  statusBadgeText: {
-    color: COLORS.green,
-    fontSize: 6.5,
-    fontWeight: 700,
     letterSpacing: 0.7,
   },
 
-  statusCancelled: {
-    backgroundColor: COLORS.redSoft,
-  },
-
-  statusCancelledText: {
-    color: COLORS.red,
-  },
-
   // ----------------------------------------------------------
-  // EVENT
+  // EDITION
   // ----------------------------------------------------------
 
-  eventBlock: {
-    marginTop: 9,
-  },
-
-  eventLabel: {
-    color: COLORS.muted,
-    fontSize: 6,
-    fontWeight: 600,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginBottom: 2,
-  },
-
-  eventTitle: {
-    color: COLORS.text,
-    fontSize: 11,
+  edition: {
+    color: COLORS.purple,
+    fontSize: 8,
     fontWeight: 700,
+    letterSpacing: 0.8,
+    marginTop: 7,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
 
   // ----------------------------------------------------------
-  // DETAILS
+  // HERO
   // ----------------------------------------------------------
 
-  detailsGrid: {
+  hero: {
+    marginTop: 8,
+  },
+
+  heroTitle: {
+    color: COLORS.purple,
+    fontSize: 17,
+    fontWeight: 700,
+    lineHeight: 1.08,
+  },
+
+  heroDescription: {
+    color: COLORS.textSoft,
+    fontSize: 6.8,
+    fontWeight: 400,
+    lineHeight: 1.35,
+    marginTop: 4,
+    maxWidth: 470,
+  },
+
+  // ----------------------------------------------------------
+  // EVENT DETAILS
+  // ----------------------------------------------------------
+
+  eventGrid: {
     flexDirection: "row",
-    marginTop: 9,
-    borderWidth: 1,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    backgroundColor: COLORS.white,
-    overflow: "hidden",
+    paddingVertical: 6,
   },
 
-  detailColumn: {
-    flex: 1,
-    paddingHorizontal: 9,
-    paddingVertical: 7,
+  eventColumn: {
+    paddingRight: 13,
+    marginRight: 13,
     borderRightWidth: 1,
     borderRightColor: COLORS.borderLight,
   },
 
-  detailColumnLast: {
+  eventColumnLast: {
     borderRightWidth: 0,
+    marginRight: 0,
+    paddingRight: 0,
   },
 
-  detailLabel: {
+  eventLabel: {
     color: COLORS.muted,
-    fontSize: 5.5,
-    fontWeight: 600,
+    fontSize: 5.2,
+    fontWeight: 700,
     letterSpacing: 0.7,
     marginBottom: 2,
   },
 
-  detailValue: {
+  eventValue: {
     color: COLORS.text,
-    fontSize: 7.5,
+    fontSize: 7,
     fontWeight: 600,
   },
 
-  detailValueSmall: {
+  eventValueSmall: {
     color: COLORS.text,
-    fontSize: 6.8,
+    fontSize: 6.4,
     fontWeight: 500,
   },
 
@@ -304,278 +274,174 @@ const styles = StyleSheet.create({
   // PARTICIPANT
   // ----------------------------------------------------------
 
-  participantBox: {
+  participantSection: {
     marginTop: 8,
-    backgroundColor: COLORS.purple,
-    borderRadius: 8,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "flex-start",
   },
 
-  participantLeft: {
+  participantInfo: {
     flex: 1,
+    paddingRight: 15,
   },
 
   participantLabel: {
-    color: COLORS.goldLight,
-    fontSize: 5.5,
+    color: COLORS.muted,
+    fontSize: 5.3,
     fontWeight: 700,
-    letterSpacing: 0.9,
+    letterSpacing: 0.8,
     marginBottom: 2,
   },
 
   participantName: {
-    color: COLORS.white,
+    color: COLORS.text,
     fontSize: 10,
     fontWeight: 700,
   },
 
   participantEmail: {
-    color: "#D9D1E8",
-    fontSize: 6,
+    color: COLORS.textSoft,
+    fontSize: 6.5,
     marginTop: 1,
   },
 
-  ticketNumberBlock: {
+  ticketNumberSection: {
+    width: 145,
     alignItems: "flex-end",
-    marginLeft: 10,
   },
 
   ticketNumberLabel: {
-    color: COLORS.goldLight,
-    fontSize: 5.5,
-    fontWeight: 600,
+    color: COLORS.muted,
+    fontSize: 5.3,
+    fontWeight: 700,
     letterSpacing: 0.7,
-  },
-
-  ticketNumber: {
-    color: COLORS.white,
-    fontSize: 7,
-    fontWeight: 700,
-    marginTop: 2,
-  },
-
-  // ----------------------------------------------------------
-  // META
-  // ----------------------------------------------------------
-
-  metaGrid: {
-    flexDirection: "row",
-    marginTop: 7,
-  },
-
-  metaItem: {
-    flex: 1,
-    paddingRight: 8,
-  },
-
-  metaLabel: {
-    color: COLORS.muted,
-    fontSize: 5.2,
-    fontWeight: 600,
-    letterSpacing: 0.6,
-    marginBottom: 1,
-  },
-
-  metaValue: {
-    color: COLORS.text,
-    fontSize: 6.8,
-    fontWeight: 600,
-  },
-
-  // ----------------------------------------------------------
-  // PERFORATION
-  // ----------------------------------------------------------
-
-  perforationContainer: {
-    position: "relative",
-    width: "100%",
-    height: 18,
-    marginTop: 7,
-    marginBottom: 6,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  perforationLineLeft: {
-    flex: 1,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gold,
-    borderTopStyle: "dashed",
-  },
-
-  perforationLineRight: {
-    flex: 1,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gold,
-    borderTopStyle: "dashed",
-  },
-
-  perforationScissors: {
-    width: 28,
-    textAlign: "center",
-    color: COLORS.gold,
-    fontSize: 9,
-    fontWeight: 700,
-  },
-
-  perforationText: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 11,
-    textAlign: "center",
-    color: COLORS.muted,
-    fontSize: 4.5,
-    fontWeight: 500,
-    letterSpacing: 0.8,
-  },
-
-  // ----------------------------------------------------------
-  // QR AREA
-  // ----------------------------------------------------------
-
-  qrArea: {
-    backgroundColor: COLORS.purple,
-    borderRadius: 9,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  qrInfo: {
-    flex: 1,
-    paddingRight: 12,
-  },
-
-  qrEyebrow: {
-    color: COLORS.goldLight,
-    fontSize: 5.5,
-    fontWeight: 700,
-    letterSpacing: 1,
     marginBottom: 2,
   },
 
-  qrTitle: {
-    color: COLORS.white,
-    fontSize: 9,
-    fontWeight: 700,
-  },
-
-  qrDescription: {
-    color: "#D9D1E8",
-    fontSize: 5.7,
-    lineHeight: 1.25,
-    marginTop: 3,
-  },
-
-  qrTicketNumber: {
-    color: COLORS.goldLight,
-    fontSize: 5.8,
-    fontWeight: 600,
-    marginTop: 4,
-  },
-
-  qrFrame: {
-    width: 82,
-    height: 82,
-    backgroundColor: COLORS.white,
-    borderRadius: 7,
-    padding: 5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  qrCode: {
-    width: 72,
-    height: 72,
-  },
-
-  qrUnavailable: {
-    color: COLORS.muted,
-    fontSize: 5.5,
-    textAlign: "center",
-  },
-
-  // ----------------------------------------------------------
-  // FOOTER
-  // ----------------------------------------------------------
-
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 6,
-  },
-
-  footerWebsite: {
+  ticketNumber: {
     color: COLORS.purple,
-    fontSize: 6.5,
+    fontSize: 7,
     fontWeight: 700,
-  },
-
-  footerThemes: {
-    color: COLORS.muted,
-    fontSize: 5.5,
-    fontWeight: 500,
-    letterSpacing: 0.4,
+    letterSpacing: 0.2,
   },
 
   // ----------------------------------------------------------
-  // RIGHT STUB
+  // BOTTOM INFORMATION
+  // ----------------------------------------------------------
+
+  bottomGrid: {
+    flexDirection: "row",
+    marginTop: 7,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+
+  bottomColumn: {
+    flex: 1,
+    paddingRight: 10,
+  },
+
+  bottomColumnReservation: {
+    flex: 1.25,
+  },
+
+  bottomLabel: {
+    color: COLORS.muted,
+    fontSize: 5.1,
+    fontWeight: 700,
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
+
+  bottomValue: {
+    color: COLORS.text,
+    fontSize: 6.4,
+    fontWeight: 600,
+  },
+
+  bottomValueGreen: {
+    color: COLORS.green,
+  },
+
+  // ----------------------------------------------------------
+  // MAIN FOOTER
+  // ----------------------------------------------------------
+
+  mainFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 5,
+  },
+
+  mainFooterWebsite: {
+    color: COLORS.purple,
+    fontSize: 6,
+    fontWeight: 700,
+  },
+
+  mainFooterText: {
+    color: COLORS.muted,
+    fontSize: 5.2,
+    fontWeight: 500,
+  },
+
+  // ----------------------------------------------------------
+  // RIGHT COUPON / STUB
   // ----------------------------------------------------------
 
   stub: {
-    width: 145,
+    width: 155,
     backgroundColor: COLORS.purple,
-    paddingHorizontal: 12,
-    paddingVertical: 15,
+    paddingHorizontal: 13,
+    paddingVertical: 14,
     alignItems: "center",
     justifyContent: "space-between",
-    position: "relative",
   },
 
   stubBrand: {
     color: COLORS.goldLight,
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: 700,
     letterSpacing: 2,
+    textAlign: "center",
   },
 
   stubEdition: {
-    color: "#D9D1E8",
-    fontSize: 5.5,
-    fontWeight: 500,
-    letterSpacing: 0.8,
+    color: COLORS.white,
+    fontSize: 6.3,
+    fontWeight: 600,
+    letterSpacing: 0.7,
     textAlign: "center",
     marginTop: 2,
   },
 
   stubLine: {
-    width: 55,
+    width: 45,
     height: 1,
     backgroundColor: COLORS.gold,
-    marginVertical: 7,
+    marginVertical: 5,
   },
 
-  stubLabel: {
-    color: COLORS.white,
-    fontSize: 6,
-    fontWeight: 600,
-    letterSpacing: 0.7,
+  stubScan: {
+    color: COLORS.goldLight,
+    fontSize: 6.5,
+    fontWeight: 700,
+    letterSpacing: 0.8,
     textAlign: "center",
   },
 
+  // ----------------------------------------------------------
+  // QR
+  // ----------------------------------------------------------
+
   stubQrFrame: {
-    width: 92,
-    height: 92,
+    width: 100,
+    height: 100,
     backgroundColor: COLORS.white,
-    borderRadius: 8,
+    borderRadius: 7,
     padding: 6,
     alignItems: "center",
     justifyContent: "center",
@@ -583,8 +449,26 @@ const styles = StyleSheet.create({
   },
 
   stubQr: {
-    width: 80,
-    height: 80,
+    width: 88,
+    height: 88,
+  },
+
+  qrUnavailable: {
+    color: COLORS.muted,
+    fontSize: 6,
+    textAlign: "center",
+  },
+
+  // ----------------------------------------------------------
+  // STUB TEXT
+  // ----------------------------------------------------------
+
+  stubDescription: {
+    color: "#D9D1E8",
+    fontSize: 5.5,
+    lineHeight: 1.3,
+    textAlign: "center",
+    maxWidth: 120,
   },
 
   stubTicketLabel: {
@@ -593,59 +477,92 @@ const styles = StyleSheet.create({
     fontWeight: 600,
     letterSpacing: 0.6,
     textAlign: "center",
+    marginTop: 5,
   },
 
   stubTicketNumber: {
     color: COLORS.white,
-    fontSize: 6,
+    fontSize: 6.2,
     fontWeight: 700,
+    textAlign: "center",
     marginTop: 2,
-    textAlign: "center",
   },
 
-  stubBottom: {
+  // ----------------------------------------------------------
+  // CONFIRMED BADGE
+  // ----------------------------------------------------------
+
+  confirmedBadge: {
+    backgroundColor: COLORS.greenSoft,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 4,
+  },
+
+  confirmedText: {
+    color: COLORS.green,
+    fontSize: 5.7,
+    fontWeight: 700,
+    letterSpacing: 0.6,
+  },
+
+  // ----------------------------------------------------------
+  // STUB FOOTER
+  // ----------------------------------------------------------
+
+  stubWebsite: {
+    color: COLORS.goldLight,
+    fontSize: 5.8,
+    fontWeight: 600,
+    textAlign: "center",
+    marginTop: 4,
+  },
+
+  stubThemes: {
     color: "#D9D1E8",
-    fontSize: 5,
+    fontSize: 4.8,
+    fontWeight: 500,
+    letterSpacing: 0.35,
     textAlign: "center",
-    lineHeight: 1.3,
+    marginTop: 2,
   },
 
   // ----------------------------------------------------------
-  // DECORATIONS
+  // VERTICAL PERFORATION
   // ----------------------------------------------------------
 
-  accentTop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: 65,
-    height: 4,
-    backgroundColor: COLORS.gold,
-    zIndex: 5,
-  },
-
-  accentBottom: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    width: 65,
-    height: 4,
-    backgroundColor: COLORS.gold,
-    zIndex: 5,
-  },
-
-  // Perforation verticale entre le billet principal
-  // et le petit coupon QR.
   verticalPerforation: {
     position: "absolute",
-    right: 145,
     top: 0,
     bottom: 0,
+    right: 155,
     width: 1,
     borderLeftWidth: 1,
     borderLeftColor: COLORS.gold,
     borderLeftStyle: "dashed",
-    zIndex: 4,
+  },
+
+  // ----------------------------------------------------------
+  // DECORATIVE GOLD BARS
+  // ----------------------------------------------------------
+
+  goldTop: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: 60,
+    height: 4,
+    backgroundColor: COLORS.gold,
+  },
+
+  goldBottom: {
+    position: "absolute",
+    left: 0,
+    bottom: 0,
+    width: 60,
+    height: 4,
+    backgroundColor: COLORS.gold,
   },
 });
 
@@ -712,7 +629,9 @@ export default function TicketPDF({
   ticket,
   qrCodeDataUrl,
 }: TicketPDFProps) {
-  const ticketNumber = safeText(ticket.ticketNumber);
+  const ticketNumber = safeText(
+    ticket.ticketNumber
+  );
 
   const participantName = safeText(
     ticket.participantName
@@ -720,13 +639,23 @@ export default function TicketPDF({
 
   const email = safeText(ticket.email);
 
-  const eventTitle = safeText(ticket.eventTitle);
+  const eventTitle = safeText(
+    ticket.eventTitle
+  );
 
-  const dateLabel = safeText(ticket.dateLabel);
+  const dateLabel = safeText(
+    ticket.dateLabel
+  );
+
   const time = safeText(ticket.time);
+
   const venue = safeText(ticket.venue);
+
   const city = safeText(ticket.city);
-  const duration = safeText(ticket.duration);
+
+  const duration = safeText(
+    ticket.duration
+  );
 
   const reservationId = safeText(
     ticket.reservationId
@@ -754,6 +683,9 @@ export default function TicketPDF({
   const isCancelled =
     ticket.status === "CANCELLED";
 
+  const isUsed =
+    ticket.status === "USED";
+
   return (
     <Document
       title={`SiloCamp - ${ticketNumber}`}
@@ -771,118 +703,100 @@ export default function TicketPDF({
           style={styles.ticket}
           wrap={false}
         >
-          {/* ACCENTS */}
-          <View style={styles.accentTop} />
-          <View style={styles.accentBottom} />
+          {/* GOLD DECORATION */}
+          <View style={styles.goldTop} />
+          <View style={styles.goldBottom} />
 
           {/* ==================================================
-              MAIN TICKET
+              MAIN LEFT SECTION
           ================================================== */}
 
           <View style={styles.main}>
             {/* HEADER */}
             <View>
-              <View style={styles.headerTop}>
-                <Text style={styles.brand}>
-                  SILO CAMP
-                </Text>
-
-                <Text style={styles.edition}>
-                  CAMP INTERNATIONAL 2026
-                </Text>
-              </View>
-
-              <View style={styles.headerLine} />
-
-              {/* HERO */}
-              <View style={styles.heroRow}>
-                <View style={styles.heroText}>
-                  <Text style={styles.heroTitle}>
-                    VIVEZ LE FEU DU REVEIL{"\n"}
-                    DANS LA PRESENCE DE DIEU
+              <View style={styles.header}>
+                <View style={styles.brandGroup}>
+                  <Text style={styles.brand}>
+                    SILO
                   </Text>
 
-                  <Text style={styles.heroSubtitle}>
+                  <Text style={styles.brandSub}>
+                    CAMP INTERNATIONAL SILO
+                  </Text>
+
+                  <Text style={styles.themes}>
                     GOSPEL • ADORATION • COMMUNION
                   </Text>
                 </View>
 
-                <View style={styles.badges}>
-                  <View style={styles.freeBadge}>
-                    <Text style={styles.freeBadgeText}>
-                      ENTRÉE GRATUITE
-                    </Text>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      isCancelled
-                        ? styles.statusCancelled
-                        : undefined,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusBadgeText,
-                        isCancelled
-                          ? styles.statusCancelledText
-                          : undefined,
-                      ]}
-                    >
-                      {statusLabel}
-                    </Text>
-                  </View>
+                <View style={styles.freeBadge}>
+                  <Text style={styles.freeBadgeText}>
+                    ENTRÉE GRATUITE
+                  </Text>
                 </View>
               </View>
 
-              {/* EVENT */}
-              <View style={styles.eventBlock}>
-                <Text style={styles.eventLabel}>
-                  ÉVÉNEMENT
+              {/* EDITION */}
+              <Text style={styles.edition}>
+                CAMP INTERNATIONAL SILO 2026
+              </Text>
+
+              {/* HERO */}
+              <View style={styles.hero}>
+                <Text style={styles.heroTitle}>
+                  VIVEZ LE FEU DU DANS{"\n"}
+                  LA PRESENCE DE DIEU
                 </Text>
 
-                <Text style={styles.eventTitle}>
-                  {eventTitle ||
-                    "Camp International Silo 2026"}
+                <Text style={styles.heroDescription}>
+                  Un temps de communion,
+                  d'enseignement, de prière,
+                  de louange et d'adoration
+                  autour de Jésus-Christ.
                 </Text>
               </View>
 
-              {/* DETAILS */}
-              <View style={styles.detailsGrid}>
-                <View style={styles.detailColumn}>
-                  <Text style={styles.detailLabel}>
+              {/* ==================================================
+                  DATE / HEURE / LIEU / DURÉE
+              ================================================== */}
+
+              <View style={styles.eventGrid}>
+                {/* DATE */}
+                <View style={styles.eventColumn}>
+                  <Text style={styles.eventLabel}>
                     DATE
                   </Text>
 
-                  <Text style={styles.detailValue}>
-                    {dateLabel || "—"}
+                  <Text style={styles.eventValue}>
+                    {dateLabel || "Samedi 12 décembre 2026"}
                   </Text>
                 </View>
 
-                <View style={styles.detailColumn}>
-                  <Text style={styles.detailLabel}>
+                {/* HEURE */}
+                <View style={styles.eventColumn}>
+                  <Text style={styles.eventLabel}>
                     HEURE
                   </Text>
 
-                  <Text style={styles.detailValue}>
-                    {time || "—"}
+                  <Text style={styles.eventValue}>
+                    {time || "09:00"}
                   </Text>
                 </View>
 
-                <View style={styles.detailColumn}>
-                  <Text style={styles.detailLabel}>
+                {/* LIEU */}
+                <View style={styles.eventColumn}>
+                  <Text style={styles.eventLabel}>
                     LIEU
                   </Text>
 
-                  <Text style={styles.detailValueSmall}>
-                    {venue || "—"}
+                  <Text style={styles.eventValueSmall}>
+                    {venue || "Le Carré d'or, Oasis, Casablanca"}
                   </Text>
 
                   {city ? (
                     <Text
                       style={[
-                        styles.detailValueSmall,
+                        styles.eventValueSmall,
                         {
                           marginTop: 1,
                           color: COLORS.textSoft,
@@ -894,32 +808,35 @@ export default function TicketPDF({
                   ) : null}
                 </View>
 
+                {/* DURÉE */}
                 <View
                   style={[
-                    styles.detailColumn,
-                    styles.detailColumnLast,
+                    styles.eventColumn,
+                    styles.eventColumnLast,
                   ]}
                 >
-                  <Text style={styles.detailLabel}>
+                  <Text style={styles.eventLabel}>
                     DURÉE
                   </Text>
 
-                  <Text style={styles.detailValue}>
-                    {duration || "—"}
+                  <Text style={styles.eventValue}>
+                    {duration || "9 heures"}
                   </Text>
                 </View>
               </View>
 
-              {/* PARTICIPANT */}
-              <View style={styles.participantBox}>
-                <View style={styles.participantLeft}>
+              {/* ==================================================
+                  PARTICIPANT
+              ================================================== */}
+
+              <View style={styles.participantSection}>
+                <View style={styles.participantInfo}>
                   <Text style={styles.participantLabel}>
                     PARTICIPANT
                   </Text>
 
                   <Text style={styles.participantName}>
-                    {participantName ||
-                      "Participant"}
+                    {participantName || "Participant"}
                   </Text>
 
                   {email ? (
@@ -931,152 +848,135 @@ export default function TicketPDF({
                   ) : null}
                 </View>
 
-                <View style={styles.ticketNumberBlock}>
+                <View
+                  style={styles.ticketNumberSection}
+                >
                   <Text
                     style={styles.ticketNumberLabel}
                   >
-                    E-TICKET
+                    NUMÉRO DU BILLET
                   </Text>
 
                   <Text style={styles.ticketNumber}>
-                    {ticketNumber || "SILOCAMP"}
+                    {ticketNumber || "SILO-2026"}
                   </Text>
                 </View>
               </View>
 
-              {/* META */}
-              <View style={styles.metaGrid}>
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>
+              {/* ==================================================
+                  BOTTOM INFORMATION
+              ================================================== */}
+
+              <View style={styles.bottomGrid}>
+                {/* PLACES */}
+                <View style={styles.bottomColumn}>
+                  <Text style={styles.bottomLabel}>
                     PLACES
                   </Text>
 
-                  <Text style={styles.metaValue}>
-                    {quantity}
+                  <Text style={styles.bottomValue}>
+                    {quantity} place
+                    {quantity > 1 ? "s" : ""}
                   </Text>
                 </View>
 
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>
+                {/* ENFANTS */}
+                <View style={styles.bottomColumn}>
+                  <Text style={styles.bottomLabel}>
                     ENFANTS
                   </Text>
 
-                  <Text style={styles.metaValue}>
-                    {totalChildren}
+                  <Text style={styles.bottomValue}>
+                    {totalChildren}{" "}
+                    {totalChildren > 1
+                      ? "enfants"
+                      : "enfant"}
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.bottomValue,
+                      {
+                        color: COLORS.muted,
+                        fontSize: 5,
+                        marginTop: 1,
+                      },
+                    ]}
+                  >
+                    ({childrenUnder12} &lt;12 /{" "}
+                    {children12Plus} 12+)
                   </Text>
                 </View>
 
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>
+                {/* TARIF */}
+                <View style={styles.bottomColumn}>
+                  <Text style={styles.bottomLabel}>
+                    TARIF
+                  </Text>
+
+                  <Text style={styles.bottomValue}>
+                    Gratuit
+                  </Text>
+                </View>
+
+                {/* STATUT */}
+                <View style={styles.bottomColumn}>
+                  <Text style={styles.bottomLabel}>
+                    STATUT
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.bottomValue,
+                      !isCancelled && !isUsed
+                        ? styles.bottomValueGreen
+                        : undefined,
+                    ]}
+                  >
+                    {statusLabel}
+                  </Text>
+                </View>
+
+                {/* RÉSERVATION */}
+                <View
+                  style={[
+                    styles.bottomColumn,
+                    styles.bottomColumnReservation,
+                  ]}
+                >
+                  <Text style={styles.bottomLabel}>
                     RÉSERVATION
                   </Text>
 
-                  <Text style={styles.metaValue}>
+                  <Text style={styles.bottomValue}>
                     {reservationId || "—"}
                   </Text>
-                </View>
-
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>
-                    CRÉÉ LE
-                  </Text>
-
-                  <Text style={styles.metaValue}>
-                    {createdAt || "—"}
-                  </Text>
-                </View>
-              </View>
-
-              {/* ==================================================
-                  PERFORATION HORIZONTALE
-              ================================================== */}
-
-              <View
-                style={styles.perforationContainer}
-              >
-                <View
-                  style={styles.perforationLineLeft}
-                />
-
-                <Text
-                  style={styles.perforationScissors}
-                >
-                  ✂
-                </Text>
-
-                <View
-                  style={styles.perforationLineRight}
-                />
-
-                <Text style={styles.perforationText}>
-                  CONTRÔLE DU BILLET
-                </Text>
-              </View>
-
-              {/* ==================================================
-                  QR AREA
-              ================================================== */}
-
-              <View style={styles.qrArea}>
-                <View style={styles.qrInfo}>
-                  <Text style={styles.qrEyebrow}>
-                    BILLET ÉLECTRONIQUE
-                  </Text>
-
-                  <Text style={styles.qrTitle}>
-                    Présentez votre QR Code à l'entrée
-                  </Text>
-
-                  <Text
-                    style={styles.qrDescription}
-                  >
-                    Scannez ce code pour vérifier
-                    l'authenticité et la validité
-                    de votre billet.
-                  </Text>
-
-                  <Text
-                    style={styles.qrTicketNumber}
-                  >
-                    N° {ticketNumber || "SILOCAMP"}
-                  </Text>
-                </View>
-
-                <View style={styles.qrFrame}>
-                  {qrCodeDataUrl ? (
-                    <Image
-                      src={qrCodeDataUrl}
-                      style={styles.qrCode}
-                    />
-                  ) : (
-                    <Text
-                      style={styles.qrUnavailable}
-                    >
-                      QR Code{"\n"}
-                      indisponible
-                    </Text>
-                  )}
                 </View>
               </View>
             </View>
 
-            {/* FOOTER */}
-            <View style={styles.footer}>
-              <Text style={styles.footerWebsite}>
-                silocamp.org
+            {/* MAIN FOOTER */}
+            <View style={styles.mainFooter}>
+              <Text style={styles.mainFooterWebsite}>
+                www.silocamp.org
               </Text>
 
-              <Text style={styles.footerThemes}>
+              <Text style={styles.mainFooterText}>
                 GOSPEL • ADORATION • COMMUNION
+              </Text>
+
+              <Text style={styles.mainFooterText}>
+                {createdAt}
               </Text>
             </View>
           </View>
 
           {/* ==================================================
-              RIGHT QR STUB
+              RIGHT COUPON
           ================================================== */}
 
           <View style={styles.stub}>
+            {/* TOP */}
             <View>
               <Text style={styles.stubBrand}>
                 SILO
@@ -1088,11 +988,12 @@ export default function TicketPDF({
 
               <View style={styles.stubLine} />
 
-              <Text style={styles.stubLabel}>
+              <Text style={styles.stubScan}>
                 SCANNEZ À L'ENTRÉE
               </Text>
             </View>
 
+            {/* QR */}
             <View style={styles.stubQrFrame}>
               {qrCodeDataUrl ? (
                 <Image
@@ -1101,28 +1002,64 @@ export default function TicketPDF({
                 />
               ) : (
                 <Text style={styles.qrUnavailable}>
-                  QR
+                  QR CODE
                 </Text>
               )}
             </View>
 
+            {/* DESCRIPTION */}
+            <Text style={styles.stubDescription}>
+              Présentez ce QR Code pour
+              vérifier votre billet.
+            </Text>
+
+            {/* NUMBER */}
             <View>
               <Text style={styles.stubTicketLabel}>
                 NUMÉRO DU BILLET
               </Text>
 
               <Text style={styles.stubTicketNumber}>
-                {ticketNumber || "SILOCAMP"}
+                {ticketNumber || "SILO-2026"}
               </Text>
             </View>
 
-            <Text style={styles.stubBottom}>
-              Présentez ce billet à l'entrée.
-              {"\n"}
-              Un seul billet par participant.
-              {"\n\n"}
-              silocamp.org
-            </Text>
+            {/* STATUS */}
+            <View
+              style={[
+                styles.confirmedBadge,
+                isCancelled
+                  ? {
+                      backgroundColor:
+                        COLORS.redSoft,
+                    }
+                  : undefined,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.confirmedText,
+                  isCancelled
+                    ? {
+                        color: COLORS.red,
+                      }
+                    : undefined,
+                ]}
+              >
+                {statusLabel}
+              </Text>
+            </View>
+
+            {/* FOOTER */}
+            <View>
+              <Text style={styles.stubWebsite}>
+                www.silocamp.org
+              </Text>
+
+              <Text style={styles.stubThemes}>
+                GOSPEL • ADORATION • COMMUNION
+              </Text>
+            </View>
           </View>
 
           {/* ==================================================
