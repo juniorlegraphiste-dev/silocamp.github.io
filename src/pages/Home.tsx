@@ -365,7 +365,7 @@ function Hero({
             variants={staggerItem}
             className="mt-6 font-display text-5xl font-medium leading-[0.98] text-cream sm:text-7xl md:text-8xl"
           >
-            Vivez le surnaturel dans{" "}
+            Vivez le Feu du Reveil dans{" "}
             <span className="text-gold-gradient">
               la présence de Dieu
             </span>
