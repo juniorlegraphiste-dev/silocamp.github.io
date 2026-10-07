@@ -494,3 +494,161 @@
   background-color: #24104f;
   color: #ffffff;
 }
+
+
+/* =========================================================
+   SILOCAMP - PHONE INPUT
+   ========================================================= */
+
+.silocamp-phone {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* ---------------------------------------------------------
+   COUNTRY SELECT
+   --------------------------------------------------------- */
+
+.silocamp-phone .PhoneInputCountry {
+  display: flex !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+
+  height: 48px !important;
+
+  margin: 0 !important;
+  padding: 0 8px 0 14px !important;
+}
+
+.silocamp-phone .PhoneInputCountrySelect {
+  position: absolute !important;
+
+  top: 0 !important;
+  left: 0 !important;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  border: 0 !important;
+  outline: none !important;
+
+  background: transparent !important;
+
+  cursor: pointer !important;
+
+  opacity: 0 !important;
+}
+
+/*
+ * IMPORTANT :
+ * Le select est invisible volontairement, mais le
+ * drapeau + la flèche restent visibles.
+ */
+
+/* ---------------------------------------------------------
+   COUNTRY FLAG
+   --------------------------------------------------------- */
+
+.silocamp-phone .PhoneInputCountryIcon {
+  display: block !important;
+
+  width: 24px !important;
+  height: 18px !important;
+
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.silocamp-phone .PhoneInputCountryIconImg {
+  display: block !important;
+
+  width: 24px !important;
+  height: 18px !important;
+
+  object-fit: cover !important;
+
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* ---------------------------------------------------------
+   COUNTRY ARROW
+   --------------------------------------------------------- */
+
+.silocamp-phone .PhoneInputCountrySelectArrow {
+  display: block !important;
+
+  width: 7px !important;
+  height: 7px !important;
+
+  margin-left: 8px !important;
+
+  border-right: 1.5px solid #c8a45d !important;
+  border-bottom: 1.5px solid #c8a45d !important;
+
+  transform: rotate(45deg) !important;
+
+  opacity: 1 !important;
+}
+
+/* ---------------------------------------------------------
+   PHONE NUMBER INPUT
+   --------------------------------------------------------- */
+
+.silocamp-phone .PhoneInputInput,
+.silocamp-phone-input {
+  display: block !important;
+
+  width: 100% !important;
+  min-width: 0 !important;
+
+  flex: 1 1 auto !important;
+
+  height: 48px !important;
+  min-height: 48px !important;
+
+  margin: 0 !important;
+  padding: 12px 14px !important;
+
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+
+  background: transparent !important;
+
+  color: #f8f4ea !important;
+
+  font-family: inherit !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
+
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+.silocamp-phone .PhoneInputInput::placeholder,
+.silocamp-phone-input::placeholder {
+  color: rgba(248, 244, 234, 0.45) !important;
+  opacity: 1 !important;
+}
+
+.silocamp-phone .PhoneInputInput:focus,
+.silocamp-phone-input:focus {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ---------------------------------------------------------
+   DARK SELECT MENU
+   --------------------------------------------------------- */
+
+.silocamp-phone .PhoneInputCountrySelect option {
+  background: #171717 !important;
+  color: #f8f4ea !important;
+}
