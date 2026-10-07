@@ -792,9 +792,9 @@ export default function TicketPDF({
               </Text>
 
               <Text style={styles.title}>
-                VIENS EXPÉRIMENTER{"\n"}
+                 VIVEZ LE FEU DU REVEIL{"\n"}
                 <Text style={styles.titleAccent}>
-                  LE CIEL SUR LA TERRE
+                  DANS LA PRESENCE DE DIEU
                 </Text>
               </Text>
 
