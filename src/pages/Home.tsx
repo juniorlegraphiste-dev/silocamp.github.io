@@ -367,7 +367,7 @@ function Hero({
           >
             Vivez le Feu du Reveil dans{" "}
             <span className="text-gold-gradient">
-              la présence de Dieu
+              la Présence de Dieu
             </span>
           </motion.h1>
 
