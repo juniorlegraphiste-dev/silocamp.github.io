@@ -300,7 +300,7 @@ function Hero({
           VIDÉO DE FOND
       ===================================================== */}
 
-      <video
+      {/* <video
         className="absolute inset-0 h-full w-full object-cover"
         autoPlay
         muted
@@ -313,7 +313,7 @@ function Hero({
           src="/videos/hero-silocamp.mp4"
           type="video/mp4"
         />
-      </video>
+      </video> */}
 
       {/* Image de secours */}
 

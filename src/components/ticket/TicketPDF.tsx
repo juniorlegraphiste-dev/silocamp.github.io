@@ -6,22 +6,18 @@ import {
   Image,
   StyleSheet,
   Font,
-  Svg,
-  Path,
-  Circle,
-  Rect,
 } from "@react-pdf/renderer";
 
-import { Ticket } from "@/services/ticketService";
+import type { Ticket } from "@/services/ticketService";
+
+// ============================================================
+// FONTS — POPPINS
+// ============================================================
 
 import PoppinsRegular from "@/assets/fonts/Poppins-Regular.ttf?url";
 import PoppinsMedium from "@/assets/fonts/Poppins-Medium.ttf?url";
 import PoppinsSemiBold from "@/assets/fonts/Poppins-SemiBold.ttf?url";
 import PoppinsBold from "@/assets/fonts/Poppins-Bold.ttf?url";
-
-/* =========================================================
-   FONTS
-========================================================= */
 
 Font.register({
   family: "Poppins",
@@ -45,26 +41,26 @@ Font.register({
   ],
 });
 
-/* =========================================================
-   TYPES
-========================================================= */
+// ============================================================
+// TYPES
+// ============================================================
 
-export type TicketData = Ticket;
+type TicketData = Ticket;
 
-export type TicketPDFProps = {
+export interface TicketPDFProps {
   ticket: TicketData;
   verificationUrl?: string;
   qrCodeDataUrl?: string;
-};
+}
 
-/* =========================================================
-   COLORS
-========================================================= */
+// ============================================================
+// COLORS
+// ============================================================
 
 const COLORS = {
   purple: "#24104F",
   purpleDark: "#180A35",
-  purpleLight: "#7E63B7",
+  purpleMedium: "#6D3ED1",
 
   gold: "#C8A45D",
   goldLight: "#E5CC91",
@@ -81,322 +77,242 @@ const COLORS = {
   green: "#087A58",
   greenSoft: "#E9F7F1",
 
+  red: "#B42318",
+  redSoft: "#FDECEC",
+
   border: "#DDD5C8",
+  borderLight: "#E9E2D7",
 };
 
-/* =========================================================
-   ICONS
-========================================================= */
-
-const CalendarIcon = () => (
-  <Svg width={12} height={12} viewBox="0 0 24 24">
-    <Rect
-      x="3"
-      y="5"
-      width="18"
-      height="16"
-      rx="2"
-      fill="none"
-      stroke={COLORS.gold}
-      strokeWidth="2"
-    />
-
-    <Path
-      d="M8 3v4M16 3v4M3 10h18"
-      fill="none"
-      stroke={COLORS.gold}
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-  </Svg>
-);
-
-const ClockIcon = () => (
-  <Svg width={12} height={12} viewBox="0 0 24 24">
-    <Circle
-      cx="12"
-      cy="12"
-      r="9"
-      fill="none"
-      stroke={COLORS.gold}
-      strokeWidth="2"
-    />
-
-    <Path
-      d="M12 7v5l3 2"
-      fill="none"
-      stroke={COLORS.gold}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const LocationIcon = () => (
-  <Svg width={12} height={12} viewBox="0 0 24 24">
-    <Path
-      d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"
-      fill="none"
-      stroke={COLORS.gold}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-
-    <Circle
-      cx="12"
-      cy="10"
-      r="2.5"
-      fill="none"
-      stroke={COLORS.gold}
-      strokeWidth="2"
-    />
-  </Svg>
-);
-
-const UserIcon = () => (
-  <Svg width={12} height={12} viewBox="0 0 24 24">
-    <Circle
-      cx="12"
-      cy="8"
-      r="3"
-      fill="none"
-      stroke={COLORS.gold}
-      strokeWidth="2"
-    />
-
-    <Path
-      d="M5 21c.8-4 3.1-6 7-6s6.2 2 7 6"
-      fill="none"
-      stroke={COLORS.gold}
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-  </Svg>
-);
-
-const CheckIcon = () => (
-  <Svg width={10} height={10} viewBox="0 0 24 24">
-    <Circle
-      cx="12"
-      cy="12"
-      r="10"
-      fill={COLORS.green}
-    />
-
-    <Path
-      d="M7.5 12.5l3 3L16.5 9"
-      fill="none"
-      stroke={COLORS.white}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-/* =========================================================
-   STYLES
-========================================================= */
+// ============================================================
+// STYLES — A4 LANDSCAPE
+// ============================================================
 
 const styles = StyleSheet.create({
+  // ----------------------------------------------------------
+  // PAGE
+  // ----------------------------------------------------------
+
   page: {
     width: "100%",
     height: "100%",
-    padding: 26,
     backgroundColor: COLORS.cream,
+    padding: 22,
     fontFamily: "Poppins",
   },
 
+  // ----------------------------------------------------------
+  // TICKET
+  // ----------------------------------------------------------
+
   ticket: {
-    flex: 1,
-    flexDirection: "row",
-    backgroundColor: COLORS.white,
-    borderRadius: 14,
+    width: "100%",
+    height: "100%",
+    backgroundColor: COLORS.cream,
+    borderWidth: 1,
+    borderColor: COLORS.gold,
+    borderRadius: 16,
     overflow: "hidden",
+    position: "relative",
+    flexDirection: "row",
   },
 
-  /* =====================================================
-     MAIN LEFT SIDE
-  ===================================================== */
+  // ----------------------------------------------------------
+  // MAIN CONTENT
+  // ----------------------------------------------------------
 
   main: {
     flex: 1,
-    padding: 25,
     backgroundColor: COLORS.cream,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
     justifyContent: "space-between",
   },
 
-  top: {
+  // ----------------------------------------------------------
+  // HEADER
+  // ----------------------------------------------------------
+
+  headerTop: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "flex-start",
   },
 
-  brandGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  logo: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: COLORS.purple,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-
-  logoText: {
-    color: COLORS.goldLight,
-    fontSize: 13,
-    fontWeight: 700,
-    letterSpacing: 1.5,
-  },
-
-  brandTitle: {
+  brand: {
     color: COLORS.purple,
-    fontSize: 12,
+    fontSize: 18,
     fontWeight: 700,
-    letterSpacing: 1.4,
+    letterSpacing: 2,
   },
 
-  brandSub: {
-    marginTop: 3,
+  edition: {
     color: COLORS.textSoft,
-    fontSize: 6,
+    fontSize: 7,
     fontWeight: 500,
     letterSpacing: 1,
   },
 
-  freeBadge: {
-    paddingHorizontal: 11,
-    paddingVertical: 6,
+  headerLine: {
+    height: 1,
     backgroundColor: COLORS.gold,
-    borderRadius: 20,
+    marginTop: 9,
+    marginBottom: 10,
+  },
+
+  heroRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+
+  heroText: {
+    flex: 1,
+    paddingRight: 15,
+  },
+
+  heroTitle: {
+    color: COLORS.purple,
+    fontSize: 22,
+    fontWeight: 700,
+    lineHeight: 1.08,
+  },
+
+  heroSubtitle: {
+    color: COLORS.textSoft,
+    fontSize: 7.5,
+    fontWeight: 500,
+    letterSpacing: 1.2,
+    marginTop: 7,
+  },
+
+  // ----------------------------------------------------------
+  // BADGES
+  // ----------------------------------------------------------
+
+  badges: {
+    alignItems: "flex-end",
+  },
+
+  freeBadge: {
+    backgroundColor: COLORS.gold,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
 
   freeBadgeText: {
     color: COLORS.purpleDark,
-    fontSize: 6,
+    fontSize: 7.5,
     fontWeight: 700,
-    letterSpacing: 0.9,
+    letterSpacing: 0.8,
   },
 
-  /* =====================================================
-     HERO
-  ===================================================== */
-
-  hero: {
-    marginTop: 10,
+  statusBadge: {
+    marginTop: 5,
+    backgroundColor: COLORS.greenSoft,
+    borderRadius: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
   },
 
-  eyebrow: {
-    color: COLORS.gold,
+  statusBadgeText: {
+    color: COLORS.green,
     fontSize: 6.5,
     fontWeight: 700,
-    letterSpacing: 1.8,
+    letterSpacing: 0.7,
   },
 
-  title: {
-    marginTop: 5,
-    color: COLORS.purple,
-    fontSize: 24,
-    lineHeight: 1.08,
+  statusCancelled: {
+    backgroundColor: COLORS.redSoft,
+  },
+
+  statusCancelledText: {
+    color: COLORS.red,
+  },
+
+  // ----------------------------------------------------------
+  // EVENT
+  // ----------------------------------------------------------
+
+  eventBlock: {
+    marginTop: 9,
+  },
+
+  eventLabel: {
+    color: COLORS.muted,
+    fontSize: 6,
+    fontWeight: 600,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+
+  eventTitle: {
+    color: COLORS.text,
+    fontSize: 11,
     fontWeight: 700,
   },
 
-  titleAccent: {
-    color: COLORS.gold,
-  },
+  // ----------------------------------------------------------
+  // DETAILS
+  // ----------------------------------------------------------
 
-  description: {
-    marginTop: 6,
-    maxWidth: 440,
-    color: COLORS.textSoft,
-    fontSize: 7,
-    lineHeight: 1.45,
-  },
-
-  /* =====================================================
-     EVENT DETAILS
-  ===================================================== */
-
-  details: {
-    marginTop: 12,
-    paddingVertical: 11,
-    paddingHorizontal: 10,
+  detailsGrid: {
     flexDirection: "row",
-    backgroundColor: COLORS.white,
+    marginTop: 9,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 9,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+    overflow: "hidden",
   },
 
-  detail: {
+  detailColumn: {
     flex: 1,
     paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRightWidth: 1,
+    borderRightColor: COLORS.borderLight,
   },
 
-  detailFirst: {
-    flex: 1,
-    paddingLeft: 0,
-    paddingRight: 9,
-  },
-
-  detailLast: {
-    flex: 1.3,
-    paddingLeft: 9,
-    paddingRight: 0,
-  },
-
-  divider: {
-    width: 1,
-    backgroundColor: COLORS.border,
-  },
-
-  detailLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  detailColumnLast: {
+    borderRightWidth: 0,
   },
 
   detailLabel: {
-    marginLeft: 4,
-    color: COLORS.gold,
-    fontSize: 5,
-    fontWeight: 700,
-    letterSpacing: 1,
+    color: COLORS.muted,
+    fontSize: 5.5,
+    fontWeight: 600,
+    letterSpacing: 0.7,
+    marginBottom: 2,
   },
 
   detailValue: {
-    marginTop: 4,
-    color: COLORS.purple,
+    color: COLORS.text,
     fontSize: 7.5,
     fontWeight: 600,
   },
 
-  detailSub: {
-    marginTop: 2,
-    color: COLORS.textSoft,
-    fontSize: 5.8,
+  detailValueSmall: {
+    color: COLORS.text,
+    fontSize: 6.8,
+    fontWeight: 500,
   },
 
-  /* =====================================================
-     PARTICIPANT
-  ===================================================== */
+  // ----------------------------------------------------------
+  // PARTICIPANT
+  // ----------------------------------------------------------
 
-  participant: {
-    marginTop: 11,
-    padding: 11,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 9,
+  participantBox: {
+    marginTop: 8,
+    backgroundColor: COLORS.purple,
+    borderRadius: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
   },
 
   participantLeft: {
@@ -404,332 +320,439 @@ const styles = StyleSheet.create({
   },
 
   participantLabel: {
+    color: COLORS.goldLight,
+    fontSize: 5.5,
+    fontWeight: 700,
+    letterSpacing: 0.9,
+    marginBottom: 2,
+  },
+
+  participantName: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: 700,
+  },
+
+  participantEmail: {
+    color: "#D9D1E8",
+    fontSize: 6,
+    marginTop: 1,
+  },
+
+  ticketNumberBlock: {
+    alignItems: "flex-end",
+    marginLeft: 10,
+  },
+
+  ticketNumberLabel: {
+    color: COLORS.goldLight,
+    fontSize: 5.5,
+    fontWeight: 600,
+    letterSpacing: 0.7,
+  },
+
+  ticketNumber: {
+    color: COLORS.white,
+    fontSize: 7,
+    fontWeight: 700,
+    marginTop: 2,
+  },
+
+  // ----------------------------------------------------------
+  // META
+  // ----------------------------------------------------------
+
+  metaGrid: {
+    flexDirection: "row",
+    marginTop: 7,
+  },
+
+  metaItem: {
+    flex: 1,
+    paddingRight: 8,
+  },
+
+  metaLabel: {
+    color: COLORS.muted,
+    fontSize: 5.2,
+    fontWeight: 600,
+    letterSpacing: 0.6,
+    marginBottom: 1,
+  },
+
+  metaValue: {
+    color: COLORS.text,
+    fontSize: 6.8,
+    fontWeight: 600,
+  },
+
+  // ----------------------------------------------------------
+  // PERFORATION
+  // ----------------------------------------------------------
+
+  perforationContainer: {
+    position: "relative",
+    width: "100%",
+    height: 18,
+    marginTop: 7,
+    marginBottom: 6,
     flexDirection: "row",
     alignItems: "center",
   },
 
-  participantLabelText: {
-    marginLeft: 4,
+  perforationLineLeft: {
+    flex: 1,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gold,
+    borderTopStyle: "dashed",
+  },
+
+  perforationLineRight: {
+    flex: 1,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gold,
+    borderTopStyle: "dashed",
+  },
+
+  perforationScissors: {
+    width: 28,
+    textAlign: "center",
     color: COLORS.gold,
-    fontSize: 5,
+    fontSize: 9,
     fontWeight: 700,
-    letterSpacing: 1.2,
   },
 
-  participantName: {
-    marginTop: 4,
-    color: COLORS.purple,
-    fontSize: 12,
-    fontWeight: 600,
-  },
-
-  participantEmail: {
-    marginTop: 2,
-    color: COLORS.textSoft,
-    fontSize: 5.8,
-  },
-
-  ticketIdBlock: {
-    alignItems: "flex-end",
-  },
-
-  ticketIdLabel: {
+  perforationText: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 11,
+    textAlign: "center",
     color: COLORS.muted,
-    fontSize: 5,
-    fontWeight: 700,
+    fontSize: 4.5,
+    fontWeight: 500,
     letterSpacing: 0.8,
   },
 
-  ticketId: {
-    marginTop: 3,
-    color: COLORS.purple,
-    fontSize: 7,
-    fontWeight: 700,
-    letterSpacing: 0.6,
-  },
+  // ----------------------------------------------------------
+  // QR AREA
+  // ----------------------------------------------------------
 
-  /* =====================================================
-     BOTTOM INFORMATION
-  ===================================================== */
-
-  bottom: {
-    marginTop: 10,
-    paddingTop: 9,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+  qrArea: {
+    backgroundColor: COLORS.purple,
+    borderRadius: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
   },
 
-  bottomBlock: {
+  qrInfo: {
     flex: 1,
+    paddingRight: 12,
   },
 
-  bottomLabel: {
-    color: COLORS.gold,
-    fontSize: 4.8,
+  qrEyebrow: {
+    color: COLORS.goldLight,
+    fontSize: 5.5,
     fontWeight: 700,
-    letterSpacing: 0.8,
+    letterSpacing: 1,
+    marginBottom: 2,
   },
 
-  bottomValue: {
-    marginTop: 2,
-    color: COLORS.textSoft,
+  qrTitle: {
+    color: COLORS.white,
+    fontSize: 9,
+    fontWeight: 700,
+  },
+
+  qrDescription: {
+    color: "#D9D1E8",
+    fontSize: 5.7,
+    lineHeight: 1.25,
+    marginTop: 3,
+  },
+
+  qrTicketNumber: {
+    color: COLORS.goldLight,
     fontSize: 5.8,
-    fontWeight: 500,
+    fontWeight: 600,
+    marginTop: 4,
   },
 
-  /* =====================================================
-     RIGHT TICKET / QR
-  ===================================================== */
+  qrFrame: {
+    width: 82,
+    height: 82,
+    backgroundColor: COLORS.white,
+    borderRadius: 7,
+    padding: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  qrCode: {
+    width: 72,
+    height: 72,
+  },
+
+  qrUnavailable: {
+    color: COLORS.muted,
+    fontSize: 5.5,
+    textAlign: "center",
+  },
+
+  // ----------------------------------------------------------
+  // FOOTER
+  // ----------------------------------------------------------
+
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+
+  footerWebsite: {
+    color: COLORS.purple,
+    fontSize: 6.5,
+    fontWeight: 700,
+  },
+
+  footerThemes: {
+    color: COLORS.muted,
+    fontSize: 5.5,
+    fontWeight: 500,
+    letterSpacing: 0.4,
+  },
+
+  // ----------------------------------------------------------
+  // RIGHT STUB
+  // ----------------------------------------------------------
 
   stub: {
-    width: 195,
+    width: 145,
     backgroundColor: COLORS.purple,
-    padding: 17,
+    paddingHorizontal: 12,
+    paddingVertical: 15,
     alignItems: "center",
     justifyContent: "space-between",
     position: "relative",
   },
 
-  perforation: {
-    position: "absolute",
-    left: -1,
-    top: 17,
-    bottom: 17,
-    borderLeftWidth: 1,
-    borderLeftColor: "#FFFFFF66",
-    borderStyle: "dashed",
-  },
-
-  notchTop: {
-    position: "absolute",
-    left: -7,
-    top: -7,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: COLORS.cream,
-  },
-
-  notchBottom: {
-    position: "absolute",
-    left: -7,
-    bottom: -7,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: COLORS.cream,
-  },
-
-  stubTop: {
-    alignItems: "center",
-  },
-
   stubBrand: {
     color: COLORS.goldLight,
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 700,
-    letterSpacing: 2.5,
+    letterSpacing: 2,
   },
 
   stubEdition: {
-    marginTop: 3,
-    color: COLORS.white,
+    color: "#D9D1E8",
     fontSize: 5.5,
-    fontWeight: 600,
-    letterSpacing: 1.2,
+    fontWeight: 500,
+    letterSpacing: 0.8,
+    textAlign: "center",
+    marginTop: 2,
   },
 
   stubLine: {
-    width: 120,
-    marginTop: 9,
-    borderTopWidth: 1,
-    borderTopColor: "#FFFFFF33",
+    width: 55,
+    height: 1,
+    backgroundColor: COLORS.gold,
+    marginVertical: 7,
   },
 
-  qrArea: {
-    alignItems: "center",
-  },
-
-  qrTitle: {
+  stubLabel: {
     color: COLORS.white,
-    fontSize: 7,
-    fontWeight: 700,
-    letterSpacing: 1.1,
-  },
-
-  qrSubtitle: {
-    marginTop: 3,
-    maxWidth: 135,
-    color: "#FFFFFFAA",
-    fontSize: 5.5,
-    lineHeight: 1.3,
+    fontSize: 6,
+    fontWeight: 600,
+    letterSpacing: 0.7,
     textAlign: "center",
   },
 
-  qrFrame: {
-    marginTop: 9,
-    width: 128,
-    height: 128,
-    padding: 7,
+  stubQrFrame: {
+    width: 92,
+    height: 92,
     backgroundColor: COLORS.white,
     borderRadius: 8,
+    padding: 6,
     alignItems: "center",
     justifyContent: "center",
+    marginVertical: 5,
   },
 
-  qr: {
-    width: 114,
-    height: 114,
+  stubQr: {
+    width: 80,
+    height: 80,
   },
 
-  qrPlaceholder: {
-    color: COLORS.purple,
-    fontSize: 7,
+  stubTicketLabel: {
+    color: COLORS.goldLight,
+    fontSize: 5,
+    fontWeight: 600,
+    letterSpacing: 0.6,
     textAlign: "center",
   },
 
-  qrNumber: {
-    marginTop: 5,
-    color: COLORS.goldLight,
-    fontSize: 5.2,
-    fontWeight: 500,
-    letterSpacing: 0.7,
-  },
-
-  validBadge: {
-    marginTop: 7,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 15,
-    backgroundColor: COLORS.greenSoft,
-  },
-
-  validText: {
-    marginLeft: 4,
-    color: COLORS.green,
-    fontSize: 5,
+  stubTicketNumber: {
+    color: COLORS.white,
+    fontSize: 6,
     fontWeight: 700,
-    letterSpacing: 0.5,
+    marginTop: 2,
+    textAlign: "center",
   },
 
   stubBottom: {
-    alignItems: "center",
-  },
-
-  stubWebsite: {
-    color: "#FFFFFF88",
+    color: "#D9D1E8",
     fontSize: 5,
+    textAlign: "center",
+    lineHeight: 1.3,
   },
 
-  stubAccess: {
-    marginTop: 3,
-    color: COLORS.white,
-    fontSize: 5.5,
-    fontWeight: 600,
-    letterSpacing: 0.5,
+  // ----------------------------------------------------------
+  // DECORATIONS
+  // ----------------------------------------------------------
+
+  accentTop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 65,
+    height: 4,
+    backgroundColor: COLORS.gold,
+    zIndex: 5,
+  },
+
+  accentBottom: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    width: 65,
+    height: 4,
+    backgroundColor: COLORS.gold,
+    zIndex: 5,
+  },
+
+  // Perforation verticale entre le billet principal
+  // et le petit coupon QR.
+  verticalPerforation: {
+    position: "absolute",
+    right: 145,
+    top: 0,
+    bottom: 0,
+    width: 1,
+    borderLeftWidth: 1,
+    borderLeftColor: COLORS.gold,
+    borderLeftStyle: "dashed",
+    zIndex: 4,
   },
 });
 
-/* =========================================================
-   HELPERS
-========================================================= */
+// ============================================================
+// HELPERS
+// ============================================================
 
 function safeText(value?: string | number | null): string {
-  if (
-    value === undefined ||
-    value === null ||
-    value === ""
-  ) {
-    return "—";
+  if (value === undefined || value === null) {
+    return "";
   }
 
   return String(value);
 }
 
-function truncate(
-  value: string,
-  max: number,
+function formatCreatedAt(
+  value?: string | Date | null
 ): string {
-  if (value.length <= max) {
-    return value;
+  if (!value) {
+    return "";
   }
 
-  return `${value.substring(0, max - 3)}...`;
+  try {
+    const date =
+      value instanceof Date
+        ? value
+        : new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    return new Intl.DateTimeFormat("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(date);
+  } catch {
+    return "";
+  }
 }
 
-/* =========================================================
-   PDF
-========================================================= */
+function getStatusLabel(
+  status?: Ticket["status"]
+): string {
+  switch (status) {
+    case "CANCELLED":
+      return "ANNULÉ";
+
+    case "USED":
+      return "UTILISÉ";
+
+    case "VALID":
+    default:
+      return "CONFIRMÉ";
+  }
+}
+
+// ============================================================
+// TICKET PDF
+// ============================================================
 
 export default function TicketPDF({
   ticket,
   qrCodeDataUrl,
 }: TicketPDFProps) {
-  const ticketNumber = safeText(
-    ticket.ticketNumber,
-  );
+  const ticketNumber = safeText(ticket.ticketNumber);
 
   const participantName = safeText(
-    ticket.participantName,
+    ticket.participantName
   );
 
-  const eventTitle = safeText(
-    ticket.eventTitle,
-  );
+  const email = safeText(ticket.email);
 
-  const dateLabel = safeText(
-    ticket.dateLabel,
-  );
+  const eventTitle = safeText(ticket.eventTitle);
 
+  const dateLabel = safeText(ticket.dateLabel);
   const time = safeText(ticket.time);
-
   const venue = safeText(ticket.venue);
-
   const city = safeText(ticket.city);
-
-  const duration = safeText(
-    ticket.duration,
-  );
+  const duration = safeText(ticket.duration);
 
   const reservationId = safeText(
-    ticket.reservationId,
+    ticket.reservationId
   );
 
-  const quantity =
-    ticket.quantity ?? 1;
+  const quantity = ticket.quantity ?? 1;
 
-  const childrenUnder12 = Math.max(
-    0,
-    Math.floor(
-      Number(
-        ticket.childrenUnder12 ?? 0,
-      ),
-    ),
-  );
+  const childrenUnder12 =
+    ticket.childrenUnder12 ?? 0;
 
-  const children12Plus = Math.max(
-    0,
-    Math.floor(
-      Number(
-        ticket.children12Plus ?? 0,
-      ),
-    ),
-  );
+  const children12Plus =
+    ticket.children12Plus ?? 0;
 
   const totalChildren =
-    childrenUnder12 +
-    children12Plus;
+    childrenUnder12 + children12Plus;
 
-  const status =
-    ticket.status === "CANCELLED"
-      ? "ANNULÉ"
-      : ticket.status === "USED"
-        ? "UTILISÉ"
-        : "CONFIRMÉ";
+  const statusLabel = getStatusLabel(
+    ticket.status
+  );
+
+  const createdAt = formatCreatedAt(
+    ticket.createdAt
+  );
+
+  const isCancelled =
+    ticket.status === "CANCELLED";
 
   return (
     <Document
@@ -748,422 +771,367 @@ export default function TicketPDF({
           style={styles.ticket}
           wrap={false}
         >
-          {/* =================================================
+          {/* ACCENTS */}
+          <View style={styles.accentTop} />
+          <View style={styles.accentBottom} />
+
+          {/* ==================================================
               MAIN TICKET
-          ================================================= */}
+          ================================================== */}
 
-          <View
-            style={styles.main}
-            wrap={false}
-          >
+          <View style={styles.main}>
             {/* HEADER */}
+            <View>
+              <View style={styles.headerTop}>
+                <Text style={styles.brand}>
+                  SILO CAMP
+                </Text>
 
-            <View style={styles.top}>
-              <View style={styles.brandGroup}>
-                <View style={styles.logo}>
-                  <Text style={styles.logoText}>
-                    SILO
+                <Text style={styles.edition}>
+                  CAMP INTERNATIONAL 2026
+                </Text>
+              </View>
+
+              <View style={styles.headerLine} />
+
+              {/* HERO */}
+              <View style={styles.heroRow}>
+                <View style={styles.heroText}>
+                  <Text style={styles.heroTitle}>
+                    VIVEZ LE FEU DU REVEIL{"\n"}
+                    DANS LA PRESENCE DE DIEU
                   </Text>
-                </View>
 
-                <View>
-                  <Text style={styles.brandTitle}>
-                    CAMP INTERNATIONAL SILO
-                  </Text>
-
-                  <Text style={styles.brandSub}>
+                  <Text style={styles.heroSubtitle}>
                     GOSPEL • ADORATION • COMMUNION
                   </Text>
                 </View>
-              </View>
 
-              <View style={styles.freeBadge}>
-                <Text style={styles.freeBadgeText}>
-                  ENTRÉE GRATUITE
-                </Text>
-              </View>
-            </View>
+                <View style={styles.badges}>
+                  <View style={styles.freeBadge}>
+                    <Text style={styles.freeBadgeText}>
+                      ENTRÉE GRATUITE
+                    </Text>
+                  </View>
 
-            {/* HERO */}
-
-            <View style={styles.hero}>
-              <Text style={styles.eyebrow}>
-                CAMP INTERNATIONAL SILO 2026
-              </Text>
-
-              <Text style={styles.title}>
-                VIENS EXPÉRIMENTER{"\n"}
-                <Text style={styles.titleAccent}>
-                  LE CIEL SUR LA TERRE
-                </Text>
-              </Text>
-
-              <Text style={styles.description}>
-                Un temps de communion,
-                d'enseignement, de prière,
-                de louange et d'adoration
-                autour de Jésus-Christ.
-              </Text>
-            </View>
-
-            {/* EVENT DETAILS */}
-
-            <View
-              style={styles.details}
-              wrap={false}
-            >
-              <View style={styles.detailFirst}>
-                <View
-                  style={
-                    styles.detailLabelRow
-                  }
-                >
-                  <CalendarIcon />
-
-                  <Text
-                    style={styles.detailLabel}
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      isCancelled
+                        ? styles.statusCancelled
+                        : undefined,
+                    ]}
                   >
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        isCancelled
+                          ? styles.statusCancelledText
+                          : undefined,
+                      ]}
+                    >
+                      {statusLabel}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* EVENT */}
+              <View style={styles.eventBlock}>
+                <Text style={styles.eventLabel}>
+                  ÉVÉNEMENT
+                </Text>
+
+                <Text style={styles.eventTitle}>
+                  {eventTitle ||
+                    "Camp International Silo 2026"}
+                </Text>
+              </View>
+
+              {/* DETAILS */}
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailColumn}>
+                  <Text style={styles.detailLabel}>
                     DATE
                   </Text>
+
+                  <Text style={styles.detailValue}>
+                    {dateLabel || "—"}
+                  </Text>
                 </View>
 
-                <Text
-                  style={styles.detailValue}
-                >
-                  {dateLabel}
-                </Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.detail}>
-                <View
-                  style={
-                    styles.detailLabelRow
-                  }
-                >
-                  <ClockIcon />
-
-                  <Text
-                    style={styles.detailLabel}
-                  >
+                <View style={styles.detailColumn}>
+                  <Text style={styles.detailLabel}>
                     HEURE
                   </Text>
+
+                  <Text style={styles.detailValue}>
+                    {time || "—"}
+                  </Text>
                 </View>
 
-                <Text
-                  style={styles.detailValue}
-                >
-                  {time}
-                </Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.detail}>
-                <View
-                  style={
-                    styles.detailLabelRow
-                  }
-                >
-                  <LocationIcon />
-
-                  <Text
-                    style={styles.detailLabel}
-                  >
+                <View style={styles.detailColumn}>
+                  <Text style={styles.detailLabel}>
                     LIEU
                   </Text>
+
+                  <Text style={styles.detailValueSmall}>
+                    {venue || "—"}
+                  </Text>
+
+                  {city ? (
+                    <Text
+                      style={[
+                        styles.detailValueSmall,
+                        {
+                          marginTop: 1,
+                          color: COLORS.textSoft,
+                        },
+                      ]}
+                    >
+                      {city}
+                    </Text>
+                  ) : null}
                 </View>
 
-                <Text
-                  style={styles.detailValue}
-                >
-                  {truncate(venue, 28)}
-                </Text>
-
-                <Text
-                  style={styles.detailSub}
-                >
-                  {city}
-                </Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.detailLast}>
                 <View
-                  style={
-                    styles.detailLabelRow
-                  }
+                  style={[
+                    styles.detailColumn,
+                    styles.detailColumnLast,
+                  ]}
                 >
-                  <ClockIcon />
-
-                  <Text
-                    style={styles.detailLabel}
-                  >
+                  <Text style={styles.detailLabel}>
                     DURÉE
                   </Text>
+
+                  <Text style={styles.detailValue}>
+                    {duration || "—"}
+                  </Text>
                 </View>
-
-                <Text
-                  style={styles.detailValue}
-                >
-                  {duration}
-                </Text>
               </View>
-            </View>
 
-            {/* PARTICIPANT */}
-
-            <View
-              style={styles.participant}
-              wrap={false}
-            >
-              <View
-                style={styles.participantLeft}
-              >
-                <View
-                  style={styles.participantLabel}
-                >
-                  <UserIcon />
-
-                  <Text
-                    style={
-                      styles.participantLabelText
-                    }
-                  >
+              {/* PARTICIPANT */}
+              <View style={styles.participantBox}>
+                <View style={styles.participantLeft}>
+                  <Text style={styles.participantLabel}>
                     PARTICIPANT
                   </Text>
+
+                  <Text style={styles.participantName}>
+                    {participantName ||
+                      "Participant"}
+                  </Text>
+
+                  {email ? (
+                    <Text
+                      style={styles.participantEmail}
+                    >
+                      {email}
+                    </Text>
+                  ) : null}
                 </View>
 
-                <Text
-                  style={styles.participantName}
-                >
-                  {participantName}
-                </Text>
-
-                {ticket.email && (
+                <View style={styles.ticketNumberBlock}>
                   <Text
-                    style={
-                      styles.participantEmail
-                    }
+                    style={styles.ticketNumberLabel}
                   >
-                    {ticket.email}
+                    E-TICKET
                   </Text>
-                )}
+
+                  <Text style={styles.ticketNumber}>
+                    {ticketNumber || "SILOCAMP"}
+                  </Text>
+                </View>
               </View>
+
+              {/* META */}
+              <View style={styles.metaGrid}>
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>
+                    PLACES
+                  </Text>
+
+                  <Text style={styles.metaValue}>
+                    {quantity}
+                  </Text>
+                </View>
+
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>
+                    ENFANTS
+                  </Text>
+
+                  <Text style={styles.metaValue}>
+                    {totalChildren}
+                  </Text>
+                </View>
+
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>
+                    RÉSERVATION
+                  </Text>
+
+                  <Text style={styles.metaValue}>
+                    {reservationId || "—"}
+                  </Text>
+                </View>
+
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>
+                    CRÉÉ LE
+                  </Text>
+
+                  <Text style={styles.metaValue}>
+                    {createdAt || "—"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* ==================================================
+                  PERFORATION HORIZONTALE
+              ================================================== */}
 
               <View
-                style={styles.ticketIdBlock}
+                style={styles.perforationContainer}
               >
+                <View
+                  style={styles.perforationLineLeft}
+                />
+
                 <Text
-                  style={styles.ticketIdLabel}
+                  style={styles.perforationScissors}
                 >
-                  NUMÉRO DU BILLET
+                  ✂
                 </Text>
 
-                <Text
-                  style={styles.ticketId}
-                >
-                  {ticketNumber}
-                </Text>
-              </View>
-            </View>
+                <View
+                  style={styles.perforationLineRight}
+                />
 
-            {/* CHILDREN / RESERVATION */}
-
-            <View
-              style={styles.bottom}
-              wrap={false}
-            >
-              <View style={styles.bottomBlock}>
-                <Text
-                  style={styles.bottomLabel}
-                >
-                  PLACES
-                </Text>
-
-                <Text
-                  style={styles.bottomValue}
-                >
-                  {quantity}{" "}
-                  {quantity > 1
-                    ? "places"
-                    : "place"}
+                <Text style={styles.perforationText}>
+                  CONTRÔLE DU BILLET
                 </Text>
               </View>
 
-              <View style={styles.bottomBlock}>
-                <Text
-                  style={styles.bottomLabel}
-                >
-                  ENFANTS
-                </Text>
+              {/* ==================================================
+                  QR AREA
+              ================================================== */}
 
-                <Text
-                  style={styles.bottomValue}
-                >
-                  {totalChildren}
-                  {totalChildren > 0
-                    ? ` (${childrenUnder12} <12 / ${children12Plus} 12+)`
-                    : ""}
-                </Text>
-              </View>
+              <View style={styles.qrArea}>
+                <View style={styles.qrInfo}>
+                  <Text style={styles.qrEyebrow}>
+                    BILLET ÉLECTRONIQUE
+                  </Text>
 
-              <View style={styles.bottomBlock}>
-                <Text
-                  style={styles.bottomLabel}
-                >
-                  TARIF
-                </Text>
+                  <Text style={styles.qrTitle}>
+                    Présentez votre QR Code à l'entrée
+                  </Text>
 
-                <Text
-                  style={styles.bottomValue}
-                >
-                  Gratuit
-                </Text>
-              </View>
+                  <Text
+                    style={styles.qrDescription}
+                  >
+                    Scannez ce code pour vérifier
+                    l'authenticité et la validité
+                    de votre billet.
+                  </Text>
 
-              <View style={styles.bottomBlock}>
-                <Text
-                  style={styles.bottomLabel}
-                >
-                  STATUT
-                </Text>
+                  <Text
+                    style={styles.qrTicketNumber}
+                  >
+                    N° {ticketNumber || "SILOCAMP"}
+                  </Text>
+                </View>
 
-                <Text
-                  style={styles.bottomValue}
-                >
-                  {status}
-                </Text>
-              </View>
-
-              <View style={styles.bottomBlock}>
-                <Text
-                  style={styles.bottomLabel}
-                >
-                  RÉSERVATION
-                </Text>
-
-                <Text
-                  style={styles.bottomValue}
-                >
-                  {truncate(
-                    reservationId,
-                    20,
+                <View style={styles.qrFrame}>
+                  {qrCodeDataUrl ? (
+                    <Image
+                      src={qrCodeDataUrl}
+                      style={styles.qrCode}
+                    />
+                  ) : (
+                    <Text
+                      style={styles.qrUnavailable}
+                    >
+                      QR Code{"\n"}
+                      indisponible
+                    </Text>
                   )}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* =================================================
-              PERFORATED QR STUB
-          ================================================= */}
-
-          <View
-            style={styles.stub}
-            wrap={false}
-          >
-            {/* PERFORATION */}
-
-            <View style={styles.perforation} />
-
-            <View style={styles.notchTop} />
-
-            <View
-              style={styles.notchBottom}
-            />
-
-            {/* STUB HEADER */}
-
-            <View style={styles.stubTop}>
-              <Text style={styles.stubBrand}>
-                SILO
-              </Text>
-
-              <Text
-                style={styles.stubEdition}
-              >
-                CAMP INTERNATIONAL 2026
-              </Text>
-
-              <View style={styles.stubLine} />
-            </View>
-
-            {/* QR */}
-
-            <View
-              style={styles.qrArea}
-            >
-              <Text style={styles.qrTitle}>
-                SCANNEZ À L'ENTRÉE
-              </Text>
-
-              <Text
-                style={styles.qrSubtitle}
-              >
-                Présentez ce QR Code
-                pour vérifier votre
-                billet.
-              </Text>
-
-              <View
-                style={styles.qrFrame}
-              >
-                {qrCodeDataUrl ? (
-                  <Image
-                    src={qrCodeDataUrl}
-                    style={styles.qr}
-                  />
-                ) : (
-                  <Text
-                    style={
-                      styles.qrPlaceholder
-                    }
-                  >
-                    QR CODE
-                  </Text>
-                )}
-              </View>
-
-              <Text
-                style={styles.qrNumber}
-              >
-                {ticketNumber}
-              </Text>
-
-              <View
-                style={styles.validBadge}
-              >
-                <CheckIcon />
-
-                <Text
-                  style={styles.validText}
-                >
-                  BILLET {status}
-                </Text>
+                </View>
               </View>
             </View>
 
-            {/* STUB FOOTER */}
-
-            <View
-              style={styles.stubBottom}
-            >
-              <Text
-                style={styles.stubWebsite}
-              >
-                www.silocamp.org
+            {/* FOOTER */}
+            <View style={styles.footer}>
+              <Text style={styles.footerWebsite}>
+                silocamp.org
               </Text>
 
-              <Text
-                style={styles.stubAccess}
-              >
+              <Text style={styles.footerThemes}>
                 GOSPEL • ADORATION • COMMUNION
               </Text>
             </View>
           </View>
+
+          {/* ==================================================
+              RIGHT QR STUB
+          ================================================== */}
+
+          <View style={styles.stub}>
+            <View>
+              <Text style={styles.stubBrand}>
+                SILO
+              </Text>
+
+              <Text style={styles.stubEdition}>
+                CAMP INTERNATIONAL 2026
+              </Text>
+
+              <View style={styles.stubLine} />
+
+              <Text style={styles.stubLabel}>
+                SCANNEZ À L'ENTRÉE
+              </Text>
+            </View>
+
+            <View style={styles.stubQrFrame}>
+              {qrCodeDataUrl ? (
+                <Image
+                  src={qrCodeDataUrl}
+                  style={styles.stubQr}
+                />
+              ) : (
+                <Text style={styles.qrUnavailable}>
+                  QR
+                </Text>
+              )}
+            </View>
+
+            <View>
+              <Text style={styles.stubTicketLabel}>
+                NUMÉRO DU BILLET
+              </Text>
+
+              <Text style={styles.stubTicketNumber}>
+                {ticketNumber || "SILOCAMP"}
+              </Text>
+            </View>
+
+            <Text style={styles.stubBottom}>
+              Présentez ce billet à l'entrée.
+              {"\n"}
+              Un seul billet par participant.
+              {"\n\n"}
+              silocamp.org
+            </Text>
+          </View>
+
+          {/* ==================================================
+              VERTICAL PERFORATION
+          ================================================== */}
+
+          <View
+            style={styles.verticalPerforation}
+          />
         </View>
       </Page>
     </Document>
