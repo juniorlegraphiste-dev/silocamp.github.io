@@ -200,7 +200,7 @@ function Facts({
         <Clock3 className="h-5 w-5 text-[#D6AA50] stroke-[1.8]" />
       ),
       label: "Heure",
-      value: `${ev.time} • Portes ${ev.doors}`,
+      value: `${ev.time} • Ouverture des portes ${ev.doors}`,
     },
 
     {
@@ -234,11 +234,11 @@ function Facts({
               {fact.value}
             </span>
 
-            {index < facts.length - 1 && (
+            {/* {index < facts.length - 1 && (
               <span className="ml-5 text-gold-300">
                 •
               </span>
-            )}
+            )} */}
           </div>
         ))}
       </div>
