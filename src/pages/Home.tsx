@@ -380,10 +380,10 @@ function Hero({
             <span className="font-semibold text-cream">
               {eventName}
             </span>{" "}
-            est un rassemblement de réveil qui réunit des
-            adorateurs de plusieurs pays pour vivre des moments
-            puissants de communion, d'enseignement, de prière
-            et de louange dans la présence de Dieu.
+            est un salon de changement de mentalité
+            et d’attitude dans notre manière de louer, un lieu de réjouissance
+            et de victoire où nous faisons un vœu à l’Éternel, bâtissons un
+            autel et apprenons à entendre Dieu pour nous-mêmes.
           </motion.p>
 
           {/* Compte à rebours */}
