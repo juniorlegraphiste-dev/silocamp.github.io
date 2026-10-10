@@ -24,7 +24,7 @@ const faqs = [
     answer: (
       <>
         <a
-          href="https://silocamp-github-io.vercel.app/annulation"
+          href="/annulation"
           className="underline font-semibold hover:opacity-80"
           style={{ color: "#d4ae63" }}
         >
