@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
@@ -17,16 +16,13 @@ import {
 
 import { useCart, type CartLine } from "@/context/CartContext";
 import { Reveal } from "@/components/Reveal";
-
 import {
   createTicket,
   checkTicketAvailability,
   getTicketByEmail,
   getTicketByPhone,
 } from "@/services/ticketService";
-
 import { generateReservationId } from "@/utils/format";
-
 import {
   getPublicEventSettings,
   type PublicEventSettings,
@@ -94,13 +90,7 @@ function normalizePhone(phone: string): string {
 function isValidEmail(email: string): boolean {
   const value = normalizeEmail(email);
 
-  if (!value) {
-    return false;
-  }
-
-  if (value.length > 254) {
-    return false;
-  }
+  if (!value || value.length > 254) return false;
 
   return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/.test(
     value,
@@ -108,15 +98,11 @@ function isValidEmail(email: string): boolean {
 }
 
 function formatPublicDate(date: string): string {
-  if (!date) {
-    return "";
-  }
+  if (!date) return "";
 
   const parsed = new Date(`${date}T00:00:00`);
 
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
+  if (Number.isNaN(parsed.getTime())) return date;
 
   return parsed.toLocaleDateString("fr-FR", {
     weekday: "long",
@@ -134,32 +120,19 @@ export default function Checkout() {
   const [errors, setErrors] = useState<Errors>({});
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
   const [settings, setSettings] = useState<PublicEventSettings | null>(null);
-
   const [settingsLoading, setSettingsLoading] = useState(true);
 
   const participationCategory = event?.categories?.[0];
-
   const participationCategoryId = participationCategory?.id ?? "";
 
   const participationQuantity = participationCategoryId
     ? (quantities[participationCategoryId] ?? 0)
     : 0;
 
-  /*
-   * Une réservation commence toujours avec :
-   *
-   * 1 participant = 1 place
-   *
-   * Puis :
-   *
-   * + 1 place pour chaque enfant de 12 ans ou plus.
-   *
-   * Les enfants de moins de 12 ans ne consomment aucune
-   * place supplémentaire.
-   */
-
+  // Une réservation commence avec une place pour le participant principal.
+  // Chaque enfant de 12 ans ou plus ajoute une place.
+  // Les enfants de moins de 12 ans n'ajoutent aucune place.
   const childrenUnder12 = form.hasChildren
     ? Math.max(0, Math.floor(form.childrenUnder12))
     : 0;
@@ -169,16 +142,12 @@ export default function Checkout() {
     : 0;
 
   const totalChildren = childrenUnder12 + children12Plus;
-
   const placesConsumed = 1 + children12Plus;
 
-  /**
-   * Chargement des paramètres publics de l'événement.
-   */
   useEffect(() => {
     let cancelled = false;
 
-    const loadSettings = async () => {
+    async function loadSettings() {
       setSettingsLoading(true);
 
       try {
@@ -197,7 +166,7 @@ export default function Checkout() {
           setSettingsLoading(false);
         }
       }
-    };
+    }
 
     void loadSettings();
 
@@ -206,13 +175,9 @@ export default function Checkout() {
     };
   }, []);
 
-  /**
-   * Le panier doit toujours contenir une seule participation.
-   */
+  // Limite la participation principale à une seule place.
   useEffect(() => {
-    if (!participationCategoryId) {
-      return;
-    }
+    if (!participationCategoryId) return;
 
     if (participationQuantity > 1) {
       setQuantity(participationCategoryId, 1);
@@ -220,10 +185,7 @@ export default function Checkout() {
   }, [participationCategoryId, participationQuantity, setQuantity]);
 
   const set = (key: keyof FormState, value: string | boolean | number) => {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
+    setForm((current) => ({ ...current, [key]: value }));
 
     setErrors((current) => ({
       ...current,
@@ -273,9 +235,6 @@ export default function Checkout() {
     setSubmitError("");
   };
 
-  /**
-   * Validation du formulaire.
-   */
   const validate = async (): Promise<boolean> => {
     const nextErrors: Errors = {};
 
@@ -358,46 +317,30 @@ export default function Checkout() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  /**
-   * Création de la réservation.
-   */
   const submit = async () => {
-    if (submitting) {
-      return;
-    }
+    if (submitting) return;
 
-    /*
-     * Les paramètres publics doivent être disponibles
-     * avant toute tentative de réservation.
-     */
     if (settingsLoading) {
       setSubmitError(
         "Vérification des paramètres de l'événement en cours. Veuillez patienter.",
       );
-
       return;
     }
 
     if (!settings) {
       setSubmitError("Impossible de récupérer les paramètres de l'événement.");
-
       return;
     }
 
-    /*
-     * Vérification de l'ouverture des inscriptions.
-     */
     if (!settings.registrationsOpen) {
       setSubmitError(
         "Les inscriptions à cet événement sont actuellement fermées.",
       );
-
       return;
     }
 
     if (!event) {
       setSubmitError("L'événement demandé est introuvable.");
-
       return;
     }
 
@@ -405,25 +348,16 @@ export default function Checkout() {
       setSubmitError(
         "La participation n'est pas disponible pour cet événement.",
       );
-
       return;
     }
 
     if (participationQuantity <= 0) {
       setSubmitError("Veuillez sélectionner votre participation.");
 
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
-    /*
-     * Le panier ne doit contenir qu'une seule ligne
-     * Participation.
-     */
     if (participationQuantity !== 1) {
       setQuantity(participationCategory.id, 1);
 
@@ -434,35 +368,25 @@ export default function Checkout() {
       return;
     }
 
-    const isValid = await validate();
-
-    if (!isValid) {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-
-      return;
-    }
-
-    const normalizedEmail = normalizeEmail(form.email);
-    const normalizedPhone = normalizePhone(form.phone);
-
-    const firstName = form.firstName.trim();
-    const lastName = form.lastName.trim();
-
-    const participantName = `${firstName} ${lastName}`;
-
     setSubmitting(true);
     setSubmitError("");
 
     try {
-      /*
-       * DOUBLE VÉRIFICATION DES PARAMÈTRES
-       *
-       * Les paramètres peuvent avoir changé pendant que
-       * l'utilisateur remplissait le formulaire.
-       */
+      const isValid = await validate();
+
+      if (!isValid) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setSubmitting(false);
+        return;
+      }
+
+      const normalizedEmail = normalizeEmail(form.email);
+      const normalizedPhone = normalizePhone(form.phone);
+      const firstName = form.firstName.trim();
+      const lastName = form.lastName.trim();
+      const participantName = `${firstName} ${lastName}`;
+
+      // Vérifie à nouveau l'état des inscriptions avant la création.
       const latestSettings = await getPublicEventSettings();
 
       if (!latestSettings.registrationsOpen) {
@@ -470,25 +394,12 @@ export default function Checkout() {
           "Les inscriptions viennent d'être fermées. Votre réservation n'a pas été créée.",
         );
 
+        window.scrollTo({ top: 0, behavior: "smooth" });
         setSubmitting(false);
-
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
-
         return;
       }
 
-      /*
-       * Vérification de la capacité.
-       *
-       * La quantité consommée correspond à :
-       *
-       * 1 participant principal
-       * +
-       * enfants de 12 ans ou plus
-       */
+      // Vérifie que le nombre de places demandé reste disponible.
       const availability = await checkTicketAvailability(placesConsumed);
 
       if (!availability.available) {
@@ -497,19 +408,12 @@ export default function Checkout() {
             `Il ne reste pas suffisamment de places disponibles pour cette réservation. Places nécessaires : ${placesConsumed}.`,
         );
 
+        window.scrollTo({ top: 0, behavior: "smooth" });
         setSubmitting(false);
-
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
-
         return;
       }
 
-      /*
-       * DOUBLE VÉRIFICATION E-MAIL
-       */
+      // Deuxième vérification de l'e-mail.
       const existingEmailTickets = await getTicketByEmail(normalizedEmail);
 
       if (existingEmailTickets.length > 0) {
@@ -519,19 +423,12 @@ export default function Checkout() {
             "Cette adresse e-mail a déjà été utilisée pour une participation.",
         }));
 
+        window.scrollTo({ top: 0, behavior: "smooth" });
         setSubmitting(false);
-
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
-
         return;
       }
 
-      /*
-       * DOUBLE VÉRIFICATION TÉLÉPHONE
-       */
+      // Deuxième vérification du téléphone.
       const existingPhoneTickets = await getTicketByPhone(normalizedPhone);
 
       if (existingPhoneTickets.length > 0) {
@@ -541,32 +438,13 @@ export default function Checkout() {
             "Ce numéro de téléphone a déjà été utilisé pour une participation.",
         }));
 
+        window.scrollTo({ top: 0, behavior: "smooth" });
         setSubmitting(false);
-
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
-
         return;
       }
 
-      /*
-       * ID UNIQUE DE RÉSERVATION
-       */
       const reservationId = generateReservationId();
 
-      /*
-       * CRÉATION DU BILLET
-       *
-       * quantity = placesConsumed
-       *
-       * 0 enfant 12+  => quantity 1
-       * 1 enfant 12+  => quantity 2
-       * 2 enfants 12+ => quantity 3
-       *
-       * childrenUnder12 ne rajoute aucune place.
-       */
       const ticket = await createTicket({
         firstName,
         lastName,
@@ -587,11 +465,6 @@ export default function Checkout() {
         children12Plus,
       });
 
-      /*
-       * COMMANDE
-       *
-       * count correspond exactement à ticket.quantity.
-       */
       const order: Order = {
         reservationId,
         ticketId: ticket.id,
@@ -628,12 +501,8 @@ export default function Checkout() {
         createdAt: new Date().toISOString(),
       };
 
-      /*
-       * SESSION STORAGE
-       */
       try {
         sessionStorage.setItem("silocamp-last-order", JSON.stringify(order));
-
         sessionStorage.setItem("wg-last-order", JSON.stringify(order));
       } catch (storageError) {
         console.warn(
@@ -642,14 +511,8 @@ export default function Checkout() {
         );
       }
 
-      /*
-       * VIDER LE PANIER
-       */
       clear();
 
-      /*
-       * REDIRECTION VERS CONFIRMATION
-       */
       navigate("/confirmation", {
         state: {
           eventId: event.id,
@@ -678,30 +541,21 @@ export default function Checkout() {
           : "Une erreur est survenue lors de la réservation.",
       );
 
+      window.scrollTo({ top: 0, behavior: "smooth" });
       setSubmitting(false);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
     }
   };
 
   const cancelReservation = () => {
-    if (submitting) {
-      return;
-    }
+    if (submitting) return;
 
     const confirmed = window.confirm(
       "Voulez-vous vraiment annuler votre participation ?",
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     clear();
-
     setForm(EMPTY_FORM);
     setErrors({});
     setSubmitError("");
@@ -711,9 +565,9 @@ export default function Checkout() {
 
   if (!event) {
     return (
-      <div className="container-px mx-auto flex min-h-[70vh] max-w-2xl items-center justify-center py-32">
-        <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center">
-          <h1 className="font-display text-3xl text-cream">
+      <div className="container-px mx-auto flex min-h-[70vh] w-full max-w-2xl items-center justify-center py-20 sm:py-32">
+        <div className="w-full rounded-2xl border border-red-400/20 bg-red-400/5 p-5 text-center sm:rounded-3xl sm:p-8">
+          <h1 className="font-display text-2xl text-cream sm:text-3xl">
             Réservation indisponible
           </h1>
 
@@ -731,9 +585,9 @@ export default function Checkout() {
 
   if (!participationCategory) {
     return (
-      <div className="container-px mx-auto flex min-h-[70vh] max-w-2xl items-center justify-center py-32">
-        <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center">
-          <h1 className="font-display text-3xl text-cream">
+      <div className="container-px mx-auto flex min-h-[70vh] w-full max-w-2xl items-center justify-center py-20 sm:py-32">
+        <div className="w-full rounded-2xl border border-red-400/20 bg-red-400/5 p-5 text-center sm:rounded-3xl sm:p-8">
+          <h1 className="font-display text-2xl text-cream sm:text-3xl">
             Réservation indisponible
           </h1>
 
@@ -766,59 +620,59 @@ export default function Checkout() {
     settings?.eventLocation || `${event.venue}, ${event.city}`;
 
   return (
-    <div className="container-px mx-auto max-w-7xl pb-28 pt-28 md:pt-32 lg:pb-20">
-      <Reveal className="mb-10 text-center">
-        <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.25em] text-gold-300">
-          <CheckCircle2 className="h-4 w-4" />
+    <div className="container-px mx-auto w-full min-w-0 max-w-7xl pb-24 pt-24 sm:pb-28 sm:pt-28 md:pt-32 lg:pb-20">
+      <Reveal className="mb-8 text-center sm:mb-10">
+        <span className="inline-flex max-w-full items-center justify-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/5 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.15em] text-gold-300 sm:px-4 sm:text-xs sm:tracking-[0.25em]">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
           Étape 2 sur 2 · Confirmation
         </span>
 
-        <h1 className="mt-5 font-display text-4xl font-medium text-cream sm:text-5xl">
+        <h1 className="mt-5 font-display text-3xl font-medium leading-tight text-cream sm:text-4xl lg:text-5xl">
           Confirmez votre{" "}
           <span className="text-gold-gradient">réservation</span>
         </h1>
 
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-cream-dim sm:text-base">
           Vérifiez vos informations puis confirmez votre participation pour
           recevoir votre e-billet avec QR Code.
         </p>
       </Reveal>
 
       {submitError && (
-        <Reveal className="mx-auto mb-8 max-w-3xl">
+        <Reveal className="mx-auto mb-6 w-full max-w-3xl sm:mb-8">
           <div
             role="alert"
             className="rounded-2xl border border-red-400/20 bg-red-400/5 p-4 text-center"
           >
-            <p className="text-sm font-medium text-red-300">{submitError}</p>
+            <p className="break-words text-sm font-medium text-red-300">
+              {submitError}
+            </p>
           </div>
         </Reveal>
       )}
 
       <Steps current={2} />
 
-      <div className="mt-12 grid gap-10 lg:grid-cols-[1.6fr_1fr] lg:gap-14">
-        <div className="space-y-10">
+      <div className="mt-8 grid min-w-0 grid-cols-1 gap-6 sm:mt-10 sm:gap-8 lg:mt-12 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-10 xl:gap-14">
+        <div className="min-w-0 space-y-6 sm:space-y-8 lg:space-y-10">
           <Section title="Votre réservation" subtitle={displayEventName}>
-            <div className="mb-6 flex flex-wrap items-center gap-6 text-sm text-cream-dim">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-gold-300" />
-
-                <span>
+            <div className="mb-6 grid min-w-0 grid-cols-1 gap-3 text-sm text-cream-dim sm:grid-cols-2 sm:gap-4">
+              <div className="flex min-w-0 items-start gap-2">
+                <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-gold-300" />
+                <span className="min-w-0 break-words">
                   {displayDate} · {displayTime}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-gold-300" />
-
-                <span>{displayLocation}</span>
+              <div className="flex min-w-0 items-start gap-2">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold-300" />
+                <span className="min-w-0 break-words">{displayLocation}</span>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-gold-400/40 bg-gold-400/5 p-6">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex-1">
+            <div className="min-w-0 rounded-2xl border border-gold-400/40 bg-gold-400/5 p-4 sm:rounded-3xl sm:p-6">
+              <div className="flex min-w-0 flex-col gap-5 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-3">
                     <h3 className="font-display text-xl text-cream">
                       Participation
@@ -835,56 +689,48 @@ export default function Checkout() {
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="rounded-full border border-gold-400/15 px-3 py-1 text-xs text-cream-faint">
-                      ✓ Accès au Camp
-                    </span>
-
-                    <span className="rounded-full border border-gold-400/15 px-3 py-1 text-xs text-cream-faint">
-                      ✓ E-billet
-                    </span>
-
-                    <span className="rounded-full border border-gold-400/15 px-3 py-1 text-xs text-cream-faint">
-                      ✓ QR Code
-                    </span>
+                    {["Accès au Camp", "E-billet", "QR Code"].map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full border border-gold-400/15 px-3 py-1 text-xs text-cream-faint"
+                      >
+                        ✓ {item}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
                 <div className="flex shrink-0 items-center">
-                  <div className="flex min-h-10 min-w-16 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300">
-                    {placesConsumed} place
-                    {placesConsumed > 1 ? "s" : ""}
+                  <div className="flex min-h-10 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300">
+                    {placesConsumed} place{placesConsumed > 1 ? "s" : ""}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/30 px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="mt-5 space-y-3 rounded-2xl border border-gold-400/10 bg-ink-950/30 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="text-cream-faint">
                     Participant principal
                   </span>
-
                   <span className="font-medium text-cream">1 place</span>
                 </div>
 
                 {children12Plus > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="text-cream-faint">
                       Enfant(s) de 12 ans ou plus
                     </span>
-
                     <span className="font-medium text-cream">
-                      +{children12Plus} place
-                      {children12Plus > 1 ? "s" : ""}
+                      +{children12Plus} place{children12Plus > 1 ? "s" : ""}
                     </span>
                   </div>
                 )}
 
                 {childrenUnder12 > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="text-cream-faint">
                       Enfant(s) de moins de 12 ans
                     </span>
-
                     <span className="font-medium text-emerald-300">
                       Aucun supplément de place
                     </span>
@@ -893,14 +739,16 @@ export default function Checkout() {
               </div>
 
               <div className="mt-4 rounded-2xl border border-gold-400/10 bg-ink-950/30 px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="text-cream-faint">Inscriptions</span>
 
                   <span
                     className={
-                      settings?.registrationsOpen
-                        ? "font-semibold text-emerald-300"
-                        : "font-semibold text-red-300"
+                      settingsLoading
+                        ? "font-semibold text-cream-faint"
+                        : settings?.registrationsOpen
+                          ? "font-semibold text-emerald-300"
+                          : "font-semibold text-red-300"
                     }
                   >
                     {settingsLoading
@@ -912,11 +760,10 @@ export default function Checkout() {
                 </div>
 
                 {settings && (
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="text-cream-faint">
                       Capacité configurée
                     </span>
-
                     <span className="font-medium text-cream">
                       {settings.capacity} places maximum
                     </span>
@@ -930,7 +777,7 @@ export default function Checkout() {
             title="Vos informations"
             subtitle="Ces informations seront utilisées pour générer votre e-billet."
           >
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
               <Field
                 label="Prénom"
                 value={form.firstName}
@@ -938,6 +785,7 @@ export default function Checkout() {
                 error={errors.firstName}
                 autoComplete="given-name"
               />
+
               <Field
                 label="Nom"
                 value={form.lastName}
@@ -945,6 +793,7 @@ export default function Checkout() {
                 error={errors.lastName}
                 autoComplete="family-name"
               />
+
               <Field
                 label="E-mail"
                 type="email"
@@ -954,10 +803,9 @@ export default function Checkout() {
                 autoComplete="email"
                 className="sm:col-span-2"
                 placeholder="exemple@email.com"
+                inputMode="email"
               />
-              {/* ============================================================
-               TÉLÉPHONE
-              ============================================================ */}
+
               <div className="sm:col-span-2">
                 <label
                   htmlFor="phone"
@@ -1003,14 +851,14 @@ export default function Checkout() {
               </div>
             </div>
 
-            <div className="mt-8 rounded-3xl border border-gold-400/15 bg-gold-400/5 p-5">
-              <div className="flex items-start gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300">
+            <div className="mt-6 min-w-0 rounded-2xl border border-gold-400/15 bg-gold-400/5 p-4 sm:mt-8 sm:rounded-3xl sm:p-5">
+              <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300 sm:h-11 sm:w-11">
                   <Users className="h-5 w-5" />
                 </div>
 
-                <div className="flex-1">
-                  <h3 className="font-display text-xl text-cream">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-display text-lg text-cream sm:text-xl">
                     Venez-vous avec des enfants ?
                   </h3>
 
@@ -1019,11 +867,12 @@ export default function Checkout() {
                     familles.
                   </p>
 
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={() => selectChildrenOption(false)}
-                      className={`rounded-2xl border px-5 py-3 text-sm font-semibold transition ${
+                      aria-pressed={!form.hasChildren}
+                      className={`min-h-11 rounded-xl border px-4 py-3 text-sm font-semibold transition sm:rounded-2xl sm:px-5 ${
                         !form.hasChildren
                           ? "border-gold-400 bg-gold-400/10 text-gold-300"
                           : "border-white/10 bg-white/[0.03] text-cream-dim hover:border-gold-400/30 hover:text-cream"
@@ -1035,7 +884,8 @@ export default function Checkout() {
                     <button
                       type="button"
                       onClick={() => selectChildrenOption(true)}
-                      className={`rounded-2xl border px-5 py-3 text-sm font-semibold transition ${
+                      aria-pressed={form.hasChildren}
+                      className={`min-h-11 rounded-xl border px-4 py-3 text-sm font-semibold transition sm:rounded-2xl sm:px-5 ${
                         form.hasChildren
                           ? "border-gold-400 bg-gold-400/10 text-gold-300"
                           : "border-white/10 bg-white/[0.03] text-cream-dim hover:border-gold-400/30 hover:text-cream"
@@ -1052,7 +902,7 @@ export default function Checkout() {
                           Combien d'enfants vous accompagnent ?
                         </h4>
 
-                        <p className="mt-1 text-xs text-cream-faint">
+                        <p className="mt-1 text-xs leading-relaxed text-cream-faint">
                           Les enfants de moins de 12 ans ne consomment pas de
                           place supplémentaire. Chaque enfant de 12 ans ou plus
                           consomme une place.
@@ -1089,25 +939,21 @@ export default function Checkout() {
                         </p>
                       )}
 
-                      <div className="mt-4 flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+                      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-3 sm:rounded-2xl sm:px-4">
                         <span className="text-sm text-cream-dim">
                           Total enfants
                         </span>
-
-                        <span className="font-semibold text-emerald-300">
-                          {totalChildren} enfant
-                          {totalChildren > 1 ? "s" : ""}
+                        <span className="text-right font-semibold text-emerald-300">
+                          {totalChildren} enfant{totalChildren > 1 ? "s" : ""}
                         </span>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between rounded-2xl border border-gold-400/15 bg-gold-400/5 px-4 py-3">
+                      <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-gold-400/15 bg-gold-400/5 px-3 py-3 sm:rounded-2xl sm:px-4">
                         <span className="text-sm text-cream-dim">
                           Places consommées
                         </span>
-
-                        <span className="font-semibold text-gold-300">
-                          {placesConsumed} place
-                          {placesConsumed > 1 ? "s" : ""}
+                        <span className="text-right font-semibold text-gold-300">
+                          {placesConsumed} place{placesConsumed > 1 ? "s" : ""}
                         </span>
                       </div>
                     </div>
@@ -1116,7 +962,7 @@ export default function Checkout() {
               </div>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
+            <div className="mt-5 rounded-xl border border-gold-400/10 bg-ink-950/40 p-4 sm:rounded-2xl">
               <p className="text-xs leading-relaxed text-cream-faint">
                 Vos informations permettent de générer votre e-billet personnel
                 et de sécuriser votre accès grâce à un QR Code unique.
@@ -1128,7 +974,7 @@ export default function Checkout() {
             title="Confirmation de votre participation"
             subtitle="Vérifiez vos informations avant de valider votre inscription."
           >
-            <div className="rounded-2xl border border-gold-400/15 bg-ink-950/40 p-6">
+            <div className="min-w-0 rounded-2xl border border-gold-400/15 bg-ink-950/40 p-4 sm:p-6">
               <div className="space-y-5">
                 <ConfirmationItem
                   title="Participation gratuite"
@@ -1186,7 +1032,7 @@ export default function Checkout() {
                 )}
               </div>
 
-              <div className="mt-6 rounded-2xl border border-gold-400/15 bg-gold-400/5 p-4">
+              <div className="mt-6 rounded-xl border border-gold-400/15 bg-gold-400/5 p-4 sm:rounded-2xl">
                 <p className="text-sm leading-relaxed text-cream-dim">
                   En cliquant sur{" "}
                   <span className="font-semibold text-cream">
@@ -1200,7 +1046,7 @@ export default function Checkout() {
           </Section>
         </div>
 
-        <aside>
+        <aside className="min-w-0">
           <Summary
             lines={lines}
             placesConsumed={placesConsumed}
@@ -1222,15 +1068,15 @@ function Steps({ current }: { current: number }) {
   const steps = ["Événement", "Réservation", "Confirmation"];
 
   return (
-    <div className="mx-auto flex max-w-2xl items-center justify-between">
+    <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-1 px-1 sm:gap-2">
       {steps.map((step, index) => {
         const stepNumber = index + 1;
 
         return (
-          <div key={step} className="flex flex-1 items-center">
-            <div className="flex flex-col items-center gap-3">
+          <div key={step} className="flex min-w-0 flex-1 items-center">
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-2 sm:gap-3">
               <div
-                className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-300 ${
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all duration-300 sm:h-10 sm:w-10 ${
                   stepNumber < current
                     ? "border-gold-400 bg-gold-400 text-ink-950"
                     : stepNumber === current
@@ -1246,7 +1092,7 @@ function Steps({ current }: { current: number }) {
               </div>
 
               <span
-                className={`text-center text-[10px] font-medium uppercase tracking-[0.15em] sm:text-[11px] sm:tracking-[0.2em] ${
+                className={`text-center text-[9px] font-medium uppercase tracking-[0.06em] sm:text-[11px] sm:tracking-[0.15em] ${
                   stepNumber <= current ? "text-gold-300" : "text-cream-faint"
                 }`}
               >
@@ -1256,7 +1102,7 @@ function Steps({ current }: { current: number }) {
 
             {index < steps.length - 1 && (
               <div
-                className={`mx-2 h-[2px] flex-1 rounded-full sm:mx-4 ${
+                className={`mx-1 h-[2px] min-w-2 flex-1 rounded-full sm:mx-3 ${
                   stepNumber < current ? "bg-gold-400" : "bg-gold-400/15"
                 }`}
               />
@@ -1279,14 +1125,16 @@ function Section({
 }) {
   return (
     <Reveal>
-      <section className="rounded-3xl border border-gold-400/12 bg-ink-900/40 p-6 sm:p-8">
-        <div className="mb-6 border-b border-gold-400/10 pb-5">
-          <h2 className="font-display text-2xl font-medium text-cream">
+      <section className="min-w-0 rounded-2xl border border-gold-400/12 bg-ink-900/40 p-4 sm:rounded-3xl sm:p-6 lg:p-8">
+        <div className="mb-5 min-w-0 border-b border-gold-400/10 pb-4 sm:mb-6 sm:pb-5">
+          <h2 className="font-display text-xl font-medium text-cream sm:text-2xl">
             {title}
           </h2>
 
           {subtitle && (
-            <p className="mt-1 text-sm text-cream-dim">{subtitle}</p>
+            <p className="mt-1 break-words text-sm leading-relaxed text-cream-dim">
+              {subtitle}
+            </p>
           )}
         </div>
 
@@ -1317,20 +1165,27 @@ function Field({
   inputMode?: "text" | "numeric" | "email" | "tel";
   className?: string;
 }) {
+  const inputId = `field-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
   return (
-    <label className={`block ${className ?? ""}`}>
-      <span className="mb-1.5 block text-xs uppercase tracking-wider text-cream-dim">
+    <div className={`min-w-0 ${className ?? ""}`}>
+      <label
+        htmlFor={inputId}
+        className="mb-1.5 block text-xs uppercase tracking-wider text-cream-dim"
+      >
         {label}
-      </span>
+      </label>
 
       <input
+        id={inputId}
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
         inputMode={inputMode}
-        className={`w-full rounded-xl border bg-ink-950/50 px-4 py-3 text-sm text-cream placeholder:text-cream-faint transition-colors focus:outline-none ${
+        aria-invalid={Boolean(error)}
+        className={`min-h-12 w-full min-w-0 rounded-xl border bg-ink-950/50 px-3 py-3 text-base text-cream transition-colors placeholder:text-cream-faint focus:outline-none sm:px-4 sm:text-sm ${
           error
             ? "border-red-500 focus:border-red-500"
             : "border-gold-400/20 focus:border-gold-400/60"
@@ -1338,23 +1193,24 @@ function Field({
       />
 
       {error && (
-        <span className="mt-1 block text-xs text-red-400">{error}</span>
+        <p className="mt-1 break-words text-xs text-red-400">{error}</p>
       )}
-    </label>
+    </div>
   );
 }
 
 function ConfirmationItem({ title, text }: { title: string; text: string }) {
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex min-w-0 items-start gap-3">
       <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
         ✓
       </div>
 
-      <div>
+      <div className="min-w-0">
         <h4 className="font-medium text-cream">{title}</h4>
-
-        <p className="mt-1 text-sm leading-relaxed text-cream-dim">{text}</p>
+        <p className="mt-1 break-words text-sm leading-relaxed text-cream-dim">
+          {text}
+        </p>
       </div>
     </div>
   );
@@ -1384,34 +1240,34 @@ function Summary({
   const childrenTotal = hasChildren ? childrenUnder12 + children12Plus : 0;
 
   return (
-    <div className="lg:sticky lg:top-24">
-      <div className="glass overflow-hidden rounded-3xl">
-        <div className="border-b border-gold-400/12 p-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300">
+    <div className="min-w-0 lg:sticky lg:top-24">
+      <div className="glass min-w-0 overflow-hidden rounded-2xl sm:rounded-3xl">
+        <div className="border-b border-gold-400/12 p-4 sm:p-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300">
               <Ticket className="h-5 w-5" />
             </div>
 
-            <div>
-              <h2 className="font-display text-2xl font-medium text-cream">
+            <div className="min-w-0">
+              <h2 className="font-display text-xl font-medium text-cream sm:text-2xl">
                 Votre inscription
               </h2>
 
-              <p className="mt-1 text-xs text-cream-faint">
+              <p className="mt-1 break-words text-xs text-cream-faint">
                 Camp International Silo 2026
               </p>
             </div>
           </div>
         </div>
 
-        <div className="space-y-4 p-6">
+        <div className="space-y-4 p-4 sm:p-6">
           {lines.length > 0 ? (
             lines.map((line) => (
               <div
                 key={line.category.id}
-                className="flex items-start justify-between gap-3"
+                className="flex min-w-0 items-start justify-between gap-3"
               >
-                <div>
+                <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-cream">
                       Participation
@@ -1425,7 +1281,7 @@ function Summary({
                   <p className="mt-1 text-xs text-cream-faint">1 participant</p>
                 </div>
 
-                <span className="text-sm font-medium text-emerald-300">
+                <span className="shrink-0 text-sm font-medium text-emerald-300">
                   Offerte
                 </span>
               </div>
@@ -1437,11 +1293,9 @@ function Summary({
           )}
         </div>
 
-        <div className="space-y-3 border-t border-gold-400/12 p-6">
+        <div className="space-y-3 border-t border-gold-400/12 p-4 sm:p-6">
           <Row label="Participant" value="1 personne" />
-
           <Row label="Billet" value="E-billet gratuit" />
-
           <Row label="Accès" value="QR Code sécurisé" />
 
           <Row
@@ -1455,15 +1309,13 @@ function Summary({
 
           {hasChildren && childrenTotal > 0 && (
             <div className="rounded-xl bg-white/[0.03] px-3 py-2 text-xs text-cream-faint">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-3">
                 <span>Moins de 12 ans</span>
-
                 <span className="text-cream">{childrenUnder12}</span>
               </div>
 
-              <div className="mt-1 flex justify-between">
+              <div className="mt-1 flex justify-between gap-3">
                 <span>12 ans ou plus</span>
-
                 <span className="text-cream">{children12Plus}</span>
               </div>
             </div>
@@ -1471,33 +1323,31 @@ function Summary({
 
           <div className="my-2 h-px bg-gold-400/12" />
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <span className="font-display text-lg text-cream">Places</span>
-
             <span className="font-display text-2xl font-semibold text-gold-300">
               {placesConsumed}
             </span>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <span className="font-display text-lg text-cream">Total</span>
-
             <span className="font-display text-2xl font-semibold text-emerald-300">
               Gratuit
             </span>
           </div>
         </div>
 
-        <div className="p-6 pt-0">
+        <div className="p-4 pt-0 sm:p-6 sm:pt-0">
           <button
             type="button"
             onClick={onSubmit}
             disabled={submitting || !registrationsOpen}
-            className="btn-gold flex w-full items-center justify-center gap-2 text-base disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-gold flex min-h-12 w-full items-center justify-center gap-2 px-4 py-3 text-center text-sm leading-snug disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
           >
             {submitting ? (
               <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 Confirmation...
               </>
             ) : !registrationsOpen ? (
@@ -1505,7 +1355,7 @@ function Summary({
             ) : (
               <>
                 Confirmer ma participation
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 shrink-0" />
               </>
             )}
           </button>
@@ -1514,7 +1364,7 @@ function Summary({
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="mt-3 w-full rounded-full border border-red-400/20 bg-red-400/5 py-3 text-sm font-medium text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-3 min-h-11 w-full rounded-full border border-red-400/20 bg-red-400/5 px-4 py-3 text-sm font-medium text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Annuler ma réservation
           </button>
@@ -1533,26 +1383,25 @@ function Summary({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 text-cream-dim">
-      <span>{label}</span>
-
-      <span className="text-right text-cream">{value}</span>
+    <div className="flex min-w-0 items-start justify-between gap-4 text-sm text-cream-dim">
+      <span className="min-w-0">{label}</span>
+      <span className="min-w-0 break-words text-right text-cream">{value}</span>
     </div>
   );
 }
 
 function EmptyCart({ eventSlug }: { eventSlug: string }) {
   return (
-    <div className="container-px mx-auto flex min-h-[75vh] max-w-2xl flex-col items-center justify-center py-32 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full border border-gold-400/20 bg-gold-400/5 text-gold-300">
-        <Ticket className="h-9 w-9" strokeWidth={1.5} />
+    <div className="container-px mx-auto flex min-h-[75vh] w-full max-w-2xl flex-col items-center justify-center py-20 text-center sm:py-32">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full border border-gold-400/20 bg-gold-400/5 text-gold-300 sm:h-20 sm:w-20">
+        <Ticket className="h-8 w-8 sm:h-9 sm:w-9" strokeWidth={1.5} />
       </div>
 
-      <h1 className="mt-8 font-display text-4xl text-cream">
+      <h1 className="mt-6 font-display text-2xl text-cream sm:mt-8 sm:text-4xl">
         Aucune participation sélectionnée
       </h1>
 
-      <p className="mt-4 max-w-lg text-lg leading-relaxed text-cream-dim">
+      <p className="mt-4 max-w-lg text-sm leading-relaxed text-cream-dim sm:text-lg">
         Vous n'avez pas encore sélectionné votre participation au{" "}
         <span className="font-medium text-gold-300">
           Camp International Silo 2026
@@ -1560,9 +1409,9 @@ function EmptyCart({ eventSlug }: { eventSlug: string }) {
         .
       </p>
 
-      <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-6">
-        <h3 className="flex items-center justify-center gap-2 font-display text-xl text-cream">
-          <BadgeCheck className="h-6 w-6 text-emerald-400" />
+      <div className="mt-8 w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 sm:p-6">
+        <h3 className="flex items-center justify-center gap-2 font-display text-lg text-cream sm:text-xl">
+          <BadgeCheck className="h-6 w-6 shrink-0 text-emerald-400" />
           Réservation 100 % gratuite
         </h3>
 
@@ -1573,20 +1422,20 @@ function EmptyCart({ eventSlug }: { eventSlug: string }) {
         </p>
       </div>
 
-      <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-8 flex w-full flex-col justify-center gap-3 sm:mt-10 sm:flex-row">
         <Link
           to={`/evenement/${eventSlug}`}
-          className="btn-gold group inline-flex items-center gap-2"
+          className="btn-gold group inline-flex min-h-12 items-center justify-center gap-2 px-5 text-center"
         >
           Réserver gratuitement
-          <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+          <ArrowRight className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
         </Link>
 
         <Link
           to="/contact"
-          className="btn-ghost group inline-flex items-center gap-2"
+          className="btn-ghost group inline-flex min-h-12 items-center justify-center gap-2 px-5 text-center"
         >
-          <MessageCircle className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
+          <MessageCircle className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:scale-110" />
           Contacter l'organisation
         </Link>
       </div>
@@ -1608,18 +1457,18 @@ function ChildrenCounter({
   const isUnder12 = label.includes("Moins");
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div>
+    <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:gap-4 sm:rounded-2xl sm:p-4">
+      <div className="min-w-0">
         <p className="text-sm font-semibold text-cream">{label}</p>
 
-        <p className="mt-1 text-xs text-cream-faint">
+        <p className="mt-1 text-xs leading-relaxed text-cream-faint">
           {isUnder12
             ? "Ne consomme pas de place supplémentaire"
             : "Consomme 1 place par enfant"}
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={onDecrease}
@@ -1630,7 +1479,7 @@ function ChildrenCounter({
           −
         </button>
 
-        <span className="w-6 text-center text-base font-bold text-cream">
+        <span className="w-5 text-center text-base font-bold text-cream">
           {value}
         </span>
 
