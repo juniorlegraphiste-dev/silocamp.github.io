@@ -941,7 +941,7 @@ export default function Confirmation() {
                 Télécharger le billet PDF
               </button>
 
-              <button
+              {/* <button
                 type="button"
                 onClick={sendTicketByEmail}
                 disabled={emailSending}
@@ -952,7 +952,7 @@ export default function Confirmation() {
                 {emailSending
                   ? "Envoi en cours..."
                   : "Recevoir par e-mail"}
-              </button>
+              </button> */}
             </div>
 
             {emailSent && (
