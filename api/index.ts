@@ -11,12 +11,11 @@ const DEFAULT_TICKET_CAPACITY = 1200;
 const SETTINGS_ID = "default";
 
 const COOKIE_NAME = "silocamp_scan_session";
+
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
 
-const SITE_URL = (process.env.SITE_URL || "https://www.silocamp.org").replace(
-  /\/+$/,
-  "",
-);
+const SITE_URL =
+  process.env.SITE_URL || "https://silocamp-github-io.vercel.app";
 
 /* =========================================================
    TYPES
