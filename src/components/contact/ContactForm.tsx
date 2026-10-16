@@ -218,7 +218,7 @@ export function ContactForm() {
                   className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5"
                 >
                   <h3 className="font-display text-xl text-cream">
-                    Message envoyé 🎉
+                    Message envoyé.
                   </h3>
 
                   <p className="mt-2 text-sm leading-relaxed text-cream-dim">
