@@ -14,8 +14,8 @@ import {
   Users,
 } from "lucide-react";
 
-import heroImg from "@/assets/hero.jpg";
-import intimateImg from "@/assets/event-intimate.jpg";
+const heroImg = "/images/optimized/hero.webp";
+const intimateImg = "/images/optimized/event-intimate.webp";
 
 import { Countdown } from "@/components/Countdown";
 import { SectionHeading } from "@/components/SectionHeading";

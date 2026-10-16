@@ -17,17 +17,9 @@
  * =========================================================
  */
 
-import {
-  BrowserRouter,
-  Route,
-  Routes,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 
-import {
-  AnimatePresence,
-  motion,
-} from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { CartProvider } from "@/context/CartContext";
 
@@ -35,22 +27,23 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 
-import AdminLayout from "@/components/admin/AdminLayout";
+import { lazy, Suspense } from "react";
 
-import Home from "@/pages/Home";
-import EventDetail from "@/pages/EventDetail";
-import Checkout from "@/pages/Checkout";
-import Confirmation from "@/pages/Confirmation";
-import Annulation from "@/pages/Annulation";
-import Contact from "@/pages/Contact";
-import ScanTicket from "@/pages/ScanTicket";
-import TicketVerify from "@/pages/TicketVerify";
+const Home = lazy(() => import("@/pages/Home"));
+const EventDetail = lazy(() => import("@/pages/EventDetail"));
+const Checkout = lazy(() => import("@/pages/Checkout"));
+const Confirmation = lazy(() => import("@/pages/Confirmation"));
+const Annulation = lazy(() => import("@/pages/Annulation"));
+const Contact = lazy(() => import("@/pages/Contact"));
+const ScanTicket = lazy(() => import("@/pages/ScanTicket"));
+const TicketVerify = lazy(() => import("@/pages/TicketVerify"));
 
-import AdminLogin from "@/pages/admin/AdminLogin";
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import AdminTickets from "@/pages/admin/AdminTickets";
-import AdminStatistics from "@/pages/admin/AdminStatistics";
-import AdminSettings from "@/pages/admin/AdminSettings";
+const AdminLayout = lazy(() => import("@/components/admin/AdminLayout"));
+const AdminLogin = lazy(() => import("@/pages/admin/AdminLogin"));
+const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
+const AdminTickets = lazy(() => import("@/pages/admin/AdminTickets"));
+const AdminStatistics = lazy(() => import("@/pages/admin/AdminStatistics"));
+const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 
 /* =========================================================
    ANIMATION DES PAGES
@@ -104,73 +97,49 @@ function PublicRoutes() {
                   ACCUEIL
               ================================================= */}
 
-              <Route
-                path="/"
-                element={<Home />}
-              />
+              <Route path="/" element={<Home />} />
 
               {/* =================================================
                   ÉVÉNEMENT
               ================================================= */}
 
-              <Route
-                path="/evenement/:id"
-                element={<EventDetail />}
-              />
+              <Route path="/evenement/:id" element={<EventDetail />} />
 
               {/* =================================================
                   BILLETTERIE
               ================================================= */}
 
-              <Route
-                path="/billetterie"
-                element={<Checkout />}
-              />
+              <Route path="/billetterie" element={<Checkout />} />
 
               {/* =================================================
                   CONFIRMATION
               ================================================= */}
 
-              <Route
-                path="/confirmation"
-                element={<Confirmation />}
-              />
+              <Route path="/confirmation" element={<Confirmation />} />
 
               {/* =================================================
                   ANNULATION DE BILLET
               ================================================= */}
 
-              <Route
-                path="/annulation"
-                element={<Annulation />}
-              />
+              <Route path="/annulation" element={<Annulation />} />
 
               {/* =================================================
                   VÉRIFICATION DE BILLET
               ================================================= */}
 
-              <Route
-                path="/ticket/verify"
-                element={<TicketVerify />}
-              />
+              <Route path="/ticket/verify" element={<TicketVerify />} />
 
               {/* =================================================
                   CONTACT
               ================================================= */}
 
-              <Route
-                path="/contact"
-                element={<Contact />}
-              />
+              <Route path="/contact" element={<Contact />} />
 
               {/* =================================================
                   ROUTE PAR DÉFAUT
               ================================================= */}
 
-              <Route
-                path="*"
-                element={<Home />}
-              />
+              <Route path="*" element={<Home />} />
             </Routes>
           </motion.main>
         </AnimatePresence>
@@ -190,51 +159,18 @@ function ScannerRoute() {
   return <ScanTicket />;
 }
 
-/* =========================================================
-   ROUTES ADMIN
-========================================================= */
-
-function AdminRoutes() {
+function PageLoading() {
   return (
-    <Routes>
-      {/* =================================================
-          CONNEXION ADMIN
-      ================================================= */}
-
-      <Route
-        path="/admin"
-        element={<AdminLogin />}
-      />
-
-      {/* =================================================
-          ESPACE ADMIN PROTÉGÉ
-      ================================================= */}
-
-      <Route
-        path="/admin"
-        element={<AdminLayout />}
-      >
-        <Route
-          path="dashboard"
-          element={<AdminDashboard />}
-        />
-
-        <Route
-          path="tickets"
-          element={<AdminTickets />}
-        />
-
-        <Route
-          path="statistics"
-          element={<AdminStatistics />}
-        />
-
-        <Route
-          path="settings"
-          element={<AdminSettings />}
-        />
-      </Route>
-    </Routes>
+    <div
+      className="flex min-h-[50vh] items-center justify-center"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-400/30 border-t-amber-400" />
+        <p className="text-sm text-neutral-500">Chargement de la page...</p>
+      </div>
+    </div>
   );
 }
 
@@ -252,33 +188,18 @@ function AppRoutes() {
       <Route path="/admin">
         {/* /admin = connexion */}
 
-        <Route
-          index
-          element={<AdminLogin />}
-        />
+        <Route index element={<AdminLogin />} />
 
         {/* /admin/* = espace protégé */}
 
         <Route element={<AdminLayout />}>
-          <Route
-            path="dashboard"
-            element={<AdminDashboard />}
-          />
+          <Route path="dashboard" element={<AdminDashboard />} />
 
-          <Route
-            path="tickets"
-            element={<AdminTickets />}
-          />
+          <Route path="tickets" element={<AdminTickets />} />
 
-          <Route
-            path="statistics"
-            element={<AdminStatistics />}
-          />
+          <Route path="statistics" element={<AdminStatistics />} />
 
-          <Route
-            path="settings"
-            element={<AdminSettings />}
-          />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Route>
 
@@ -286,19 +207,13 @@ function AppRoutes() {
           SCANNER
       ================================================= */}
 
-      <Route
-        path="/scanner"
-        element={<ScannerRoute />}
-      />
+      <Route path="/scanner" element={<ScannerRoute />} />
 
       {/* =================================================
           SITE PUBLIC
       ================================================= */}
 
-      <Route
-        path="*"
-        element={<PublicRoutes />}
-      />
+      <Route path="*" element={<PublicRoutes />} />
     </Routes>
   );
 }
@@ -313,9 +228,11 @@ export default function App() {
       <BrowserRouter>
         <ScrollToTop />
 
-        <div className="flex min-h-screen flex-col">
-          <AppRoutes />
-        </div>
+        <Suspense fallback={<PageLoading />}>
+          <div className="flex min-h-screen flex-col">
+            <AppRoutes />
+          </div>
+        </Suspense>
       </BrowserRouter>
     </CartProvider>
   );

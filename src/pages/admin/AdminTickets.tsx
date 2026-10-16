@@ -32,8 +32,6 @@ import {
 
 import { Reveal } from "@/components/Reveal";
 
-import * as XLSX from "xlsx";
-
 /* =========================================================
    TYPES
 ========================================================= */
@@ -61,16 +59,13 @@ export default function AdminTickets() {
 
   const [search, setSearch] = useState("");
 
-  const [statusFilter, setStatusFilter] =
-    useState<FilterStatus>("ALL");
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>("ALL");
 
-  const [selectedTicket, setSelectedTicket] =
-    useState<TicketType | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
 
   const [cancelling, setCancelling] = useState(false);
 
-  const [deletingId, setDeletingId] =
-    useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -80,16 +75,11 @@ export default function AdminTickets() {
 
   function getExportRows() {
     return filteredTickets.map((ticket) => {
-      const childrenUnder12 = Number(
-        ticket.childrenUnder12 ?? 0,
-      );
+      const childrenUnder12 = Number(ticket.childrenUnder12 ?? 0);
 
-      const children12Plus = Number(
-        ticket.children12Plus ?? 0,
-      );
+      const children12Plus = Number(ticket.children12Plus ?? 0);
 
-      const totalChildren =
-        childrenUnder12 + children12Plus;
+      const totalChildren = childrenUnder12 + children12Plus;
 
       return {
         Nom: ticket.lastName ?? "",
@@ -106,8 +96,7 @@ export default function AdminTickets() {
         "Enfants -12 ans": childrenUnder12,
         "Enfants 12+": children12Plus,
         "Total enfants": totalChildren,
-        "Personnes attendues":
-          1 + totalChildren,
+        "Personnes attendues": 1 + totalChildren,
         Statut: ticket.status,
         Inscription: formatDate(ticket.createdAt),
       };
@@ -129,22 +118,17 @@ export default function AdminTickets() {
       ...rows.map((row) =>
         headers
           .map((header) => {
-            const value =
-              row[header as keyof typeof row];
+            const value = row[header as keyof typeof row];
 
-            return `"${String(value ?? "")
-              .replace(/"/g, '""')}"`;
+            return `"${String(value ?? "").replace(/"/g, '""')}"`;
           })
           .join(";"),
       ),
     ].join("\n");
 
-    const blob = new Blob(
-      ["\uFEFF" + csv],
-      {
-        type: "text/csv;charset=utf-8;",
-      },
-    );
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
 
     const url = URL.createObjectURL(blob);
 
@@ -169,90 +153,83 @@ export default function AdminTickets() {
      EXPORT EXCEL
   ========================================================= */
 
-  function exportExcel() {
+  async function exportExcel() {
     if (filteredTickets.length === 0) {
       window.alert("Aucun participant à exporter.");
       return;
     }
 
-    const rows = getExportRows();
+    try {
+      const XLSX = await import("xlsx");
 
-    const worksheet =
-      XLSX.utils.json_to_sheet(rows);
+      const rows = getExportRows();
 
-    worksheet["!cols"] = [
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 25 },
-      { wch: 32 },
-      { wch: 18 },
-      { wch: 24 },
-      { wch: 24 },
-      { wch: 32 },
-      { wch: 24 },
-      { wch: 12 },
-      { wch: 10 },
-      { wch: 16 },
-      { wch: 14 },
-      { wch: 15 },
-      { wch: 20 },
-      { wch: 14 },
-      { wch: 24 },
-    ];
+      const worksheet = XLSX.utils.json_to_sheet(rows);
 
-    const workbook =
-      XLSX.utils.book_new();
+      worksheet["!cols"] = [
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 25 },
+        { wch: 32 },
+        { wch: 18 },
+        { wch: 24 },
+        { wch: 24 },
+        { wch: 32 },
+        { wch: 24 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 16 },
+        { wch: 14 },
+        { wch: 15 },
+        { wch: 20 },
+        { wch: 14 },
+        { wch: 24 },
+      ];
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      "Participants",
-    );
+      const workbook = XLSX.utils.book_new();
 
-    XLSX.writeFile(
-      workbook,
-      `silocamp-participants-${new Date()
-        .toISOString()
-        .slice(0, 10)}.xlsx`,
-    );
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Participants");
+
+      XLSX.writeFile(
+        workbook,
+        `silocamp-participants-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      );
+    } catch (error) {
+      console.error("Erreur lors de l'export Excel :", error);
+      window.alert("Impossible de générer le fichier Excel. Réessaie.");
+    }
   }
 
   /* =========================================================
      LOAD TICKETS
   ========================================================= */
 
-  const loadTickets = useCallback(
-    async (isRefresh = false) => {
-      try {
-        if (isRefresh) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-
-        setError("");
-
-        const data = await getTickets();
-
-        setTickets(data);
-      } catch (err) {
-        console.error(
-          "[SiloCamp Admin Tickets] Erreur :",
-          err,
-        );
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Impossible de charger les participants.",
-        );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+  const loadTickets = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
-    },
-    [],
-  );
+
+      setError("");
+
+      const data = await getTickets();
+
+      setTickets(data);
+    } catch (err) {
+      console.error("[SiloCamp Admin Tickets] Erreur :", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de charger les participants.",
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     void loadTickets();
@@ -267,8 +244,7 @@ export default function AdminTickets() {
 
     return tickets.filter((ticket) => {
       const matchesStatus =
-        statusFilter === "ALL" ||
-        ticket.status === statusFilter;
+        statusFilter === "ALL" || ticket.status === statusFilter;
 
       if (!matchesStatus) {
         return false;
@@ -304,27 +280,16 @@ export default function AdminTickets() {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(
-      filteredTickets.length / ITEMS_PER_PAGE,
-    ),
+    Math.ceil(filteredTickets.length / ITEMS_PER_PAGE),
   );
 
-  const safeCurrentPage = Math.min(
-    currentPage,
-    totalPages,
-  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
 
-  const startIndex =
-    (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
 
-  const endIndex =
-    startIndex + ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
 
-  const paginatedTickets =
-    filteredTickets.slice(
-      startIndex,
-      endIndex,
-    );
+  const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -370,29 +335,20 @@ export default function AdminTickets() {
     try {
       setCancelling(true);
 
-      const updatedTicket = await cancelTicket(
-        ticket.ticketNumber,
-      );
+      const updatedTicket = await cancelTicket(ticket.ticketNumber);
 
       setTickets((current) =>
         current.map((item) =>
-          item.id === updatedTicket.id
-            ? updatedTicket
-            : item,
+          item.id === updatedTicket.id ? updatedTicket : item,
         ),
       );
 
       setSelectedTicket(updatedTicket);
     } catch (err) {
-      console.error(
-        "[SiloCamp Admin Tickets] Erreur annulation :",
-        err,
-      );
+      console.error("[SiloCamp Admin Tickets] Erreur annulation :", err);
 
       window.alert(
-        err instanceof Error
-          ? err.message
-          : "Impossible d'annuler le billet.",
+        err instanceof Error ? err.message : "Impossible d'annuler le billet.",
       );
     } finally {
       setCancelling(false);
@@ -416,14 +372,11 @@ export default function AdminTickets() {
       setDeletingId(ticket.id);
 
       const apiBaseUrl = (
-        import.meta.env.VITE_API_URL ||
-        window.location.origin
+        import.meta.env.VITE_API_URL || window.location.origin
       ).replace(/\/$/, "");
 
       const response = await fetch(
-        `${apiBaseUrl}/api/tickets/${encodeURIComponent(
-          ticket.ticketNumber,
-        )}`,
+        `${apiBaseUrl}/api/tickets/${encodeURIComponent(ticket.ticketNumber)}`,
         {
           method: "DELETE",
           headers: {
@@ -447,35 +400,22 @@ export default function AdminTickets() {
           typeof data === "object" &&
           data !== null &&
           "error" in data &&
-          typeof (data as { error?: unknown }).error ===
-            "string"
+          typeof (data as { error?: unknown }).error === "string"
             ? (data as { error: string }).error
             : "Impossible de supprimer le participant.";
 
         throw new Error(message);
       }
 
-      setTickets((current) =>
-        current.filter(
-          (item) => item.id !== ticket.id,
-        ),
-      );
+      setTickets((current) => current.filter((item) => item.id !== ticket.id));
 
-      if (
-        selectedTicket &&
-        selectedTicket.id === ticket.id
-      ) {
+      if (selectedTicket && selectedTicket.id === ticket.id) {
         setSelectedTicket(null);
       }
 
-      window.alert(
-        "Participant supprimé avec succès.",
-      );
+      window.alert("Participant supprimé avec succès.");
     } catch (err) {
-      console.error(
-        "[SiloCamp Admin Tickets] Erreur suppression :",
-        err,
-      );
+      console.error("[SiloCamp Admin Tickets] Erreur suppression :", err);
 
       window.alert(
         err instanceof Error
@@ -519,9 +459,7 @@ export default function AdminTickets() {
             Impossible de charger les participants
           </h1>
 
-          <p className="mt-3 text-sm leading-relaxed text-cream-dim">
-            {error}
-          </p>
+          <p className="mt-3 text-sm leading-relaxed text-cream-dim">{error}</p>
 
           <button
             type="button"
@@ -529,7 +467,6 @@ export default function AdminTickets() {
             className="btn-gold mt-6 inline-flex items-center gap-2"
           >
             <RefreshCw className="h-4 w-4" />
-
             Réessayer
           </button>
         </div>
@@ -549,20 +486,16 @@ export default function AdminTickets() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-gold-300">
                 <Users className="h-4 w-4" />
-
                 Administration
               </div>
 
               <h1 className="mt-5 font-display text-4xl font-medium text-cream sm:text-5xl">
                 Gestion des{" "}
-                <span className="text-gold-gradient">
-                  participants
-                </span>
+                <span className="text-gold-gradient">participants</span>
               </h1>
 
               <p className="mt-3 text-base text-cream-dim">
-                Recherchez, consultez et gérez toutes les
-                inscriptions.
+                Recherchez, consultez et gérez toutes les inscriptions.
               </p>
             </div>
 
@@ -573,11 +506,8 @@ export default function AdminTickets() {
               className="inline-flex items-center justify-center gap-2 rounded-full border border-gold-400/30 px-5 py-3 text-sm font-medium text-gold-300 transition hover:bg-gold-400/10 disabled:opacity-50"
             >
               <RefreshCw
-                className={`h-4 w-4 ${
-                  refreshing ? "animate-spin" : ""
-                }`}
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
               />
-
               Actualiser
             </button>
           </div>
@@ -592,9 +522,7 @@ export default function AdminTickets() {
               className="inline-flex items-center gap-2 rounded-xl border border-gold-400/20 px-4 py-2.5 text-sm font-medium text-gold-300 transition hover:bg-gold-400/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <FileText className="h-4 w-4" />
-
               Exporter CSV
-
               <Download className="h-4 w-4" />
             </button>
 
@@ -605,9 +533,7 @@ export default function AdminTickets() {
               className="inline-flex items-center gap-2 rounded-xl border border-gold-400/20 px-4 py-2.5 text-sm font-medium text-gold-300 transition hover:bg-gold-400/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <FileSpreadsheet className="h-4 w-4" />
-
               Exporter Excel
-
               <Download className="h-4 w-4" />
             </button>
           </div>
@@ -661,9 +587,7 @@ export default function AdminTickets() {
               <input
                 type="search"
                 value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Nom, email, téléphone ou numéro de billet..."
                 className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] py-3 pl-12 pr-4 text-sm text-cream outline-none transition placeholder:text-cream-faint focus:border-gold-400/40"
               />
@@ -672,38 +596,28 @@ export default function AdminTickets() {
             <div className="flex flex-wrap gap-2">
               <FilterButton
                 active={statusFilter === "ALL"}
-                onClick={() =>
-                  setStatusFilter("ALL")
-                }
+                onClick={() => setStatusFilter("ALL")}
               >
                 Tous ({totalTickets})
               </FilterButton>
 
               <FilterButton
                 active={statusFilter === "VALID"}
-                onClick={() =>
-                  setStatusFilter("VALID")
-                }
+                onClick={() => setStatusFilter("VALID")}
               >
                 Valides
               </FilterButton>
 
               <FilterButton
                 active={statusFilter === "USED"}
-                onClick={() =>
-                  setStatusFilter("USED")
-                }
+                onClick={() => setStatusFilter("USED")}
               >
                 Utilisés
               </FilterButton>
 
               <FilterButton
-                active={
-                  statusFilter === "CANCELLED"
-                }
-                onClick={() =>
-                  setStatusFilter("CANCELLED")
-                }
+                active={statusFilter === "CANCELLED"}
+                onClick={() => setStatusFilter("CANCELLED")}
               >
                 Annulés
               </FilterButton>
@@ -728,43 +642,26 @@ export default function AdminTickets() {
             <table className="w-full min-w-[1050px] text-left">
               <thead className="border-b border-gold-400/10 bg-white/[0.02]">
                 <tr className="text-xs uppercase tracking-wider text-cream-faint">
-                  <th className="px-6 py-4 font-medium">
-                    Participant
-                  </th>
+                  <th className="px-6 py-4 font-medium">Participant</th>
 
-                  <th className="px-6 py-4 font-medium">
-                    Contact
-                  </th>
+                  <th className="px-6 py-4 font-medium">Contact</th>
 
-                  <th className="px-6 py-4 font-medium">
-                    Places
-                  </th>
+                  <th className="px-6 py-4 font-medium">Places</th>
 
-                  <th className="px-6 py-4 font-medium">
-                    Famille
-                  </th>
+                  <th className="px-6 py-4 font-medium">Famille</th>
 
-                  <th className="px-6 py-4 font-medium">
-                    Statut
-                  </th>
+                  <th className="px-6 py-4 font-medium">Statut</th>
 
-                  <th className="px-6 py-4 font-medium">
-                    Date
-                  </th>
+                  <th className="px-6 py-4 font-medium">Date</th>
 
-                  <th className="px-6 py-4 text-right font-medium">
-                    Action
-                  </th>
+                  <th className="px-6 py-4 text-right font-medium">Action</th>
                 </tr>
               </thead>
 
               <tbody>
                 {filteredTickets.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-6 py-16 text-center"
-                    >
+                    <td colSpan={7} className="px-6 py-16 text-center">
                       <Users className="mx-auto h-10 w-10 text-cream-faint" />
 
                       <p className="mt-4 text-sm text-cream-dim">
@@ -777,15 +674,9 @@ export default function AdminTickets() {
                     <TicketRow
                       key={ticket.id}
                       ticket={ticket}
-                      deleting={
-                        deletingId === ticket.id
-                      }
-                      onView={() =>
-                        setSelectedTicket(ticket)
-                      }
-                      onDelete={() =>
-                        void handleDelete(ticket)
-                      }
+                      deleting={deletingId === ticket.id}
+                      onView={() => setSelectedTicket(ticket)}
+                      onDelete={() => void handleDelete(ticket)}
                     />
                   ))
                 )}
@@ -801,20 +692,11 @@ export default function AdminTickets() {
             <div className="flex flex-col gap-4 border-t border-white/[0.06] px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-cream-faint">
                 Affichage de{" "}
+                <span className="text-cream">{startIndex + 1}</span> à{" "}
                 <span className="text-cream">
-                  {startIndex + 1}
+                  {Math.min(endIndex, filteredTickets.length)}
                 </span>{" "}
-                à{" "}
-                <span className="text-cream">
-                  {Math.min(
-                    endIndex,
-                    filteredTickets.length,
-                  )}
-                </span>{" "}
-                sur{" "}
-                <span className="text-cream">
-                  {filteredTickets.length}
-                </span>{" "}
+                sur <span className="text-cream">{filteredTickets.length}</span>{" "}
                 participants
               </p>
 
@@ -822,9 +704,7 @@ export default function AdminTickets() {
                 <button
                   type="button"
                   onClick={() =>
-                    setCurrentPage((page) =>
-                      Math.max(1, page - 1),
-                    )
+                    setCurrentPage((page) => Math.max(1, page - 1))
                   }
                   disabled={safeCurrentPage === 1}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gold-400/20 text-gold-300 transition hover:bg-gold-400/10 disabled:cursor-not-allowed disabled:opacity-30"
@@ -833,10 +713,7 @@ export default function AdminTickets() {
                   <ChevronLeft className="h-4 w-4" />
                 </button>
 
-                {getPaginationPages(
-                  safeCurrentPage,
-                  totalPages,
-                ).map((page) =>
+                {getPaginationPages(safeCurrentPage, totalPages).map((page) =>
                   page === "..." ? (
                     <span
                       key={`${page}-${Math.random()}`}
@@ -848,9 +725,7 @@ export default function AdminTickets() {
                     <button
                       key={page}
                       type="button"
-                      onClick={() =>
-                        setCurrentPage(page)
-                      }
+                      onClick={() => setCurrentPage(page)}
                       className={`flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-medium transition ${
                         safeCurrentPage === page
                           ? "bg-gold-400 text-ink-950"
@@ -865,13 +740,9 @@ export default function AdminTickets() {
                 <button
                   type="button"
                   onClick={() =>
-                    setCurrentPage((page) =>
-                      Math.min(totalPages, page + 1),
-                    )
+                    setCurrentPage((page) => Math.min(totalPages, page + 1))
                   }
-                  disabled={
-                    safeCurrentPage === totalPages
-                  }
+                  disabled={safeCurrentPage === totalPages}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gold-400/20 text-gold-300 transition hover:bg-gold-400/10 disabled:cursor-not-allowed disabled:opacity-30"
                   aria-label="Page suivante"
                 >
@@ -892,9 +763,7 @@ export default function AdminTickets() {
           ticket={selectedTicket}
           cancelling={cancelling}
           onClose={() => setSelectedTicket(null)}
-          onCancel={() =>
-            void handleCancel(selectedTicket)
-          }
+          onCancel={() => void handleCancel(selectedTicket)}
         />
       )}
     </div>
@@ -916,23 +785,16 @@ function TicketRow({
   onView: () => void;
   onDelete: () => void;
 }) {
-  const childrenUnder12 = Number(
-    ticket.childrenUnder12 ?? 0,
-  );
+  const childrenUnder12 = Number(ticket.childrenUnder12 ?? 0);
 
-  const children12Plus = Number(
-    ticket.children12Plus ?? 0,
-  );
+  const children12Plus = Number(ticket.children12Plus ?? 0);
 
-  const totalChildren =
-    childrenUnder12 + children12Plus;
+  const totalChildren = childrenUnder12 + children12Plus;
 
   return (
     <tr className="border-b border-white/[0.05] transition hover:bg-white/[0.02]">
       <td className="px-6 py-5">
-        <div className="font-medium text-cream">
-          {ticket.participantName}
-        </div>
+        <div className="font-medium text-cream">{ticket.participantName}</div>
 
         <div className="mt-1 text-xs text-cream-faint">
           {ticket.ticketNumber}
@@ -956,9 +818,7 @@ function TicketRow({
       </td>
 
       <td className="px-6 py-5">
-        <span className="font-semibold text-gold-300">
-          {ticket.quantity}
-        </span>
+        <span className="font-semibold text-gold-300">{ticket.quantity}</span>
 
         <span className="ml-1 text-xs text-cream-faint">
           place
@@ -971,9 +831,7 @@ function TicketRow({
           <div className="flex items-center gap-2">
             <Baby className="h-4 w-4 text-gold-300" />
 
-            <span className="text-sm text-cream">
-              {totalChildren}
-            </span>
+            <span className="text-sm text-cream">{totalChildren}</span>
 
             <span className="text-xs text-cream-faint">
               enfant
@@ -981,9 +839,7 @@ function TicketRow({
             </span>
           </div>
         ) : (
-          <span className="text-sm text-cream-faint">
-            —
-          </span>
+          <span className="text-sm text-cream-faint">—</span>
         )}
       </td>
 
@@ -1046,19 +902,13 @@ function TicketModal({
   onClose: () => void;
   onCancel: () => void;
 }) {
-  const childrenUnder12 = Number(
-    ticket.childrenUnder12 ?? 0,
-  );
+  const childrenUnder12 = Number(ticket.childrenUnder12 ?? 0);
 
-  const children12Plus = Number(
-    ticket.children12Plus ?? 0,
-  );
+  const children12Plus = Number(ticket.children12Plus ?? 0);
 
-  const totalChildren =
-    childrenUnder12 + children12Plus;
+  const totalChildren = childrenUnder12 + children12Plus;
 
-  const totalPeople =
-    1 + totalChildren;
+  const totalPeople = 1 + totalChildren;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1074,7 +924,6 @@ function TicketModal({
           <div>
             <div className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-gold-300">
               <Ticket className="h-4 w-4" />
-
               Détails du billet
             </div>
 
@@ -1108,9 +957,7 @@ function TicketModal({
           </section>
 
           <section>
-            <h3 className="font-display text-xl text-cream">
-              Coordonnées
-            </h3>
+            <h3 className="font-display text-xl text-cream">Coordonnées</h3>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <InfoCard
@@ -1121,24 +968,17 @@ function TicketModal({
 
               <InfoCard
                 label="Téléphone"
-                value={
-                  ticket.phone ||
-                  "Non renseigné"
-                }
+                value={ticket.phone || "Non renseigné"}
                 icon={<Phone className="h-4 w-4" />}
               />
             </div>
           </section>
 
           <section>
-            <h3 className="font-display text-xl text-cream">
-              Événement
-            </h3>
+            <h3 className="font-display text-xl text-cream">Événement</h3>
 
             <div className="mt-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
-              <p className="font-medium text-cream">
-                {ticket.eventTitle}
-              </p>
+              <p className="font-medium text-cream">{ticket.eventTitle}</p>
 
               <p className="mt-2 text-sm text-cream-dim">
                 {ticket.dateLabel} • {ticket.time}
@@ -1171,17 +1011,13 @@ function TicketModal({
               <InfoCard
                 label="Total enfants"
                 value={totalChildren}
-                icon={
-                  <UserRound className="h-4 w-4" />
-                }
+                icon={<UserRound className="h-4 w-4" />}
               />
             </div>
           </section>
 
           <section>
-            <h3 className="font-display text-xl text-cream">
-              Réservation
-            </h3>
+            <h3 className="font-display text-xl text-cream">Réservation</h3>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <InfoCard
@@ -1233,7 +1069,6 @@ function TicketModal({
                 ) : (
                   <XCircle className="h-4 w-4" />
                 )}
-
                 Annuler ce billet
               </button>
             </section>
@@ -1270,16 +1105,12 @@ function CounterCard({
   return (
     <div className={`rounded-2xl border p-5 ${colors}`}>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-cream-dim">
-          {label}
-        </span>
+        <span className="text-sm text-cream-dim">{label}</span>
 
         {icon}
       </div>
 
-      <div className="mt-4 font-display text-3xl text-cream">
-        {value}
-      </div>
+      <div className="mt-4 font-display text-3xl text-cream">{value}</div>
     </div>
   );
 }
@@ -1316,28 +1147,21 @@ function FilterButton({
    STATUS BADGE
 ========================================================= */
 
-function StatusBadge({
-  status,
-}: {
-  status: TicketStatus;
-}) {
+function StatusBadge({ status }: { status: TicketStatus }) {
   const config = {
     VALID: {
       label: "Valide",
-      className:
-        "border-gold-400/20 bg-gold-400/10 text-gold-300",
+      className: "border-gold-400/20 bg-gold-400/10 text-gold-300",
     },
 
     USED: {
       label: "Utilisé",
-      className:
-        "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+      className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
     },
 
     CANCELLED: {
       label: "Annulé",
-      className:
-        "border-red-500/20 bg-red-500/10 text-red-300",
+      className: "border-red-500/20 bg-red-500/10 text-red-300",
     },
   };
 
@@ -1373,9 +1197,7 @@ function InfoCard({
         {label}
       </div>
 
-      <div className="mt-3 break-words font-medium text-cream">
-        {value}
-      </div>
+      <div className="mt-3 break-words font-medium text-cream">{value}</div>
     </div>
   );
 }
@@ -1389,22 +1211,11 @@ function getPaginationPages(
   totalPages: number,
 ): Array<number | "..."> {
   if (totalPages <= 7) {
-    return Array.from(
-      { length: totalPages },
-      (_, index) => index + 1,
-    );
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
   }
 
   if (currentPage <= 4) {
-    return [
-      1,
-      2,
-      3,
-      4,
-      5,
-      "...",
-      totalPages,
-    ];
+    return [1, 2, 3, 4, 5, "...", totalPages];
   }
 
   if (currentPage >= totalPages - 3) {

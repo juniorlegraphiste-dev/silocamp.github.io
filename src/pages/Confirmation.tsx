@@ -18,11 +18,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { pdf } from "@react-pdf/renderer";
-
 import { Reveal } from "@/components/Reveal";
-
-import TicketPDF from "@/components/ticket/TicketPDF";
 
 import {
   getTicketById,
@@ -460,6 +456,11 @@ export default function Confirmation() {
       children12Plus,
     };
 
+    const [{ pdf }, { default: TicketPDF }] = await Promise.all([
+      import("@react-pdf/renderer"),
+      import("@/components/ticket/TicketPDF"),
+    ]);
+
     return pdf(
       <TicketPDF
         ticket={pdfTicket}
@@ -529,6 +530,11 @@ export default function Confirmation() {
         childrenUnder12,
         children12Plus,
       };
+
+      const [{ pdf }, { default: TicketPDF }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/ticket/TicketPDF"),
+      ]);
 
       const blob = await pdf(
         <TicketPDF

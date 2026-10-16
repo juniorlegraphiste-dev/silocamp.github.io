@@ -23,11 +23,11 @@
  * =========================================================
  */
 
-import hero from "@/assets/hero.jpg";
-import artist from "@/assets/artist.jpg";
-import stadium from "@/assets/event-stadium.jpg";
-import choir from "@/assets/event-choir.jpg";
-import ambiance from "@/assets/ambiance.jpg";
+const hero = "/images/optimized/hero.webp";
+const artist = "/images/optimized/artist.webp";
+const stadium = "/images/optimized/event-stadium.webp";
+const choir = "/images/optimized/event-choir.webp";
+const ambiance = "/images/optimized/ambiance.webp";
 
 /* =========================================================
    TYPES
