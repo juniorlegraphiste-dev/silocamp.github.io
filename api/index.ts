@@ -83,6 +83,36 @@ function normalizePhone(value: unknown): string {
     .replace(/[^\d+]/g, "");
 }
 
+/** Validation de format uniquement : aucune vérification de propriété du contact. */
+function isValidEmailFormat(value: string): boolean {
+  const email = normalizeEmail(value);
+  if (!email || email.length > 254 || email.includes("..")) return false;
+
+  const parts = email.split("@");
+  if (parts.length !== 2) return false;
+
+  const [local, domain] = parts;
+  if (!local || local.length > 64 || local.startsWith(".") || local.endsWith(".")) {
+    return false;
+  }
+  if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(local)) return false;
+  if (!domain || domain.length > 253 || !domain.includes(".")) return false;
+
+  const labels = domain.split(".");
+  if (labels.some((label) =>
+    !label || label.length > 63 || label.startsWith("-") || label.endsWith("-") ||
+    !/^[a-zA-Z0-9-]+$/.test(label)
+  )) return false;
+
+  return labels[labels.length - 1].length >= 2;
+}
+
+/** Format international E.164 : + puis 8 à 15 chiffres au total. */
+function isValidPhoneFormat(value: string): boolean {
+  const phone = normalizePhone(value);
+  return /^\+[1-9]\d{7,14}$/.test(phone);
+}
+
 function normalizeInteger(value: unknown, fallback = 0): number {
   const number = Number(value);
 
@@ -2064,10 +2094,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!isValidEmailFormat(email)) {
         return res.status(400).json({
           ok: false,
-          error: "Adresse email invalide.",
+          error: "Adresse e-mail invalide. Vérifiez son format.",
         });
       }
 
@@ -2075,6 +2105,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({
           ok: false,
           error: "Numéro de téléphone requis.",
+        });
+      }
+
+      if (!isValidPhoneFormat(phone)) {
+        return res.status(400).json({
+          ok: false,
+          error: "Numéro de téléphone invalide. Utilisez le format international, par exemple +212612345678.",
         });
       }
 
@@ -2194,7 +2231,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // ---------------------------------------------------
-        // DOUBLON EMAIL
+        // DOUBLON EMAIL : seuls VALID et USED bloquent une nouvelle réservation.
+        // CANCELLED libère l'adresse e-mail.
         // ---------------------------------------------------
 
         const existingEmail = await dbClient.query(
@@ -2208,7 +2246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               "status"
             FROM "Ticket"
             WHERE
-              LOWER("email") = LOWER($1)
+              LOWER(TRIM("email")) = LOWER(TRIM($1))
               AND "status" IN ('VALID', 'USED')
             LIMIT 1
           `,
@@ -2227,7 +2265,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // ---------------------------------------------------
-        // DOUBLON TÉLÉPHONE
+        // DOUBLON TÉLÉPHONE : seuls VALID et USED bloquent une nouvelle réservation.
+        // CANCELLED libère le numéro. Comparaison normalisée pour les anciennes lignes.
         // ---------------------------------------------------
 
         const existingPhone = await dbClient.query(
@@ -2241,7 +2280,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               "status"
             FROM "Ticket"
             WHERE
-              "phone" = $1
+              regexp_replace(COALESCE("phone", ''), '[^0-9+]', '', 'g') = $1
               AND "status" IN ('VALID', 'USED')
             LIMIT 1
           `,
