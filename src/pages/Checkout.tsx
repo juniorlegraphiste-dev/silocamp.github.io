@@ -616,7 +616,7 @@ export default function Checkout() {
 
 
 
-    if (participationQuantity > 0) {
+    if (participationQuantity <= 0) {
 
       setSubmitError("Veuillez sélectionner votre participation.");
 
@@ -1065,11 +1065,11 @@ export default function Checkout() {
 
 
 
-/*   if (participationQuantity === 0) {
+  if (participationQuantity === 0) {
 
     return <EmptyCart eventSlug={event.slug} />;
 
-  } */
+  }
 
 
 
@@ -1105,7 +1105,7 @@ export default function Checkout() {
 
           <CheckCircle2 className="h-4 w-4 shrink-0" />
 
-          Étape 2 sur 3 · Réservation
+          Étape 2 sur 2 · Confirmation
 
         </span>
 
@@ -2637,7 +2637,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 
 
-/* function EmptyCart({ eventSlug }: { eventSlug: string }) {
+function EmptyCart({ eventSlug }: { eventSlug: string }) {
 
   return (
 
@@ -2739,7 +2739,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
   );
 
-} */
+}
 
 
 
