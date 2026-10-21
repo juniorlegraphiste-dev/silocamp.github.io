@@ -644,10 +644,10 @@ export default function Confirmation() {
           <span className="text-gold-gradient">confirmée</span>
         </h1>
 
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
+        {/* <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
           Votre e-billet a été enregistré et envoyer sur votre votre boîte e-mail. Conservez ce billet et
           présentez le QR Code à l'entrée du Camp.
-        </p>
+        </p> */}
       </Reveal>
 
       <Reveal className="mx-auto mt-12 max-w-4xl">
