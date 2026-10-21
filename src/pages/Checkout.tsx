@@ -616,7 +616,7 @@ export default function Checkout() {
 
 
 
-    if (participationQuantity <= 0) {
+    if (participationQuantity > 0) {
 
       setSubmitError("Veuillez sélectionner votre participation.");
 
