@@ -1167,7 +1167,7 @@ export default function Checkout() {
 
         <div className="min-w-0 space-y-6 sm:space-y-8 lg:space-y-10">
 
-          <Section title="Votre réservation" subtitle={displayEventName}>
+          {/* <Section title="Votre réservation" subtitle={displayEventName}>
 
             <div className="mb-6 grid min-w-0 grid-cols-1 gap-3 text-sm text-cream-dim sm:grid-cols-2 sm:gap-4">
 
@@ -1399,7 +1399,7 @@ export default function Checkout() {
 
             </div>
 
-          </Section>
+          </Section> */}
 
 
 
