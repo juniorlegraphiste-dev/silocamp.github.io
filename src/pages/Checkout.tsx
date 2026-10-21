@@ -1065,11 +1065,11 @@ export default function Checkout() {
 
 
 
-  if (participationQuantity === 0) {
+/*   if (participationQuantity === 0) {
 
     return <EmptyCart eventSlug={event.slug} />;
 
-  }
+  } */
 
 
 
@@ -2637,7 +2637,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 
 
-function EmptyCart({ eventSlug }: { eventSlug: string }) {
+/* function EmptyCart({ eventSlug }: { eventSlug: string }) {
 
   return (
 
@@ -2739,7 +2739,7 @@ function EmptyCart({ eventSlug }: { eventSlug: string }) {
 
   );
 
-}
+} */
 
 
 
