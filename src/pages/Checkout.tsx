@@ -1797,7 +1797,7 @@ export default function Checkout() {
 
 
 
-          <Section
+{/*           <Section
 
             title="Confirmation de votre participation"
 
@@ -1943,7 +1943,7 @@ export default function Checkout() {
 
             </div>
 
-          </Section>
+          </Section> */}
 
         </div>
 

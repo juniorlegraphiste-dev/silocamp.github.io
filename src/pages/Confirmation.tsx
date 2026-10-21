@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -105,6 +105,9 @@ export default function Confirmation() {
   const [emailSent, setEmailSent] = useState(false);
 
   const [emailError, setEmailError] = useState("");
+
+  // Empêche plusieurs tentatives automatiques pendant le même affichage.
+  const autoEmailAttempted = useRef(false);
 
   const [childrenInfo, setChildrenInfo] = useState({
     hasChildren: false,
@@ -584,6 +587,11 @@ export default function Confirmation() {
       }
 
       setEmailSent(true);
+      try {
+        sessionStorage.setItem(`silocamp-email-sent:${ticketNumber}`, "1");
+      } catch {
+        // Le succès de l’envoi ne doit pas dépendre du stockage navigateur.
+      }
     } catch (error) {
       console.error(
         "[SiloCamp] Erreur lors de l'envoi du billet par e-mail.",
@@ -599,6 +607,33 @@ export default function Confirmation() {
       setEmailSending(false);
     }
   };
+
+  // Envoie automatiquement le billet après le rendu du QR Code sur la page
+  // de confirmation. En cas d’échec, le bouton manuel reste disponible.
+  useEffect(() => {
+    if (!ticket || ticket.status !== "VALID" || autoEmailAttempted.current) {
+      return;
+    }
+
+    const sentKey = `silocamp-email-sent:${ticket.ticketNumber?.trim() || identifiers.ticketNumber}`;
+
+    try {
+      if (sessionStorage.getItem(sentKey) === "1") {
+        setEmailSent(true);
+        autoEmailAttempted.current = true;
+        return;
+      }
+    } catch {
+      // Continuer même si le stockage navigateur est indisponible.
+    }
+
+    autoEmailAttempted.current = true;
+    const timer = window.setTimeout(() => {
+      void sendTicketByEmail();
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [ticket, identifiers.ticketNumber]);
 
   const statusConfig = {
     VALID: {
@@ -645,7 +680,7 @@ export default function Confirmation() {
         </h1>
 
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
-          Votre e-billet a été enregistré avec succès. Conservez ce billet et
+          Votre e-billet est enregistré. Son envoi par e-mail est lancé automatiquement ; si l’envoi échoue, vous pourrez réessayer ci-dessous. Conservez ce billet et
           présentez le QR Code à l'entrée du Camp.
         </p>
       </Reveal>
