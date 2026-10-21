@@ -1105,7 +1105,7 @@ export default function Checkout() {
 
           <CheckCircle2 className="h-4 w-4 shrink-0" />
 
-          Étape 2 sur 2 · Confirmation
+          Étape 2 sur 3 · Réservation
 
         </span>
 
