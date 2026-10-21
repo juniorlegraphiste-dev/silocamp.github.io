@@ -141,7 +141,7 @@ export function Navbar() {
             <QrCode className="h-4 w-4" />
             <span>Scanner QR Code</span>
           </Link> */}
-{/* 
+
           <Link
             to="/billetterie"
             className="relative hidden items-center gap-2 rounded-full border border-gold-400/40 px-4 py-2 text-sm text-cream transition-colors hover:bg-gold-400/10 sm:flex"
@@ -154,7 +154,7 @@ export function Navbar() {
             <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-gold-400 px-2 text-xs font-semibold text-ink-950">
               {count}
             </span>
-          </Link> */}
+          </Link>
 
           <Link
             to="/billetterie"
