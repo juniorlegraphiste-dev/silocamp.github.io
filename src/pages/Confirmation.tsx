@@ -657,6 +657,7 @@ export default function Confirmation() {
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-gold-300">
                   Camp International Silo 2026
+                  
                 </p>
 
                 <h2 className="mt-2 font-display text-2xl text-cream sm:text-3xl">
