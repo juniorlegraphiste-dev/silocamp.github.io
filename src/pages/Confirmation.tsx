@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useEffect,
@@ -62,9 +61,7 @@ function blobToBase64(blob: Blob): Promise<string> {
         return;
       }
 
-      resolve(
-        reader.result.replace(/^data:application\/pdf;base64,/i, ""),
-      );
+      resolve(reader.result.replace(/^data:application\/pdf;base64,/i, ""));
     };
 
     reader.onerror = () => {
@@ -254,8 +251,7 @@ function TicketConfirmation({
   const [emailError, setEmailError] = useState("");
   const autoSendStarted = useRef(false);
 
-  const ticketNumber =
-    ticket.ticketNumber?.trim() || identifiers.ticketNumber;
+  const ticketNumber = ticket.ticketNumber?.trim() || identifiers.ticketNumber;
 
   const participantName = (
     ticket.participantName ||
@@ -273,8 +269,7 @@ function TicketConfirmation({
       )}`
     : "";
 
-  const reservationId =
-    ticket.reservationId ?? identifiers.reservationId ?? "";
+  const reservationId = ticket.reservationId ?? identifiers.reservationId ?? "";
 
   const childrenUnder12 = Math.max(
     0,
@@ -364,10 +359,7 @@ function TicketConfirmation({
       setEmailSent(true);
 
       try {
-        localStorage.setItem(
-          `silocamp-email-sent:${ticketNumber}`,
-          "true",
-        );
+        localStorage.setItem(`silocamp-email-sent:${ticketNumber}`, "true");
       } catch {
         // Le fonctionnement de l'envoi ne dépend pas du stockage local.
       }
@@ -400,8 +392,7 @@ function TicketConfirmation({
 
     try {
       alreadySent =
-        localStorage.getItem(`silocamp-email-sent:${ticketNumber}`) ===
-        "true";
+        localStorage.getItem(`silocamp-email-sent:${ticketNumber}`) === "true";
     } catch {
       // Si le stockage est indisponible, on poursuit normalement.
     }
@@ -497,6 +488,14 @@ function TicketConfirmation({
           Votre réservation est{" "}
           <span className="text-gold-gradient">confirmée</span>
         </h1>
+
+        <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
+          Félicitations ! Votre inscription a été confirmée et votre e-billet a
+          été envoyé automatiquement à votre adresse e-mail. Conservez-le
+          précieusement et présentez son QR Code à l’entrée du Camp pour accéder
+          à l’événement. Pensez à vérifier vos courriers indésirables si vous ne
+          le recevez pas.
+        </p>
       </Reveal>
 
       <Reveal className="mx-auto mt-12 max-w-4xl">
@@ -705,17 +704,14 @@ function TicketConfirmation({
                   Billet envoyé avec succès
                 </div>
                 <p className="mt-1 text-center text-xs text-cream-dim">
-                  Le billet PDF a été envoyé à{" "}
-                  <strong>{ticket.email}</strong>.
+                  Le billet PDF a été envoyé à <strong>{ticket.email}</strong>.
                 </p>
               </div>
             )}
 
             {emailError && (
               <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-400/5 p-4">
-                <p className="text-center text-sm text-red-300">
-                  {emailError}
-                </p>
+                <p className="text-center text-sm text-red-300">{emailError}</p>
               </div>
             )}
           </div>
@@ -750,9 +746,7 @@ function InfoItem({
         {icon}
         <span className="text-xs uppercase tracking-wider">{label}</span>
       </div>
-      <p className="mt-2 break-words text-sm font-medium text-cream">
-        {value}
-      </p>
+      <p className="mt-2 break-words text-sm font-medium text-cream">{value}</p>
     </div>
   );
 }
