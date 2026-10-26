@@ -900,14 +900,14 @@ function UpcomingEvents() {
       className="container-px mx-auto max-w-7xl py-16 md:py-24"
     >
       <SectionHeading
-        eyebrow="Événements"
+        eyebrow="Rendez-vous spirituel"
         title={
           <>
-            Le programme du{" "}
-            <span className="text-gold-gradient">Camp International Silo</span>
+            Un rendez-vous de{" "}
+            <span className="text-gold-gradient">prière et de réveil</span>
           </>
         }
-        subtitle="Découvrez les temps forts qui vous attendent durant cette édition exceptionnelle : enseignements, louange, prière, communion fraternelle et bien d'autres moments de grâce."
+        subtitle="Rejoignez-nous pour le Camp International Silo 2026 : une journée de louange, de prière, d'enseignement et de communion fraternelle dans la présence de Dieu."
       />
 
       <motion.div
