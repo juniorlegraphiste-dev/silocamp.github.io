@@ -526,11 +526,11 @@ function TicketConfirmation({
           </div>
 
           <div className="grid gap-10 p-6 sm:p-8 lg:grid-cols-[1fr_280px]">
-            <div className="lg:col-span-2">
+            <div className="flex justify-end lg:col-span-2">
               <button
                 type="button"
                 onClick={() => void downloadPDF()}
-                className="btn-gold inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+                className="btn-gold inline-flex items-center justify-center gap-2"
               >
                 <Download className="h-4 w-4" />
                 Télécharger le billet PDF
