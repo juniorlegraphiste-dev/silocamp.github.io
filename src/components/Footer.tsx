@@ -1,4 +1,3 @@
-
 /**
  * Footer — pied de page global.
  * Marque, navigation, événements, aide, inscription et mentions légales.
@@ -145,17 +144,10 @@ export function Footer() {
               href="https://www.youtube.com/@MSA-CASABLANCA"
             >
               <path d="M21.6 8.2a2.5 2.5 0 0 0-1.76-1.77C18.27 6 12 6 12 6s-6.27 0-7.84.43A2.5 2.5 0 0 0 2.4 8.2 26 26 0 0 0 2 12a26 26 0 0 0 .4 3.8 2.5 2.5 0 0 0 1.76 1.77C5.73 18 12 18 12 18s6.27 0 7.84-.43a2.5 2.5 0 0 0 1.76-1.77A26 26 0 0 0 22 12a26 26 0 0 0-.4-3.8Z" />
-              <path
-                d="m10 9 5 3-5 3V9Z"
-                fill="currentColor"
-                stroke="none"
-              />
+              <path d="m10 9 5 3-5 3V9Z" fill="currentColor" stroke="none" />
             </Social>
 
-            <Social
-              label="WhatsApp"
-              href="https://wa.me/+212 704-240738"
-            >
+            <Social label="WhatsApp" href="https://wa.me/212704240738">
               <path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.26A10 10 0 1 0 12 2Z" />
               <path
                 d="M8.6 7.8c.2-.5.4-.5.6-.5h.5c.2 0 .4 0 .6.5l.7 1.7c.1.2 0 .4 0 .5l-.4.5c-.1.1-.2.3 0 .5.2.4.7 1.2 1.5 1.9 1 .9 1.8 1.1 2 1.2.2 0 .4 0 .5-.1l.5-.6c.2-.2.4-.2.5-.1l1.7.8c.2.1.4.2.4.3 0 .2 0 .9-.3 1.3-.3.4-1.2.9-1.7.9-.5 0-1.5.2-3.7-.8-2.6-1.2-4.2-3.8-4.3-4-.1-.2-1-1.4-1-2.6 0-1.3.6-1.9.9-2.2Z"
@@ -258,9 +250,7 @@ export function Footer() {
             Prière · Louange · Enseignement · Communion
           </p>
 
-          <p className="max-w-full">
-            100 % Gratuit · E-billet avec QR Code
-          </p>
+          <p className="max-w-full">100 % Gratuit · E-billet avec QR Code</p>
         </div>
       </div>
     </footer>
@@ -284,13 +274,7 @@ function FooterCol({
   );
 }
 
-function FooterLink({
-  to,
-  children,
-}: {
-  to: string;
-  children: ReactNode;
-}) {
+function FooterLink({ to, children }: { to: string; children: ReactNode }) {
   return (
     <li>
       <Link
