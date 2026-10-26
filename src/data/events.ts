@@ -149,7 +149,7 @@ export const participationCategory: TicketCategory = {
   perks: [
     "Accès complet au Camp International Silo",
     "E-billet numérique avec QR Code",
-    "Confirmation d'inscription par e-mail",
+    "Billet envoyé par e-mail",
     "Accès aux sessions de prière, enseignement et louange",
   ],
 };
@@ -164,9 +164,9 @@ export const events: EventItem[] = [
 
     slug: "camp-international-silo-2026",
 
-    title: "Camp International Silo 2026",
+    title: "Camp International Silo",
 
-    city: "Casablanca",
+    city: "Casablanca, Maroc",
 
     venue: "Le Carré d'Or",
 
@@ -188,11 +188,11 @@ export const events: EventItem[] = [
 
     dateLabel: "Samedi 12 Décembre 2026",
 
-    time: "09h00",
+    time: "14h00",
 
-    doors: "08h00",
+    doors: "12h30",
 
-    duration: "9 heures",
+    duration: "6 heures",
 
     /* =====================================================
        CAPACITÉ
@@ -213,12 +213,12 @@ export const events: EventItem[] = [
     ===================================================== */
 
     shortDesc:
-      "Le Camp International Silo est un rassemblement de foi réunissant des participants de plusieurs pays autour de la prière, de l'enseignement et de la louange.",
+      "Le Camp International Silo est un salon de changement de mentalité et d’attitude dans notre manière de louer, un lieu de réjouissance et de victoire .",
 
     description: [
-      "Le Camp International Silo est un rassemblement exceptionnel qui réunit des participants venus de différents pays autour d'un même objectif : vivre des moments intenses de communion, d'enseignement, de prière et de louange.",
+      "Le Camp International Silo est un salon de changement de mentalité et d’attitude dans notre manière de louer, un lieu de réjouissance et de victoire où nous faisons un vœu à l’Éternel, bâtissons un autel et apprenons à entendre Dieu pour nous-mêmes.",
 
-      "Après votre inscription, un e-billet personnel avec QR Code vous sera envoyé afin de faciliter votre accès le jour de l'événement.",
+      "Après votre inscription, un e-billet personnel avec QR Code vous sera envoyé par e-mail afin de faciliter votre accès le jour de l'événement.",
     ],
 
     /* =====================================================
