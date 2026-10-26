@@ -1,3 +1,4 @@
+
 import {
   useCallback,
   useEffect,
@@ -6,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import {
@@ -15,7 +17,6 @@ import {
   CheckCircle2,
   Download,
   Home,
-  Mail,
   MapPin,
   Ticket as TicketIcon,
   User,
@@ -61,7 +62,9 @@ function blobToBase64(blob: Blob): Promise<string> {
         return;
       }
 
-      resolve(reader.result.replace(/^data:application\/pdf;base64,/i, ""));
+      resolve(
+        reader.result.replace(/^data:application\/pdf;base64,/i, ""),
+      );
     };
 
     reader.onerror = () => {
@@ -183,9 +186,11 @@ export default function Confirmation() {
       <main className="container-px mx-auto flex min-h-[75vh] max-w-2xl items-center justify-center py-32">
         <div className="w-full rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center">
           <TicketIcon className="mx-auto h-10 w-10 text-red-300" />
+
           <h1 className="mt-5 font-display text-3xl text-cream">
             Billet introuvable
           </h1>
+
           <p className="mt-3 text-sm text-cream-dim">
             Nous n'avons pas pu récupérer votre billet depuis le serveur
             SiloCamp.
@@ -210,6 +215,7 @@ export default function Confirmation() {
               <ArrowLeft className="h-4 w-4" />
               Retour
             </button>
+
             <Link
               to="/"
               className="btn-gold inline-flex items-center justify-center gap-2"
@@ -247,7 +253,6 @@ function TicketConfirmation({
   state: ConfirmationState;
 }) {
   const [emailSending, setEmailSending] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState("");
   const autoSendStarted = useRef(false);
 
@@ -356,12 +361,10 @@ function TicketConfirmation({
         );
       }
 
-      setEmailSent(true);
-
       try {
         localStorage.setItem(`silocamp-email-sent:${ticketNumber}`, "true");
       } catch {
-        // Le fonctionnement de l'envoi ne dépend pas du stockage local.
+        // L'envoi ne dépend pas du stockage local.
       }
     } catch (error) {
       console.error("[SiloCamp] Échec de l'envoi du billet :", error);
@@ -376,8 +379,8 @@ function TicketConfirmation({
     }
   }, [ticket.email, ticket.status, ticketNumber, generateTicketPDF]);
 
-  // Envoi automatique une seule fois par billet, sauf si l'envoi a déjà
-  // réussi dans ce navigateur. Le bouton permet de réessayer en cas d'échec.
+  // Envoi automatique du billet si aucun envoi réussi n'est enregistré
+  // dans le navigateur pour ce numéro de billet.
   useEffect(() => {
     if (
       autoSendStarted.current ||
@@ -398,7 +401,6 @@ function TicketConfirmation({
     }
 
     if (alreadySent) {
-      setEmailSent(true);
       return;
     }
 
@@ -419,12 +421,15 @@ function TicketConfirmation({
     const link = document.createElement("a");
     link.href = canvas.toDataURL("image/png");
     link.download = `${ticketNumber}-QR.png`;
+
     document.body.appendChild(link);
     link.click();
     link.remove();
   };
 
   const downloadPDF = async () => {
+    setEmailError("");
+
     try {
       const blob = await generateTicketPDF();
       const url = URL.createObjectURL(blob);
@@ -432,6 +437,7 @@ function TicketConfirmation({
 
       link.href = url;
       link.download = `${ticketNumber}-SiloCamp-2026.pdf`;
+
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -439,6 +445,7 @@ function TicketConfirmation({
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error("[SiloCamp] Erreur de génération du PDF :", error);
+
       setEmailError(
         error instanceof Error
           ? error.message
@@ -506,6 +513,7 @@ function TicketConfirmation({
                 <p className="text-xs uppercase tracking-[0.2em] text-gold-300">
                   Camp International Silo 2026
                 </p>
+
                 <h2 className="mt-2 font-display text-2xl text-cream sm:text-3xl">
                   {ticket.eventTitle}
                 </h2>
@@ -528,16 +536,19 @@ function TicketConfirmation({
                   label="Participant"
                   value={participantName}
                 />
+
                 <InfoItem
                   icon={<TicketIcon className="h-4 w-4" />}
                   label="Numéro du billet"
                   value={ticketNumber}
                 />
+
                 <InfoItem
                   icon={<CalendarDays className="h-4 w-4" />}
                   label="Date"
                   value={`${ticket.dateLabel} · ${ticket.time}`}
                 />
+
                 <InfoItem
                   icon={<MapPin className="h-4 w-4" />}
                   label="Lieu"
@@ -547,7 +558,22 @@ function TicketConfirmation({
 
               <div className="mt-5">
                 <InfoItem
-                  icon={<Mail className="h-4 w-4" />}
+                  icon={
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m22 7-10 6L2 7" />
+                    </svg>
+                  }
                   label="E-mail"
                   value={ticket.email || state.email || "Non renseigné"}
                 />
@@ -574,6 +600,7 @@ function TicketConfirmation({
               <div className="mt-5 rounded-2xl border border-gold-400/10 bg-ink-950/40 p-5">
                 <div className="flex items-start gap-3">
                   <Users className="mt-0.5 h-5 w-5 shrink-0 text-gold-300" />
+
                   <div className="min-w-0">
                     <p className="text-xs uppercase tracking-[0.18em] text-cream-faint">
                       Accompagnants
@@ -599,6 +626,7 @@ function TicketConfirmation({
                               {childrenUnder12}
                             </p>
                           </div>
+
                           <div className="rounded-xl border border-gold-400/10 bg-ink-900/50 p-3">
                             <p className="text-[10px] uppercase tracking-wider text-cream-faint">
                               12 ans ou plus
@@ -626,6 +654,7 @@ function TicketConfirmation({
               <div className="mt-8 rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-5">
                 <div className="flex items-start gap-3">
                   <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+
                   <div>
                     <h3 className="font-medium text-cream">
                       Présentez ce QR Code à l'entrée
@@ -636,6 +665,35 @@ function TicketConfirmation({
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Bouton de téléchargement remonté sous les informations */}
+              <div className="mt-8">
+                <button
+                  type="button"
+                  onClick={() => void downloadPDF()}
+                  className="btn-gold inline-flex w-full items-center justify-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Télécharger le billet PDF
+                </button>
+
+                {emailSending && (
+                  <p className="mt-4 text-center text-sm text-cream-dim">
+                    Envoi automatique du billet PDF à {ticket.email}...
+                  </p>
+                )}
+
+                {emailError && (
+                  <div
+                    role="alert"
+                    className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/5 p-4"
+                  >
+                    <p className="text-center text-sm text-red-300">
+                      {emailError}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -663,57 +721,6 @@ function TicketConfirmation({
                 Télécharger le QR Code
               </button>
             </div>
-          </div>
-
-          <div className="border-t border-gold-400/10 p-6 sm:p-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-              <button
-                type="button"
-                onClick={downloadPDF}
-                className="btn-gold inline-flex items-center justify-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Télécharger le billet PDF
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void sendTicketByEmail()}
-                disabled={emailSending || ticket.status === "CANCELLED"}
-                className="btn-ghost inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Mail className="h-4 w-4" />
-                {emailSending
-                  ? "Envoi en cours..."
-                  : emailSent
-                    ? "Renvoyer le billet par e-mail"
-                    : "Recevoir par e-mail"}
-              </button>
-            </div>
-
-            {emailSending && (
-              <p className="mt-5 text-center text-sm text-cream-dim">
-                Envoi du billet PDF à {ticket.email}...
-              </p>
-            )}
-
-            {emailSent && !emailSending && (
-              <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4">
-                <div className="flex items-center justify-center gap-2 text-sm font-medium text-emerald-300">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Billet envoyé avec succès
-                </div>
-                <p className="mt-1 text-center text-xs text-cream-dim">
-                  Le billet PDF a été envoyé à <strong>{ticket.email}</strong>.
-                </p>
-              </div>
-            )}
-
-            {emailError && (
-              <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-400/5 p-4">
-                <p className="text-center text-sm text-red-300">{emailError}</p>
-              </div>
-            )}
           </div>
         </div>
       </Reveal>
@@ -746,6 +753,7 @@ function InfoItem({
         {icon}
         <span className="text-xs uppercase tracking-wider">{label}</span>
       </div>
+
       <p className="mt-2 break-words text-sm font-medium text-cream">{value}</p>
     </div>
   );
