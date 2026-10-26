@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useEffect,
@@ -62,9 +61,7 @@ function blobToBase64(blob: Blob): Promise<string> {
         return;
       }
 
-      resolve(
-        reader.result.replace(/^data:application\/pdf;base64,/i, ""),
-      );
+      resolve(reader.result.replace(/^data:application\/pdf;base64,/i, ""));
     };
 
     reader.onerror = () => {
@@ -529,6 +526,23 @@ function TicketConfirmation({
           </div>
 
           <div className="grid gap-10 p-6 sm:p-8 lg:grid-cols-[1fr_280px]">
+            <div className="lg:col-span-2">
+              <button
+                type="button"
+                onClick={() => void downloadPDF()}
+                className="btn-gold inline-flex w-full items-center justify-center gap-2 sm:w-auto"
+              >
+                <Download className="h-4 w-4" />
+                Télécharger le billet PDF
+              </button>
+
+              {emailError && (
+                <p role="alert" className="mt-3 text-sm text-red-300">
+                  {emailError}
+                </p>
+              )}
+            </div>
+
             <div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <InfoItem
@@ -667,7 +681,7 @@ function TicketConfirmation({
                 </div>
               </div>
 
-              {/* Bouton de téléchargement remonté sous les informations */}
+              {/* Bouton de téléchargement remonté sous les informations
               <div className="mt-8">
                 <button
                   type="button"
@@ -694,7 +708,7 @@ function TicketConfirmation({
                     </p>
                   </div>
                 )}
-              </div>
+              </div> */}
             </div>
 
             <div className="flex flex-col items-center">
