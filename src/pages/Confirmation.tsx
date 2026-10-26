@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
-
 import { QRCodeCanvas } from "qrcode.react";
 
 import {
@@ -35,7 +42,6 @@ type ConfirmationState = {
   participantName?: string;
   email?: string;
   phone?: string;
-
   children?: {
     hasChildren?: boolean;
     under12?: number;
@@ -44,25 +50,10 @@ type ConfirmationState = {
   };
 };
 
-type StoredOrder = {
-  reservationId?: string;
-  ticketId?: string;
-  ticketNumber?: string;
-  verificationToken?: string;
-  participantName?: string;
-  email?: string;
-  phone?: string;
+type StoredOrder = ConfirmationState;
 
-  children?: {
-    hasChildren?: boolean;
-    under12?: number;
-    age12Plus?: number;
-    total?: number;
-  };
-};
-
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
+const blobToBase64 = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
     const reader = new FileReader();
 
     reader.onloadend = () => {
@@ -73,9 +64,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
         return;
       }
 
-      const base64 = result.replace(/^data:application\/pdf;base64,/i, "");
-
-      resolve(base64);
+      resolve(result.replace(/^data:application\/pdf;base64,/i, ""));
     };
 
     reader.onerror = () => {
@@ -84,7 +73,22 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 
     reader.readAsDataURL(blob);
   });
-};
+
+function readStoredOrder(): StoredOrder {
+  try {
+    const rawOrder =
+      sessionStorage.getItem("silocamp-last-order") ??
+      sessionStorage.getItem("wg-last-order");
+
+    return rawOrder ? (JSON.parse(rawOrder) as StoredOrder) : {};
+  } catch (error) {
+    console.warn(
+      "[SiloCamp] Impossible de lire la réservation sauvegardée.",
+      error,
+    );
+    return {};
+  }
+}
 
 export default function Confirmation() {
   const location = useLocation();
@@ -93,18 +97,15 @@ export default function Confirmation() {
   const state = (location.state ?? {}) as ConfirmationState;
 
   const [ticket, setTicket] = useState<SiloTicket | null>(null);
-
   const [loading, setLoading] = useState(true);
-
   const [ticketNotFound, setTicketNotFound] = useState(false);
-
   const [loadError, setLoadError] = useState("");
 
   const [emailSending, setEmailSending] = useState(false);
-
   const [emailSent, setEmailSent] = useState(false);
-
   const [emailError, setEmailError] = useState("");
+
+  const autoEmailStarted = useRef(false);
 
   const [childrenInfo, setChildrenInfo] = useState({
     hasChildren: false,
@@ -114,50 +115,22 @@ export default function Confirmation() {
   });
 
   const identifiers = useMemo(() => {
-    let ticketId = state.ticketId?.trim() || "";
-
-    let ticketNumber = state.ticketNumber?.trim() || "";
-
-    let verificationToken = state.verificationToken?.trim() || "";
-
-    let reservationId = state.reservationId?.trim() || "";
-
-    try {
-      const rawOrder =
-        sessionStorage.getItem("silocamp-last-order") ??
-        sessionStorage.getItem("wg-last-order");
-
-      if (rawOrder) {
-        const order = JSON.parse(rawOrder) as StoredOrder;
-
-        if (!ticketId && order.ticketId) {
-          ticketId = order.ticketId.trim();
-        }
-
-        if (!ticketNumber && order.ticketNumber) {
-          ticketNumber = order.ticketNumber.trim();
-        }
-
-        if (!verificationToken && order.verificationToken) {
-          verificationToken = order.verificationToken.trim();
-        }
-
-        if (!reservationId && order.reservationId) {
-          reservationId = order.reservationId.trim();
-        }
-      }
-    } catch (error) {
-      console.warn(
-        "[SiloCamp] Impossible de lire la réservation sauvegardée.",
-        error,
-      );
-    }
+    const storedOrder = readStoredOrder();
 
     return {
-      ticketId,
-      ticketNumber,
-      verificationToken,
-      reservationId,
+      ticketId: state.ticketId?.trim() || storedOrder.ticketId?.trim() || "",
+      ticketNumber:
+        state.ticketNumber?.trim() ||
+        storedOrder.ticketNumber?.trim() ||
+        "",
+      verificationToken:
+        state.verificationToken?.trim() ||
+        storedOrder.verificationToken?.trim() ||
+        "",
+      reservationId:
+        state.reservationId?.trim() ||
+        storedOrder.reservationId?.trim() ||
+        "",
     };
   }, [
     state.ticketId,
@@ -167,50 +140,33 @@ export default function Confirmation() {
   ]);
 
   useEffect(() => {
-    try {
-      const rawOrder =
-        sessionStorage.getItem("silocamp-last-order") ??
-        sessionStorage.getItem("wg-last-order");
+    const storedOrder = readStoredOrder();
+    const children = state.children ?? storedOrder.children;
 
-      if (!rawOrder) {
-        return;
-      }
+    if (!children) return;
 
-      const order = JSON.parse(rawOrder) as StoredOrder;
+    const under12 = Math.max(
+      0,
+      Math.floor(Number(children.under12 ?? 0)),
+    );
 
-      const children = order.children;
+    const age12Plus = Math.max(
+      0,
+      Math.floor(Number(children.age12Plus ?? 0)),
+    );
 
-      if (!children) {
-        return;
-      }
-
-      const under12 = Math.max(0, Math.floor(Number(children.under12 ?? 0)));
-
-      const age12Plus = Math.max(
-        0,
-        Math.floor(Number(children.age12Plus ?? 0)),
-      );
-
-      const total = under12 + age12Plus;
-
-      setChildrenInfo({
-        hasChildren: Boolean(children.hasChildren) || total > 0,
-        under12,
-        age12Plus,
-        total,
-      });
-    } catch (error) {
-      console.warn(
-        "[SiloCamp] Impossible de récupérer les informations enfants.",
-        error,
-      );
-    }
-  }, []);
+    setChildrenInfo({
+      hasChildren: Boolean(children.hasChildren) || under12 + age12Plus > 0,
+      under12,
+      age12Plus,
+      total: under12 + age12Plus,
+    });
+  }, [state.children]);
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadTicket = async () => {
+    async function loadTicket() {
       setLoading(true);
       setTicketNotFound(false);
       setLoadError("");
@@ -219,7 +175,9 @@ export default function Confirmation() {
         let foundTicket: SiloTicket | null = null;
 
         if (identifiers.ticketNumber) {
-          foundTicket = await getTicketByNumber(identifiers.ticketNumber);
+          foundTicket = await getTicketByNumber(
+            identifiers.ticketNumber,
+          );
         }
 
         if (!foundTicket && identifiers.ticketId) {
@@ -230,18 +188,16 @@ export default function Confirmation() {
           throw new Error("Impossible d'identifier votre billet.");
         }
 
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
 
         setTicket(foundTicket);
-        setTicketNotFound(false);
       } catch (error) {
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
 
-        console.error("[SiloCamp] Impossible de récupérer le billet.", error);
+        console.error(
+          "[SiloCamp] Impossible de récupérer le billet.",
+          error,
+        );
 
         setTicket(null);
         setTicketNotFound(true);
@@ -252,11 +208,9 @@ export default function Confirmation() {
             : "Impossible de récupérer votre billet.",
         );
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
-    };
+    }
 
     void loadTicket();
 
@@ -266,9 +220,7 @@ export default function Confirmation() {
   }, [identifiers.ticketId, identifiers.ticketNumber]);
 
   useEffect(() => {
-    if (!ticket) {
-      return;
-    }
+    if (!ticket) return;
 
     const under12 = Math.max(
       0,
@@ -280,14 +232,12 @@ export default function Confirmation() {
       Math.floor(Number(ticket.children12Plus ?? 0)),
     );
 
-    const total = under12 + age12Plus;
-
-    if (total > 0) {
+    if (under12 + age12Plus > 0) {
       setChildrenInfo({
         hasChildren: true,
         under12,
         age12Plus,
-        total,
+        total: under12 + age12Plus,
       });
     }
   }, [ticket]);
@@ -297,12 +247,12 @@ export default function Confirmation() {
       <div className="container-px mx-auto flex min-h-[75vh] items-center justify-center py-32">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-gold-400/20 border-t-gold-300" />
-
           <p className="mt-4 text-sm text-cream-dim">
             Récupération de votre réservation...
           </p>
-
-          <p className="mt-2 text-xs text-cream-faint">Connexion à SiloCamp</p>
+          <p className="mt-2 text-xs text-cream-faint">
+            Connexion à SiloCamp
+          </p>
         </div>
       </div>
     );
@@ -338,7 +288,6 @@ export default function Confirmation() {
               <p className="text-[10px] uppercase tracking-[0.2em] text-cream-faint">
                 Numéro recherché
               </p>
-
               <p className="mt-2 break-all font-mono text-sm text-gold-300">
                 {identifiers.ticketNumber}
               </p>
@@ -369,7 +318,7 @@ export default function Confirmation() {
   }
 
   const ticketNumber =
-    ticket.ticketNumber?.trim() || identifiers.ticketNumber.trim();
+    ticket.ticketNumber?.trim() || identifiers.ticketNumber;
 
   const participantName = (
     ticket.participantName ||
@@ -405,34 +354,7 @@ export default function Confirmation() {
 
   const totalChildren = childrenUnder12 + children12Plus;
 
-  const downloadQRCode = () => {
-    const canvas = document.getElementById(
-      "silocamp-ticket-qr",
-    ) as HTMLCanvasElement | null;
-
-    if (!canvas) {
-      console.error("[SiloCamp] QR Code introuvable.");
-      return;
-    }
-
-    if (!verificationUrl) {
-      console.error("[SiloCamp] Token de vérification indisponible.");
-      return;
-    }
-
-    const url = canvas.toDataURL("image/png");
-
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = `${ticketNumber}-QR.png`;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const generateTicketPDF = async (): Promise<Blob> => {
+  const getPDFBlob = useCallback(async (): Promise<Blob> => {
     const canvas = document.getElementById(
       "silocamp-ticket-qr",
     ) as HTMLCanvasElement | null;
@@ -442,7 +364,7 @@ export default function Confirmation() {
     }
 
     if (!verificationUrl) {
-      throw new Error("Token de vérification indisponible.");
+      throw new Error("Le lien de vérification du billet est indisponible.");
     }
 
     const qrCodeDataUrl = canvas.toDataURL("image/png");
@@ -468,16 +390,41 @@ export default function Confirmation() {
         qrCodeDataUrl={qrCodeDataUrl}
       />,
     ).toBlob();
+  }, [
+    ticket,
+    ticketNumber,
+    participantName,
+    verificationUrl,
+    identifiers.reservationId,
+    childrenUnder12,
+    children12Plus,
+  ]);
+
+  const downloadQRCode = () => {
+    const canvas = document.getElementById(
+      "silocamp-ticket-qr",
+    ) as HTMLCanvasElement | null;
+
+    if (!canvas || !verificationUrl) {
+      console.error("[SiloCamp] QR Code ou token de vérification indisponible.");
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = `${ticketNumber}-QR.png`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const downloadPDF = async () => {
     try {
-      const blob = await generateTicketPDF();
-
+      const blob = await getPDFBlob();
       const url = URL.createObjectURL(blob);
 
       const link = document.createElement("a");
-
       link.href = url;
       link.download = `${ticketNumber}-SiloCamp-2026.pdf`;
 
@@ -488,75 +435,30 @@ export default function Confirmation() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("[SiloCamp] Impossible de générer le PDF.", error);
+      setEmailError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de générer le PDF.",
+      );
     }
   };
 
-  const sendTicketByEmail = async () => {
-    if (!ticket) {
-      setEmailError("Billet introuvable.");
-      return;
-    }
-
+  const sendTicketByEmail = useCallback(async () => {
     if (!ticket.email) {
       setEmailError("Aucune adresse e-mail n'est associée à ce billet.");
       return;
     }
 
     setEmailSending(true);
-    setEmailSent(false);
     setEmailError("");
 
     try {
-      const canvas = document.getElementById(
-        "silocamp-ticket-qr",
-      ) as HTMLCanvasElement | null;
-
-      if (!canvas) {
-        throw new Error("Impossible de récupérer le QR Code.");
-      }
-
-      if (!verificationUrl) {
-        throw new Error("Le lien de vérification du billet est indisponible.");
-      }
-
-      const qrCodeDataUrl = canvas.toDataURL("image/png");
-
-      const pdfTicket: SiloTicket = {
-        ...ticket,
-        ticketNumber,
-        participantName,
-        reservationId:
-          ticket.reservationId ?? identifiers.reservationId ?? null,
-        childrenUnder12,
-        children12Plus,
-      };
-
-      const [{ pdf }, { default: TicketPDF }] = await Promise.all([
-        import("@react-pdf/renderer"),
-        import("@/components/ticket/TicketPDF"),
-      ]);
-
-      const blob = await pdf(
-        <TicketPDF
-          ticket={pdfTicket}
-          verificationUrl={verificationUrl}
-          qrCodeDataUrl={qrCodeDataUrl}
-        />,
-      ).toBlob();
-
+      const blob = await getPDFBlob();
       const pdfBase64 = await blobToBase64(blob);
 
       if (!pdfBase64) {
         throw new Error("Le PDF généré est vide.");
       }
-
-      console.log("[SiloCamp] Envoi du billet par e-mail...");
-
-      console.log("[SiloCamp] Ticket :", ticketNumber);
-
-      console.log("[SiloCamp] Destinataire :", ticket.email);
-
-      console.log("[SiloCamp] Taille PDF Base64 :", pdfBase64.length);
 
       const response = await fetch("/api/tickets/email", {
         method: "POST",
@@ -572,11 +474,6 @@ export default function Confirmation() {
 
       const data = await response.json().catch(() => null);
 
-      console.log("[SiloCamp] Réponse API :", {
-        status: response.status,
-        data,
-      });
-
       if (!response.ok) {
         throw new Error(
           data?.message || "Le service d'e-mail a refusé l'envoi du billet.",
@@ -584,6 +481,7 @@ export default function Confirmation() {
       }
 
       setEmailSent(true);
+      setEmailError("");
     } catch (error) {
       console.error(
         "[SiloCamp] Erreur lors de l'envoi du billet par e-mail.",
@@ -598,19 +496,34 @@ export default function Confirmation() {
     } finally {
       setEmailSending(false);
     }
-  };
+  }, [ticket.email, ticketNumber, getPDFBlob]);
+
+  // Envoi automatique après la récupération du billet.
+  // Le ref évite de relancer l'envoi lors d'un rendu supplémentaire
+  // du composant dans la même instance de page.
+  useEffect(() => {
+    if (
+      loading ||
+      !ticket ||
+      ticketNotFound ||
+      autoEmailStarted.current
+    ) {
+      return;
+    }
+
+    autoEmailStarted.current = true;
+    void sendTicketByEmail();
+  }, [loading, ticket, ticketNotFound, sendTicketByEmail]);
 
   const statusConfig = {
     VALID: {
       label: "Billet valide",
       className: "bg-emerald-500/15 text-emerald-300",
     },
-
     USED: {
       label: "Billet utilisé",
       className: "bg-amber-500/15 text-amber-300",
     },
-
     CANCELLED: {
       label: "Billet annulé",
       className: "bg-red-500/15 text-red-300",
@@ -644,9 +557,9 @@ export default function Confirmation() {
           <span className="text-gold-gradient">confirmée</span>
         </h1>
 
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-cream-dim">
-          Votre e-billet a été enregistré avec succès. Conservez ce billet et
-          présentez le QR Code à l'entrée du Camp.
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-cream-dim">
+          Votre réservation est enregistrée. Le billet PDF avec son QR Code
+          est envoyé automatiquement à l'adresse e-mail indiquée.
         </p>
       </Reveal>
 
@@ -658,7 +571,6 @@ export default function Confirmation() {
                 <p className="text-xs uppercase tracking-[0.2em] text-gold-300">
                   Camp International Silo 2026
                 </p>
-
                 <h2 className="mt-2 font-display text-2xl text-cream sm:text-3xl">
                   {ticket.eventTitle}
                 </h2>
@@ -752,7 +664,6 @@ export default function Confirmation() {
                             <p className="text-[10px] uppercase tracking-wider text-cream-faint">
                               Moins de 12 ans
                             </p>
-
                             <p className="mt-1 text-lg font-semibold text-gold-300">
                               {childrenUnder12}
                             </p>
@@ -762,7 +673,6 @@ export default function Confirmation() {
                             <p className="text-[10px] uppercase tracking-wider text-cream-faint">
                               12 ans ou plus
                             </p>
-
                             <p className="mt-1 text-lg font-semibold text-gold-300">
                               {children12Plus}
                             </p>
@@ -773,7 +683,6 @@ export default function Confirmation() {
                           <span className="text-xs uppercase tracking-wider text-cream-faint">
                             Total enfants
                           </span>
-
                           <span className="text-sm font-semibold text-gold-300">
                             {totalChildren}
                           </span>
@@ -788,7 +697,6 @@ export default function Confirmation() {
                 <p className="text-xs uppercase tracking-[0.18em] text-cream-faint">
                   Réservation
                 </p>
-
                 <p className="mt-2 break-all font-mono text-sm text-gold-300">
                   {reservationId || "Réservation confirmée"}
                 </p>
@@ -797,16 +705,14 @@ export default function Confirmation() {
               <div className="mt-8 rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-5">
                 <div className="flex items-start gap-3">
                   <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
-
                   <div>
                     <h3 className="font-medium text-cream">
                       Présentez ce QR Code à l'entrée
                     </h3>
-
                     <p className="mt-1 text-sm leading-relaxed text-cream-dim">
                       Le QR Code contient un lien sécurisé permettant à
-                      l'organisation de vérifier votre billet directement depuis
-                      le serveur SiloCamp.
+                      l'organisation de vérifier votre billet depuis le
+                      serveur SiloCamp.
                     </p>
                   </div>
                 </div>
@@ -825,8 +731,7 @@ export default function Confirmation() {
               </div>
 
               <p className="mt-4 max-w-[240px] text-center text-xs leading-relaxed text-cream-faint">
-                Scannez ce QR Code pour ouvrir automatiquement la page de
-                vérification.
+                Scannez ce QR Code pour ouvrir la page de vérification.
               </p>
 
               <button
@@ -850,18 +755,15 @@ export default function Confirmation() {
                 <Download className="h-4 w-4" />
                 Télécharger le billet PDF
               </button>
-
-              <button
-                type="button"
-                onClick={sendTicketByEmail}
-                disabled={emailSending}
-                className="btn-ghost inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Mail className="h-4 w-4" />
-
-                {emailSending ? "Envoi en cours..." : "Recevoir par e-mail"}
-              </button>
             </div>
+
+            {emailSending && (
+              <div className="mt-5 rounded-2xl border border-gold-400/20 bg-gold-400/5 p-4">
+                <p className="text-center text-sm text-cream">
+                  Envoi automatique de votre billet par e-mail...
+                </p>
+              </div>
+            )}
 
             {emailSent && (
               <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4">
@@ -869,16 +771,21 @@ export default function Confirmation() {
                   <CheckCircle2 className="h-4 w-4" />
                   Billet envoyé avec succès
                 </div>
-
                 <p className="mt-1 text-center text-xs text-cream-dim">
-                  Le billet PDF a été envoyé à <strong>{ticket.email}</strong>.
+                  Le billet PDF a été envoyé à{" "}
+                  <strong>{ticket.email}</strong>.
                 </p>
               </div>
             )}
 
             {emailError && (
               <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-400/5 p-4">
-                <p className="text-center text-sm text-red-300">{emailError}</p>
+                <p className="text-center text-sm text-red-300">
+                  L'envoi automatique a échoué : {emailError}
+                </p>
+                <p className="mt-2 text-center text-xs text-cream-dim">
+                  Vous pouvez télécharger votre billet PDF ci-dessus.
+                </p>
               </div>
             )}
           </div>
@@ -911,11 +818,11 @@ function InfoItem({
     <div className="rounded-2xl border border-gold-400/10 bg-ink-950/40 p-4">
       <div className="flex items-center gap-2 text-gold-300">
         {icon}
-
         <span className="text-xs uppercase tracking-wider">{label}</span>
       </div>
-
-      <p className="mt-2 break-words text-sm font-medium text-cream">{value}</p>
+      <p className="mt-2 break-words text-sm font-medium text-cream">
+        {value}
+      </p>
     </div>
   );
 }
