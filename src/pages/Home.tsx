@@ -6,11 +6,13 @@ import {
   CalendarDays,
   CheckCircle2,
   Eye,
+  HandHeart,
   MapPin,
   Music,
   QrCode,
   ShieldCheck,
   Sparkles,
+  Ticket,
   Users,
 } from "lucide-react";
 
@@ -20,11 +22,7 @@ const intimateImg = "/images/optimized/event-intimate.webp";
 import { Countdown } from "@/components/Countdown";
 import { SectionHeading } from "@/components/SectionHeading";
 import { EventCard } from "@/components/EventCard";
-import {
-  Reveal,
-  staggerContainer,
-  staggerItem,
-} from "@/components/Reveal";
+import { Reveal, staggerContainer, staggerItem } from "@/components/Reveal";
 
 import { events, featuredEvent } from "@/data/events";
 import { useCart } from "@/context/CartContext";
@@ -45,8 +43,7 @@ const DEFAULT_CAPACITY = 1200;
 export default function Home() {
   const location = useLocation();
 
-  const [settings, setSettings] =
-    useState<PublicEventSettings | null>(null);
+  const [settings, setSettings] = useState<PublicEventSettings | null>(null);
 
   const [ticketsRemaining, setTicketsRemaining] =
     useState<number>(DEFAULT_CAPACITY);
@@ -94,18 +91,10 @@ export default function Home() {
         if (mounted) {
           const capacity = settings?.capacity ?? DEFAULT_CAPACITY;
 
-          setTicketsRemaining(
-            Math.max(
-              0,
-              Math.min(capacity, remaining),
-            ),
-          );
+          setTicketsRemaining(Math.max(0, Math.min(capacity, remaining)));
         }
       } catch (error) {
-        console.error(
-          "Erreur lors du chargement des billets :",
-          error,
-        );
+        console.error("Erreur lors du chargement des billets :", error);
       }
     }
 
@@ -121,9 +110,7 @@ export default function Home() {
   --------------------------------------------------------- */
 
   useEffect(() => {
-    const state = location.state as
-      | { scrollTo?: string }
-      | null;
+    const state = location.state as { scrollTo?: string } | null;
 
     const id = state?.scrollTo;
 
@@ -146,10 +133,7 @@ export default function Home() {
         });
       }
 
-      window.history.replaceState(
-        {},
-        document.title,
-      );
+      window.history.replaceState({}, document.title);
     }, 200);
 
     return () => {
@@ -161,29 +145,18 @@ export default function Home() {
      Paramètres affichés publiquement
   --------------------------------------------------------- */
 
-  const eventName =
-    settings?.eventName ||
-    "Camp International Silo 2026";
+  const eventName = settings?.eventName || "Camp International Silo 2026";
 
-  const eventDate =
-    settings?.eventDate ||
-    featuredEvent.dateISO.slice(0, 10);
+  const eventDate = settings?.eventDate || featuredEvent.dateISO.slice(0, 10);
 
-  const eventTime =
-    settings?.eventTime ||
-    featuredEvent.time;
+  const eventTime = settings?.eventTime || featuredEvent.time;
 
   const eventLocation =
-    settings?.eventLocation ||
-    `${featuredEvent.venue}, ${featuredEvent.city}`;
+    settings?.eventLocation || `${featuredEvent.venue}, ${featuredEvent.city}`;
 
-  const capacity =
-    settings?.capacity ??
-    DEFAULT_CAPACITY;
+  const capacity = settings?.capacity ?? DEFAULT_CAPACITY;
 
-  const registrationsOpen =
-    settings?.registrationsOpen ??
-    true;
+  const registrationsOpen = settings?.registrationsOpen ?? true;
 
   /* ---------------------------------------------------------
      Date pour le compte à rebours
@@ -220,10 +193,7 @@ export default function Home() {
           STATISTIQUES
       ===================================================== */}
 
-      <Stats
-        ticketsRemaining={ticketsRemaining}
-        capacity={capacity}
-      />
+      <Stats ticketsRemaining={ticketsRemaining} capacity={capacity} />
 
       {/* =====================================================
           EXPÉRIENCE
@@ -353,9 +323,7 @@ function Hero({
             <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-gold-400/30 bg-ink-950/40 px-3 py-1.5 text-[10px] tracking-[0.18em] text-gold-200 backdrop-blur sm:px-4 sm:text-xs sm:tracking-[0.25em]">
               <span className="h-1.5 w-1.5 shrink-0 animate-glow rounded-full bg-gold-300" />
 
-              <span>
-                {eventName} · 3e ÉDITION · 2026
-              </span>
+              <span>{eventName} · 3e ÉDITION · 2026</span>
             </span>
           </motion.div>
 
@@ -366,9 +334,7 @@ function Hero({
             className="mt-6 font-display text-5xl font-medium leading-[0.98] text-cream sm:text-7xl md:text-8xl"
           >
             Vivez le Feu du Réveil dans{" "}
-            <span className="text-gold-gradient">
-              la Présence de Dieu
-            </span>
+            <span className="text-gold-gradient">la Présence de Dieu</span>
           </motion.h1>
 
           {/* Description */}
@@ -377,21 +343,16 @@ function Hero({
             variants={staggerItem}
             className="mt-6 max-w-2xl text-base leading-relaxed text-gray-300 sm:text-lg"
           >
-            <span className="font-semibold text-cream">
-              {eventName}
-            </span>{" "}
-            est un salon de changement de mentalité
-            et d’attitude dans notre manière de louer, un lieu de réjouissance
-            et de victoire où nous faisons un vœu à l’Éternel, bâtissons un
-            autel et apprenons à entendre Dieu pour nous-mêmes.
+            <span className="font-semibold text-cream">{eventName}</span> est un
+            salon de changement de mentalité et d’attitude dans notre manière de
+            louer, un lieu de réjouissance et de victoire où nous faisons un vœu
+            à l’Éternel, bâtissons un autel et apprenons à entendre Dieu pour
+            nous-mêmes.
           </motion.p>
 
           {/* Compte à rebours */}
 
-          <motion.div
-            variants={staggerItem}
-            className="mt-8 md:mt-9"
-          >
+          <motion.div variants={staggerItem} className="mt-8 md:mt-9">
             <Countdown target={countdownTarget} />
           </motion.div>
 
@@ -404,20 +365,15 @@ function Hero({
             {registrationsOpen && ticketsRemaining > 0 ? (
               <Link
                 to="/billetterie"
-                onClick={() =>
-                  setEvent(featuredEvent.id)
-                }
+                onClick={() => setEvent(featuredEvent.id)}
                 className="btn-gold inline-flex items-center justify-center gap-2 text-base"
               >
                 Réserver gratuitement mon billet
-
                 <ArrowRight className="h-4 w-4" />
               </Link>
             ) : (
               <span className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-400/10 px-5 py-3 text-base font-medium text-red-300">
-                {registrationsOpen
-                  ? "Billets épuisés"
-                  : "Inscriptions fermées"}
+                {registrationsOpen ? "Billets épuisés" : "Inscriptions fermées"}
               </span>
             )}
 
@@ -426,17 +382,13 @@ function Hero({
               className="btn-ghost group inline-flex items-center justify-center gap-2 text-base"
             >
               <Eye className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
-
               Découvrir l'événement
             </Link>
           </motion.div>
 
           {/* Stock disponible */}
 
-          <motion.div
-            variants={staggerItem}
-            className="mt-5"
-          >
+          <motion.div variants={staggerItem} className="mt-5">
             <div className="inline-flex items-center gap-2 text-sm text-cream-dim">
               {!registrationsOpen ? (
                 <>
@@ -481,9 +433,7 @@ function Hero({
               {formatEventDate(eventDate)} · {eventTime}
             </InfoItem>
 
-            <InfoItem icon={<MapPin />}>
-              {eventLocation}
-            </InfoItem>
+            <InfoItem icon={<MapPin />}>{eventLocation}</InfoItem>
 
             <span className="inline-flex items-center gap-2 text-gold-200">
               <span className="h-1.5 w-1.5 rounded-full bg-gold-300" />
@@ -534,9 +484,7 @@ function InfoItem({
 }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <span className="text-gold-300">
-        {icon}
-      </span>
+      <span className="text-gold-300">{icon}</span>
 
       {children}
     </span>
@@ -579,20 +527,16 @@ function Marquee() {
           ease: "linear",
         }}
       >
-        {[...words, ...words, ...words].map(
-          (word, index) => (
-            <span
-              key={`${word}-${index}`}
-              className="inline-flex items-center gap-10 text-sm uppercase tracking-[0.2em] text-cream-dim"
-            >
-              {word}
+        {[...words, ...words, ...words].map((word, index) => (
+          <span
+            key={`${word}-${index}`}
+            className="inline-flex items-center gap-10 text-sm uppercase tracking-[0.2em] text-cream-dim"
+          >
+            {word}
 
-              <span className="text-xl text-gold-400">
-                ✦
-              </span>
-            </span>
-          ),
-        )}
+            <span className="text-xl text-gold-400">✦</span>
+          </span>
+        ))}
       </motion.div>
     </section>
   );
@@ -620,10 +564,7 @@ function Stats({
     },
     {
       value: ticketsRemaining.toString(),
-      label:
-        ticketsRemaining === 1
-          ? "Place disponible"
-          : "Places disponibles",
+      label: ticketsRemaining === 1 ? "Place disponible" : "Places disponibles",
     },
     {
       value: "100%",
@@ -680,7 +621,7 @@ function Experience({
     {
       title: "Prière",
       text: "Des temps profonds de prière et d'intercession dans la présence de Dieu.",
-      icon: <Sparkles className="h-5 w-5" />,
+      icon: <HandHeart className="h-5 w-5" />,
     },
   ];
 
@@ -689,71 +630,70 @@ function Experience({
       id="experience"
       className="container-px mx-auto max-w-7xl py-16 md:py-24"
     >
-      <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
-        {/* Image */}
+      <div className="grid items-start gap-12 lg:grid-cols-2 lg:items-center lg:gap-20">
+        {/* Image et informations du camp */}
 
         <Reveal>
-          <div className="group relative">
+          <div className="group relative mx-auto w-full max-w-[560px]">
             <div className="absolute -inset-4 rounded-[2.5rem] bg-gold-400/5 blur-2xl" />
 
             <div className="relative overflow-hidden rounded-[2rem] border border-gold-400/20 bg-ink-900 shadow-2xl shadow-black/40">
-              <img
-                src={intimateImg}
-                alt={eventName}
-                loading="lazy"
-                className="aspect-[4/5] w-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
+              {/* Affiche : proportions naturelles, sans recadrage */}
+              <div className="relative bg-ink-950">
+                <img
+                  src={intimateImg}
+                  alt={eventName}
+                  loading="lazy"
+                  decoding="async"
+                  className="block h-auto w-full object-contain transition-transform duration-700 group-hover:scale-[1.01]"
+                />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/20 to-transparent" />
+                {/* Dégradé discret en haut pour le badge */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/40 to-transparent" />
 
-              {/* Badge */}
-
-              <div className="absolute left-5 top-5 rounded-full border border-gold-400/30 bg-ink-950/70 px-4 py-2 backdrop-blur-md sm:left-6 sm:top-6">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-gold-300 sm:text-xs sm:tracking-[0.25em]">
-                  Édition 2026
-                </span>
+                {/* Badge édition */}
+                <div className="absolute left-4 top-4 rounded-full border border-gold-400/30 bg-ink-950/80 px-4 py-2 backdrop-blur-md sm:left-6 sm:top-6">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-gold-300 sm:text-xs sm:tracking-[0.25em]">
+                    Édition 2026
+                  </span>
+                </div>
               </div>
 
-              {/* Informations */}
-
-              <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/10 bg-black/60 p-5 backdrop-blur-xl sm:bottom-6 sm:left-6 sm:right-6 sm:p-6">
+              {/* Informations séparées de l'affiche */}
+              <div className="relative border-t border-gold-400/15 bg-ink-950/95 p-5 sm:p-6 md:p-7">
                 <h3 className="font-display text-2xl font-semibold text-white sm:text-3xl">
                   {eventName}
                 </h3>
 
-                <p className="mt-2 text-sm leading-relaxed text-gray-200">
-                  Une journée exceptionnelle de
-                  prière, de communion, de louange et
-                  d'enseignement dans la présence de Dieu.
+                <p className="mt-3 text-sm leading-relaxed text-gray-300">
+                  Une journée exceptionnelle de prière, de communion, de louange
+                  et d'enseignement dans la présence de Dieu.
                 </p>
 
-                <div className="mt-5 grid grid-cols-3 gap-3">
-                  <div>
+                <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/10 pt-5">
+                  <div className="min-w-0">
                     <p className="font-display text-xl text-gold-gradient sm:text-2xl">
                       {capacity}
                     </p>
-
-                    <p className="text-[9px] uppercase tracking-wider text-gray-300 sm:text-xs">
+                    <p className="mt-1 text-[9px] uppercase tracking-wider text-gray-300 sm:text-xs">
                       Places
                     </p>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-display text-xl text-gold-gradient sm:text-2xl">
                       100%
                     </p>
-
-                    <p className="text-[9px] uppercase tracking-wider text-gray-300 sm:text-xs">
+                    <p className="mt-1 text-[9px] uppercase tracking-wider text-gray-300 sm:text-xs">
                       Gratuit
                     </p>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-display text-xl text-gold-gradient sm:text-2xl">
                       🇲🇦
                     </p>
-
-                    <p className="text-[9px] uppercase tracking-wider text-gray-300 sm:text-xs">
+                    <p className="mt-1 break-words text-[9px] uppercase leading-relaxed tracking-wider text-gray-300 sm:text-xs">
                       {eventLocation}
                     </p>
                   </div>
@@ -763,9 +703,9 @@ function Experience({
           </div>
         </Reveal>
 
-        {/* Texte */}
+        {/* Texte de présentation */}
 
-        <div>
+        <div className="min-w-0">
           <SectionHeading
             align="left"
             eyebrow="L'expérience"
@@ -773,10 +713,7 @@ function Experience({
               <>
                 Bien plus qu'un CAMP,
                 <br />
-                un{" "}
-                <span className="text-gold-gradient">
-                  moment surnaturel
-                </span>
+                un <span className="text-gold-gradient">moment surnaturel</span>
               </>
             }
             subtitle="Le Camp International Silo est un rassemblement de réveil qui réunit des adorateurs de plusieurs pays pour vivre des moments puissants de communion, d'enseignement, de prière et de louange dans la présence de Dieu."
@@ -802,7 +739,7 @@ function Experience({
                   {pillar.icon}
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-display text-xl font-medium text-cream">
                     {pillar.title}
                   </h3>
@@ -877,17 +814,14 @@ function FeaturedEvent({
 
           <div className="flex flex-col justify-center p-6 sm:p-8 md:p-12">
             <span className="text-xs uppercase tracking-[0.3em] text-gold-300">
-              {eventLocation} ·{" "}
-              {formatEventDate(eventDate)}
+              {eventLocation} · {formatEventDate(eventDate)}
             </span>
 
             <h3 className="mt-3 font-display text-3xl font-medium text-cream sm:text-4xl md:text-5xl">
               {eventName}
             </h3>
 
-            <p className="mt-2 text-gold-200">
-              {featuredEvent.venue}
-            </p>
+            <p className="mt-2 text-gold-200">{featuredEvent.venue}</p>
 
             <p className="mt-5 text-sm leading-relaxed text-cream-dim">
               {featuredEvent.shortDesc}
@@ -924,17 +858,13 @@ function FeaturedEvent({
             {/* CTA */}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              {registrationsOpen &&
-              ticketsRemaining > 0 ? (
+              {registrationsOpen && ticketsRemaining > 0 ? (
                 <Link
                   to="/billetterie"
-                  onClick={() =>
-                    setEvent(featuredEvent.id)
-                  }
+                  onClick={() => setEvent(featuredEvent.id)}
                   className="btn-gold inline-flex items-center justify-center gap-2"
                 >
                   Réserver gratuitement
-
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               ) : (
@@ -974,9 +904,7 @@ function UpcomingEvents() {
         title={
           <>
             Le programme du{" "}
-            <span className="text-gold-gradient">
-              Camp International Silo
-            </span>
+            <span className="text-gold-gradient">Camp International Silo</span>
           </>
         }
         subtitle="Découvrez les temps forts qui vous attendent durant cette édition exceptionnelle : enseignements, louange, prière, communion fraternelle et bien d'autres moments de grâce."
@@ -993,10 +921,7 @@ function UpcomingEvents() {
         className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
       >
         {events.map((event) => (
-          <motion.div
-            key={event.id}
-            variants={staggerItem}
-          >
+          <motion.div key={event.id} variants={staggerItem}>
             <EventCard event={event} />
           </motion.div>
         ))}
@@ -1018,7 +943,7 @@ function Guarantees() {
     },
     {
       title: "Billet immédiat",
-      text: "Recevez votre e-billet avec son QR Code après confirmation.",
+      text: "Recevez votre e-billet avec son QR Code après confirmation par e-mail.",
       icon: <QrCode className="h-5 w-5" />,
     },
     {
@@ -1029,7 +954,7 @@ function Guarantees() {
     {
       title: "Réservation simple",
       text: "Quelques clics suffisent pour réserver votre participation.",
-      icon: <Sparkles className="h-5 w-5" />,
+      icon: <Ticket className="h-5 w-5" />,
     },
   ];
 
@@ -1043,9 +968,7 @@ function Guarantees() {
         title={
           <>
             Une réservation{" "}
-            <span className="text-gold-gradient">
-              simple & sereine
-            </span>
+            <span className="text-gold-gradient">simple & sereine</span>
           </>
         }
       />
@@ -1107,10 +1030,7 @@ function Faq() {
   const [open, setOpen] = useState<number>(0);
 
   return (
-    <section
-      id="faq"
-      className="container-px mx-auto max-w-4xl py-16 md:py-24"
-    >
+    <section id="faq" className="container-px mx-auto max-w-4xl py-16 md:py-24">
       <SectionHeading
         eyebrow="FAQ"
         title="Foire aux questions"
@@ -1122,18 +1042,11 @@ function Faq() {
           const isOpen = open === index;
 
           return (
-            <Reveal
-              key={item.q}
-              delay={index * 0.05}
-            >
+            <Reveal key={item.q} delay={index * 0.05}>
               <div className="overflow-hidden rounded-2xl border border-gold-400/10 bg-ink-900/40">
                 <button
                   type="button"
-                  onClick={() =>
-                    setOpen(
-                      isOpen ? -1 : index,
-                    )
-                  }
+                  onClick={() => setOpen(isOpen ? -1 : index)}
                   className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-6"
                   aria-expanded={isOpen}
                 >
